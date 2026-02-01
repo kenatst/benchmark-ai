@@ -9,9 +9,9 @@ const corsHeaders = {
 
 // Price IDs for the 3 plans - TEST MODE
 const PRICE_IDS = {
-  standard: "price_1Sw0zkBlwVXDER87HRxK0XW6", // 4.99€
-  pro: "price_1Sw10GBlwVXDER87pYcFXv3G",      // 14.99€
-  agency: "price_1Sw10XBlwVXDER87LZWbDLOW",   // 29.00€
+  standard: "price_1Sw8SJBSuagSNrWjBnWWh7AZ", // 4.99€
+  pro: "price_1Sw8SlBSuagSNrWjJUFGJqeT",      // 14.99€
+  agency: "price_1Sw8TGBSuagSNrWjlSaKURKP",   // 29.00€
 };
 
 serve(async (req) => {
