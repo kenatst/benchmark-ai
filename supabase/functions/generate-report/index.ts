@@ -7,21 +7,44 @@ const corsHeaders = {
 };
 
 // ============================================
-// TIER SYSTEM PROMPTS
+// TIER CONFIGURATION WITH WEB SEARCH
 // ============================================
-const TIER1_SYSTEM_PROMPT = `Tu es un consultant stratégique senior. Génère un benchmark JSON structuré de 2000-3000 mots.
+const TIER_CONFIG = {
+  standard: {
+    model: "claude-sonnet-4-20250514",
+    max_tokens: 8000,
+    temperature: 0.3,
+    tools: [], // No web search for standard tier
+    system_prompt: `Tu es un consultant stratégique senior. Génère un benchmark JSON structuré de 2000-3000 mots.
 Analyse 3-5 concurrents, plan d'action 30/60/90 jours. Dense en insights, zéro bullshit, maximum actionnable.
-RETOURNE UNIQUEMENT UN JSON VALIDE, sans texte avant/après.`;
-
-const TIER2_SYSTEM_PROMPT = `Tu es un consultant stratégique senior. Génère un benchmark PREMIUM JSON structuré de 4000-6000 mots.
+RETOURNE UNIQUEMENT UN JSON VALIDE, sans texte avant/après.`,
+  },
+  pro: {
+    model: "claude-sonnet-4-20250514",
+    max_tokens: 16000,
+    temperature: 0.3,
+    tools: [{ type: "web_search_20250305", name: "web_search" }],
+    system_prompt: `Tu es un consultant stratégique senior. Génère un benchmark PREMIUM JSON structuré de 4000-6000 mots.
 Analyse 5-10 concurrents, market intelligence enrichi, customer insights, competitive matrix.
-UTILISE LES DONNÉES DE RECHERCHE WEB FOURNIES pour enrichir l'analyse.
-RETOURNE UNIQUEMENT UN JSON VALIDE, sans texte avant/après.`;
-
-const TIER3_SYSTEM_PROMPT = `Tu es un directeur de stratégie (niveau McKinsey/BCG). Génère un rapport AGENCY-GRADE JSON de 8000-12000 mots.
+UTILISE LE WEB SEARCH pour rechercher des données marché récentes, infos concurrents, et tendances.
+RETOURNE UNIQUEMENT UN JSON VALIDE, sans texte avant/après.`,
+  },
+  agency: {
+    model: "claude-sonnet-4-20250514",
+    max_tokens: 32000,
+    temperature: 0.2,
+    tools: [{ type: "web_search_20250305", name: "web_search" }],
+    system_prompt: `Tu es un directeur de stratégie (niveau McKinsey/BCG). Génère un rapport AGENCY-GRADE JSON de 8000-12000 mots.
 Inclus: PESTEL, Porter 5 Forces, SWOT, brand strategy complète, projections financières 3 scénarios, roadmap 12 mois.
-UTILISE LES DONNÉES DE RECHERCHE WEB FOURNIES pour enrichir l'analyse.
-RETOURNE UNIQUEMENT UN JSON VALIDE, sans texte avant/après.`;
+UTILISE LE WEB SEARCH EXTENSIVEMENT pour rechercher:
+- Données marché et sizing
+- Profils détaillés des concurrents
+- Tendances sectorielles
+- Benchmarks financiers (CAC, LTV, marges)
+- Analyses PESTEL récentes
+RETOURNE UNIQUEMENT UN JSON VALIDE, sans texte avant/après.`,
+  },
+} as const;
 
 // ============================================
 // TYPES
@@ -44,183 +67,12 @@ interface ReportInput {
   tonePreference: string;
 }
 
-interface PerplexityResult {
-  marketData: string;
-  competitorData: string;
-  trendData: string;
-  customerData: string;
-  citations: string[];
-}
-
-// ============================================
-// PERPLEXITY WEB RESEARCH
-// ============================================
-async function searchWithPerplexity(
-  query: string, 
-  apiKey: string
-): Promise<{ content: string; citations: string[] }> {
-  const response = await fetch("https://api.perplexity.ai/chat/completions", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "sonar",
-      messages: [
-        { role: "system", content: "Tu es un analyste de marché. Fournis des données factuelles, chiffrées et sourcées. Sois concis et précis." },
-        { role: "user", content: query }
-      ],
-      search_recency_filter: "month",
-    }),
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    console.error("Perplexity error:", response.status, error);
-    throw new Error(`Perplexity API error: ${response.status}`);
-  }
-
-  const data = await response.json();
-  return {
-    content: data.choices?.[0]?.message?.content || "",
-    citations: data.citations || [],
-  };
-}
-
-async function performWebResearch(
-  input: ReportInput,
-  plan: string,
-  apiKey: string
-): Promise<PerplexityResult> {
-  const { sector, location, businessName, competitors } = input;
-  const city = location?.city || "";
-  const country = location?.country || "";
-
-  console.log(`Starting Perplexity research for ${plan} tier...`);
-
-  // Define searches based on tier
-  const searches: { type: string; query: string }[] = [];
-
-  // Market data search
-  searches.push({
-    type: "market",
-    query: `Analyse du marché ${sector} en ${country} 2025-2026: taille du marché, croissance CAGR, tendances principales, acteurs majeurs. Données chiffrées.`
-  });
-
-  // Competitor search
-  const competitorNames = competitors?.filter(c => c.name).map(c => c.name).join(", ") || "";
-  if (competitorNames) {
-    searches.push({
-      type: "competitors",
-      query: `Analyse concurrentielle ${sector}: ${competitorNames}. Positionnement, pricing, forces et faiblesses de chaque concurrent. ${city ? `Focus marché ${city} ${country}.` : ""}`
-    });
-  } else {
-    searches.push({
-      type: "competitors",
-      query: `Top 10 concurrents dans le secteur ${sector} en ${country}. Positionnement, pricing estimé, parts de marché.`
-    });
-  }
-
-  // Trend search
-  searches.push({
-    type: "trends",
-    query: `Tendances et innovations ${sector} 2025-2026: technologies émergentes, changements comportement consommateurs, disruptions à venir.`
-  });
-
-  // Customer insights (for Pro and Agency)
-  if (plan === "pro" || plan === "agency") {
-    searches.push({
-      type: "customers",
-      query: `Pain points et besoins clients ${sector}: avis clients, plaintes récurrentes, fonctionnalités demandées, critères de décision d'achat.`
-    });
-  }
-
-  // Additional agency searches
-  if (plan === "agency") {
-    searches.push({
-      type: "market",
-      query: `Analyse PESTEL ${sector} ${country} 2026: facteurs politiques, économiques, sociaux, technologiques, environnementaux, légaux impactant le marché.`
-    });
-    searches.push({
-      type: "market",
-      query: `Benchmarks financiers ${sector}: CAC moyen, LTV, marge brute, taux de conversion typiques, pricing models.`
-    });
-  }
-
-  // Execute searches in parallel
-  const results = await Promise.all(
-    searches.map(async (search) => {
-      try {
-        const result = await searchWithPerplexity(search.query, apiKey);
-        return { type: search.type, ...result };
-      } catch (error) {
-        console.error(`Search failed for ${search.type}:`, error);
-        return { type: search.type, content: "", citations: [] };
-      }
-    })
-  );
-
-  // Aggregate results
-  const aggregated: PerplexityResult = {
-    marketData: "",
-    competitorData: "",
-    trendData: "",
-    customerData: "",
-    citations: [],
-  };
-
-  for (const result of results) {
-    if (result.citations) {
-      aggregated.citations.push(...result.citations);
-    }
-    switch (result.type) {
-      case "market":
-        aggregated.marketData += result.content + "\n\n";
-        break;
-      case "competitors":
-        aggregated.competitorData += result.content + "\n\n";
-        break;
-      case "trends":
-        aggregated.trendData += result.content + "\n\n";
-        break;
-      case "customers":
-        aggregated.customerData += result.content + "\n\n";
-        break;
-    }
-  }
-
-  // Deduplicate citations
-  aggregated.citations = [...new Set(aggregated.citations)];
-
-  console.log(`Perplexity research complete: ${aggregated.citations.length} sources found`);
-  return aggregated;
-}
+type TierType = keyof typeof TIER_CONFIG;
 
 // ============================================
 // PROMPT BUILDERS
 // ============================================
-function getSystemPrompt(plan: string): string {
-  switch (plan) {
-    case "pro": return TIER2_SYSTEM_PROMPT;
-    case "agency": return TIER3_SYSTEM_PROMPT;
-    default: return TIER1_SYSTEM_PROMPT;
-  }
-}
-
-function getMaxTokens(plan: string): number {
-  switch (plan) {
-    case "agency": return 32000;
-    case "pro": return 16000;
-    default: return 8000;
-  }
-}
-
-function buildUserPrompt(
-  input: ReportInput,
-  plan: string,
-  webResearch?: PerplexityResult
-): string {
+function buildUserPrompt(input: ReportInput, plan: TierType): string {
   const competitorsList = input.competitors?.length > 0
     ? input.competitors.map((c, i) => `${i + 1}. ${c.name}${c.url ? ` (${c.url})` : ""}`).join("\n")
     : "Aucun concurrent spécifié";
@@ -249,27 +101,20 @@ Ton : ${input.tonePreference}
 ${input.notes ? `Notes : ${input.notes}` : ""}
 </user_context>`;
 
-  // Add web research data for Pro and Agency tiers
-  if (webResearch && (plan === "pro" || plan === "agency")) {
+  // Add web search instructions for Pro and Agency tiers
+  if (plan === "pro" || plan === "agency") {
     prompt += `
 
-<web_research_data>
-IMPORTANT: Utilise ces données de recherche web pour enrichir ton analyse. Cite les sources quand pertinent.
+<recherche_instructions>
+IMPORTANT: Tu as accès au web search. Utilise-le pour:
+1. Rechercher des données marché récentes pour "${input.sector}" en "${input.location?.country}"
+2. Trouver des infos sur les concurrents: ${input.competitors?.map(c => c.name).join(", ") || "principaux acteurs du marché"}
+3. Identifier les tendances 2025-2026 du secteur
+${plan === "agency" ? `4. Rechercher des benchmarks financiers (CAC, LTV, marges)
+5. Trouver des données PESTEL pour l'analyse macro` : ""}
 
-## DONNÉES MARCHÉ
-${webResearch.marketData || "Pas de données marché disponibles"}
-
-## ANALYSE CONCURRENTIELLE
-${webResearch.competitorData || "Pas de données concurrentielles disponibles"}
-
-## TENDANCES
-${webResearch.trendData || "Pas de données tendances disponibles"}
-
-${webResearch.customerData ? `## INSIGHTS CLIENTS\n${webResearch.customerData}` : ""}
-
-## SOURCES (${webResearch.citations.length})
-${webResearch.citations.slice(0, 30).map((url, i) => `${i + 1}. ${url}`).join("\n")}
-</web_research_data>`;
+Cite tes sources dans le rapport final.
+</recherche_instructions>`;
   }
 
   // Add JSON schema based on tier
@@ -278,7 +123,7 @@ ${webResearch.citations.slice(0, 30).map((url, i) => `${i + 1}. ${url}`).join("\
   return prompt;
 }
 
-function getJsonSchema(plan: string): string {
+function getJsonSchema(plan: TierType): string {
   if (plan === "agency") {
     return `
 
@@ -292,7 +137,7 @@ function getJsonSchema(plan: string): string {
   "customer_intelligence": { "segments_analyzed": [{ "segment_name": "string", "size_estimate": "string", "pain_points": ["string"], "decision_criteria": ["string"], "willingness_to_pay": "string", "acquisition_cost_estimate": "string", "lifetime_value_estimate": "string", "priority": "1/2/3" }], "voice_of_customer": { "common_complaints": ["string"], "desired_features": ["string"], "switching_barriers": ["string"] } },
   "strategic_recommendations": { "recommended_strategy": { "strategic_archetype": "string", "rationale": "string" }, "positioning_strategy": { "target_segment_primary": "string", "value_proposition": "string", "positioning_statement": "string", "reasons_to_believe": ["string"] }, "brand_strategy": { "brand_essence": "string", "brand_personality": ["string"], "brand_voice_description": "string", "tagline_options": ["string"], "messaging_hierarchy": { "primary_message": "string", "supporting_messages": ["string"] } }, "product_strategy": { "core_offering_recommendation": "string", "tiering_strategy": [{ "tier_name": "string", "target_segment": "string", "key_features": ["string"], "pricing_range": "string" }], "product_roadmap_priorities": [{ "feature_initiative": "string", "priority": "P0/P1/P2", "expected_impact": "string" }] }, "pricing_strategy": { "pricing_model_recommendation": "string", "price_optimization_by_tier": [{ "tier": "string", "recommended_price": "string", "rationale": "string" }], "upsell_cross_sell_opportunities": ["string"] }, "go_to_market_strategy": { "customer_acquisition": { "primary_channels_detailed": [{ "channel": "string", "rationale": "string", "investment_level": "string", "expected_cac": "string", "tactics": ["string"] }], "content_marketing_strategy": { "strategic_themes": ["string"], "content_formats_prioritized": ["string"] }, "partnership_opportunities_detailed": [{ "partner_type": "string", "examples": ["string"] }] }, "sales_strategy": { "sales_model": "string", "sales_process_recommendation": "string" } } },
   "financial_projections": { "investment_required": { "total_12_months": number, "breakdown": [{ "category": "string", "amount": number, "rationale": "string" }] }, "revenue_scenarios": { "conservative": { "year_1": number, "year_2": number, "year_3": number, "assumptions": ["string"] }, "baseline": { "year_1": number, "year_2": number, "year_3": number, "assumptions": ["string"] }, "optimistic": { "year_1": number, "year_2": number, "year_3": number, "assumptions": ["string"] } }, "unit_economics": { "customer_acquisition_cost": number, "lifetime_value": number, "ltv_cac_ratio": number, "payback_period_months": number, "gross_margin_percent": number, "comparison_to_benchmarks": "string" } },
-  "implementation_roadmap": { "phase_1_foundation": { "timeline": "Months 1-3", "objectives": ["string"], "key_initiatives": [{ "initiative": "string", "owner_role": "string", "budget_estimate": "string", "success_metrics": ["string"], "milestones": ["string"] }] }, "phase_2_growth": { "timeline": "Months 4-6", "objectives": ["string"], "key_initiatives": [...] }, "phase_3_scale": { "timeline": "Months 7-12", "objectives": ["string"], "key_initiatives": [...] } },
+  "implementation_roadmap": { "phase_1_foundation": { "timeline": "Months 1-3", "objectives": ["string"], "key_initiatives": [{ "initiative": "string", "owner_role": "string", "budget_estimate": "string", "success_metrics": ["string"], "milestones": ["string"] }] }, "phase_2_growth": { "timeline": "Months 4-6", "objectives": ["string"], "key_initiatives": ["..."] }, "phase_3_scale": { "timeline": "Months 7-12", "objectives": ["string"], "key_initiatives": ["..."] } },
   "risk_register": [{ "risk": "string", "impact": "High/Medium/Low", "probability": "High/Medium/Low", "mitigation": "string", "contingency": "string" }],
   "assumptions_and_limitations": ["string"],
   "sources": [{ "title": "string", "url": "string" }]
@@ -351,6 +196,102 @@ Génère le rapport de benchmark. RETOURNE UNIQUEMENT LE JSON.`;
 }
 
 // ============================================
+// CLAUDE API WITH WEB SEARCH (AGENTIC LOOP)
+// ============================================
+async function callClaudeWithTools(
+  apiKey: string,
+  config: typeof TIER_CONFIG[TierType],
+  userPrompt: string,
+  reportId: string
+): Promise<string> {
+  console.log(`[${reportId}] Starting Claude API call with ${config.tools.length > 0 ? "web search enabled" : "no tools"}`);
+
+  let messages: Array<{ role: string; content: unknown }> = [
+    { role: "user", content: userPrompt }
+  ];
+
+  let finalResponse = "";
+  let iterationCount = 0;
+  const maxIterations = 10; // Safety limit
+
+  while (iterationCount < maxIterations) {
+    iterationCount++;
+    console.log(`[${reportId}] Claude iteration ${iterationCount}`);
+
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: config.model,
+        max_tokens: config.max_tokens,
+        temperature: config.temperature,
+        system: config.system_prompt,
+        tools: config.tools.length > 0 ? config.tools : undefined,
+        messages,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[${reportId}] Claude API error:`, response.status, errorText);
+      if (response.status === 429) throw new Error("Rate limit exceeded, please try again later");
+      if (response.status === 401) throw new Error("Invalid Claude API key");
+      throw new Error(`Claude API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log(`[${reportId}] Claude stop_reason: ${data.stop_reason}`);
+
+    // Check if Claude wants to use a tool
+    if (data.stop_reason === "tool_use") {
+      // Find tool use blocks
+      const toolUseBlocks = data.content.filter((block: { type: string }) => block.type === "tool_use");
+      
+      if (toolUseBlocks.length > 0) {
+        console.log(`[${reportId}] Claude is using ${toolUseBlocks.length} tool(s)`);
+        
+        // Add assistant message with tool use
+        messages.push({ role: "assistant", content: data.content });
+
+        // For web_search, we don't need to provide results - Claude handles it internally
+        // Just continue the loop
+        const toolResults = toolUseBlocks.map((toolUse: { id: string; name: string }) => ({
+          type: "tool_result",
+          tool_use_id: toolUse.id,
+          content: "Search completed" // Web search results are handled by Claude internally
+        }));
+
+        messages.push({ role: "user", content: toolResults });
+        continue;
+      }
+    }
+
+    // Extract text content from response
+    for (const block of data.content) {
+      if (block.type === "text") {
+        finalResponse += block.text;
+      }
+    }
+
+    // If stop_reason is "end_turn", we're done
+    if (data.stop_reason === "end_turn") {
+      break;
+    }
+  }
+
+  if (iterationCount >= maxIterations) {
+    console.warn(`[${reportId}] Reached max iterations limit`);
+  }
+
+  console.log(`[${reportId}] Claude completed in ${iterationCount} iteration(s)`);
+  return finalResponse;
+}
+
+// ============================================
 // MAIN HANDLER
 // ============================================
 serve(async (req) => {
@@ -391,69 +332,35 @@ serve(async (req) => {
       .eq("id", reportId);
 
     const inputData = report.input_data as ReportInput;
-    const plan = report.plan || "standard";
+    const plan = (report.plan || "standard") as TierType;
 
-    // Get API keys
+    // Validate plan
+    if (!TIER_CONFIG[plan]) {
+      throw new Error(`Invalid plan: ${plan}`);
+    }
+
+    // Get API key
     const CLAUDE_API_KEY = Deno.env.get("CLAUDE_API_KEY");
     if (!CLAUDE_API_KEY) {
       throw new Error("CLAUDE_API_KEY is not configured");
     }
 
-    // Perform web research for Pro and Agency tiers
-    let webResearch: PerplexityResult | undefined;
-    if (plan === "pro" || plan === "agency") {
-      const PERPLEXITY_API_KEY = Deno.env.get("PERPLEXITY_API_KEY");
-      if (PERPLEXITY_API_KEY) {
-        try {
-          webResearch = await performWebResearch(inputData, plan, PERPLEXITY_API_KEY);
-        } catch (error) {
-          console.error("Web research failed, continuing without:", error);
-        }
-      } else {
-        console.warn("PERPLEXITY_API_KEY not configured, skipping web research");
-      }
-    }
+    // Get tier config
+    const tierConfig = TIER_CONFIG[plan];
 
-    // Build prompts
-    const systemPrompt = getSystemPrompt(plan);
-    const userPrompt = buildUserPrompt(inputData, plan, webResearch);
-    const maxTokens = getMaxTokens(plan);
+    // Build user prompt
+    const userPrompt = buildUserPrompt(inputData, plan);
 
-    console.log(`Calling Claude API for report: ${reportId} (tier: ${plan}, max_tokens: ${maxTokens})`);
+    console.log(`[${reportId}] Generating report (tier: ${plan}, model: ${tierConfig.model}, web_search: ${tierConfig.tools.length > 0})`);
 
-    // Call Claude API
-    const claudeResponse = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": CLAUDE_API_KEY,
-        "anthropic-version": "2023-06-01",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: maxTokens,
-        messages: [{ role: "user", content: userPrompt }],
-        system: systemPrompt,
-        temperature: 0.7,
-      }),
-    });
-
-    if (!claudeResponse.ok) {
-      const errorText = await claudeResponse.text();
-      console.error("Claude API error:", claudeResponse.status, errorText);
-      if (claudeResponse.status === 429) throw new Error("Rate limit exceeded, please try again later");
-      if (claudeResponse.status === 401) throw new Error("Invalid Claude API key");
-      throw new Error(`Claude API error: ${claudeResponse.status}`);
-    }
-
-    const claudeData = await claudeResponse.json();
-    const content = claudeData.content?.[0]?.text;
+    // Call Claude with agentic loop for web search
+    const content = await callClaudeWithTools(CLAUDE_API_KEY, tierConfig, userPrompt, reportId);
 
     if (!content) {
       throw new Error("No content returned from Claude");
     }
 
-    console.log("Claude response received, parsing JSON...");
+    console.log(`[${reportId}] Parsing JSON response...`);
 
     // Parse JSON response
     let outputData;
@@ -461,7 +368,7 @@ serve(async (req) => {
       const cleanContent = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
       outputData = JSON.parse(cleanContent);
     } catch (parseError) {
-      console.error("Failed to parse Claude response:", content.substring(0, 500));
+      console.error(`[${reportId}] Failed to parse Claude response:`, content.substring(0, 500));
       throw new Error("Failed to parse Claude response as JSON");
     }
 
@@ -477,7 +384,7 @@ serve(async (req) => {
 
     if (updateError) throw updateError;
 
-    console.log(`Report generated successfully: ${reportId} (tier: ${plan})`);
+    console.log(`[${reportId}] Report generated successfully (tier: ${plan})`);
 
     return new Response(JSON.stringify({ success: true, reportId }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
