@@ -47,6 +47,31 @@ export default {
 				DEFAULT: 'hsl(var(--card))',
 				foreground: 'hsl(var(--card-foreground))'
 			},
+			// Pastel accents
+			coral: {
+				DEFAULT: 'hsl(var(--coral))',
+				foreground: 'hsl(var(--coral-foreground))'
+			},
+			sky: {
+				DEFAULT: 'hsl(var(--sky))',
+				foreground: 'hsl(var(--sky-foreground))'
+			},
+			mint: {
+				DEFAULT: 'hsl(var(--mint))',
+				foreground: 'hsl(var(--mint-foreground))'
+			},
+			lavender: {
+				DEFAULT: 'hsl(var(--lavender))',
+				foreground: 'hsl(var(--lavender-foreground))'
+			},
+			peach: {
+				DEFAULT: 'hsl(var(--peach))',
+				foreground: 'hsl(var(--peach-foreground))'
+			},
+			gold: {
+				DEFAULT: 'hsl(var(--gold))',
+				foreground: 'hsl(var(--gold-foreground))'
+			},
 			chart: {
 				'1': 'hsl(var(--chart-1))',
 				'2': 'hsl(var(--chart-2))',
