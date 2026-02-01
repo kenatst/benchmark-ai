@@ -7,11 +7,11 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// Price IDs for the 3 plans - TEST MODE
+// Price IDs for the 3 plans - TEST MODE (created in current Stripe account)
 const PRICE_IDS = {
-  standard: "price_1Sw8SJBSuagSNrWjBnWWh7AZ", // 4.99€
-  pro: "price_1Sw8SlBSuagSNrWjJUFGJqeT",      // 14.99€
-  agency: "price_1Sw8TGBSuagSNrWjlSaKURKP",   // 29.00€
+  standard: "price_1Sw8XyBSuagSNrWjORfqPrAl", // 4.99€
+  pro: "price_1Sw8YCBSuagSNrWjXozkkRf9",      // 14.99€
+  agency: "price_1Sw8YOBSuagSNrWjbCzfvMWO",   // 29.00€
 };
 
 serve(async (req) => {
