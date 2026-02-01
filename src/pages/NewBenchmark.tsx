@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { StepBasics } from '@/components/wizard/StepBasics';
@@ -11,7 +11,8 @@ import { StepReview } from '@/components/wizard/StepReview';
 import { ReportInput } from '@/types/report';
 import { initialFormData } from '@/data/formOptions';
 import { useReports } from '@/hooks/useReports';
-import { ArrowLeft, ArrowRight, Home, Sparkles, Target, Users, Lightbulb, Settings, CheckCircle } from 'lucide-react';
+import { useAuthContext } from '@/contexts/AuthContext';
+import { ArrowLeft, ArrowRight, Home, Sparkles, Target, Users, Settings, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
 const STEPS = [
@@ -27,13 +28,30 @@ const STORAGE_KEY = 'benchmark_wizard_draft';
 
 const NewBenchmark = () => {
   const navigate = useNavigate();
-  const { createReport, processReport } = useReports();
+  const [searchParams] = useSearchParams();
+  const { user, loading: authLoading } = useAuthContext();
+  const { createReport, createCheckoutSession } = useReports();
   const [currentStep, setCurrentStep] = useState(1);
   const [isProcessing, setIsProcessing] = useState(false);
   const [formData, setFormData] = useState<ReportInput>(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
     return saved ? JSON.parse(saved) : initialFormData;
   });
+
+  // Redirect to auth if not logged in
+  useEffect(() => {
+    if (!authLoading && !user) {
+      toast.error('Veuillez vous connecter pour créer un benchmark');
+      navigate('/auth');
+    }
+  }, [user, authLoading, navigate]);
+
+  // Handle payment cancelled
+  useEffect(() => {
+    if (searchParams.get('payment') === 'cancelled') {
+      toast.error('Paiement annulé');
+    }
+  }, [searchParams]);
 
   // Autosave
   useEffect(() => {
@@ -83,26 +101,53 @@ const NewBenchmark = () => {
     }
   };
 
-  const handlePayment = async () => {
+  const handlePayment = async (plan: 'standard' | 'pro' | 'agency') => {
+    if (!user) {
+      toast.error('Veuillez vous connecter');
+      navigate('/auth');
+      return;
+    }
+
     setIsProcessing(true);
     
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    toast.success('Paiement réussi !');
+    try {
+      // Create the report in draft status
+      const report = await createReport(formData, plan);
+      
+      if (!report) {
+        throw new Error('Failed to create report');
+      }
 
-    const report = createReport(formData);
-    
-    localStorage.removeItem(STORAGE_KEY);
-    
-    navigate(`/app/reports/${report.id}`);
-    
-    processReport(report.id).catch(() => {
-      toast.error('La génération du rapport a échoué. Veuillez réessayer.');
-    });
+      // Create Stripe checkout session
+      const checkoutUrl = await createCheckoutSession(report.id, plan);
+      
+      if (!checkoutUrl) {
+        throw new Error('Failed to create checkout session');
+      }
+
+      // Clear the draft
+      localStorage.removeItem(STORAGE_KEY);
+
+      // Redirect to Stripe checkout
+      window.location.href = checkoutUrl;
+    } catch (error) {
+      console.error('Payment error:', error);
+      toast.error('Erreur lors de la création du paiement. Veuillez réessayer.');
+      setIsProcessing(false);
+    }
   };
 
   const StepComponents = [StepBasics, StepOffer, StepGoals, StepCompetitors, StepContext, StepReview];
   const CurrentStepComponent = StepComponents[currentStep - 1];
   const currentStepInfo = STEPS[currentStep - 1];
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -135,7 +180,7 @@ const NewBenchmark = () => {
           {/* Step indicators */}
           <div className="mb-8">
             <div className="flex items-center justify-between mb-4 overflow-x-auto pb-2">
-              {STEPS.map((step, index) => (
+              {STEPS.map((step) => (
                 <div 
                   key={step.id}
                   className={`flex items-center gap-2 px-3 py-2 rounded-xl transition-all duration-300 flex-shrink-0 ${
