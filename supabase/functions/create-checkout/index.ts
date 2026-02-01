@@ -52,17 +52,21 @@ serve(async (req) => {
 
     console.log(`[Checkout] User: ${user.email}, ID: ${user.id}`);
 
-    // Use STRIPE_TEST_KEY for testing, fallback to STRIPE_SECRET_KEY for production
-    const stripeKey = Deno.env.get("STRIPE_TEST_KEY") || Deno.env.get("STRIPE_SECRET_KEY");
-    
+    // TEST MODE ONLY (as requested)
+    const stripeKey = Deno.env.get("STRIPE_TEST_KEY");
+
     if (!stripeKey) {
-      throw new Error("Stripe API key not configured");
+      throw new Error("STRIPE_TEST_KEY not configured");
     }
 
     // Initialize Stripe
     const stripe = new Stripe(stripeKey, {
       apiVersion: "2025-08-27.basil",
     });
+
+    // Helpful debug signal (does not expose secrets)
+    const account = await stripe.accounts.retrieve();
+    console.log(`[Checkout] Stripe account: ${account.id} (livemode=${account.livemode})`);
 
     // Check if a Stripe customer record exists for this user
     const customers = await stripe.customers.list({ email: user.email, limit: 1 });
@@ -75,6 +79,16 @@ serve(async (req) => {
     // Get origin for redirect URLs
     const origin = req.headers.get("origin") || "https://id-preview--d281c140-859f-42d4-bcb1-1a3462e3cb0f.lovable.app";
 
+    const priceId = PRICE_IDS[plan as keyof typeof PRICE_IDS];
+
+    // Validate price exists in the Stripe account bound to STRIPE_TEST_KEY
+    try {
+      await stripe.prices.retrieve(priceId);
+    } catch (e) {
+      console.error(`[Checkout] Price not found in this Stripe account: ${priceId}`);
+      throw new Error(`Stripe price not found for selected plan. Please ensure STRIPE_TEST_KEY matches the Stripe account where your TEST prices were created.`);
+    }
+
     // Create a one-time payment session with Stripe Checkout
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
@@ -82,7 +96,7 @@ serve(async (req) => {
       customer_creation: customerId ? undefined : "always",
       line_items: [
         {
-          price: PRICE_IDS[plan as keyof typeof PRICE_IDS],
+          price: priceId,
           quantity: 1,
         },
       ],
