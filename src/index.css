@@ -385,3 +385,19 @@
 .section-dark .text-muted-foreground {
   @apply text-background/70;
 }
+
+/* Animated dash for SVG lines */
+@keyframes dash {
+  0% { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: 100; }
+}
+
+.animate-dash {
+  animation: dash 20s linear infinite;
+}
+
+/* Floating slow animation */
+@keyframes float-slow-reverse {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(15px) rotate(-3deg); }
+}

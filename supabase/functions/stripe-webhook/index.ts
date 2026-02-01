@@ -77,8 +77,89 @@ serve(async (req) => {
 
         console.log(`Report ${reportId} updated to paid status`);
 
-        // TODO: Trigger report generation (will be implemented with AI integration)
-        // For now, we just mark it as paid and the generation will be triggered separately
+        // Get user email for confirmation
+        const { data: profile } = await supabaseAdmin
+          .from("profiles")
+          .select("email")
+          .eq("id", userId)
+          .single();
+
+        // Send payment confirmation email
+        if (profile?.email) {
+          try {
+            const emailResponse = await fetch(
+              `${Deno.env.get("SUPABASE_URL")}/functions/v1/send-email`,
+              {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${Deno.env.get("SUPABASE_ANON_KEY")}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  to: profile.email,
+                  type: "payment_confirmation",
+                  data: {
+                    plan: plan,
+                    amount: session.amount_total,
+                  },
+                }),
+              }
+            );
+            console.log("Payment confirmation email sent:", await emailResponse.json());
+          } catch (emailError) {
+            console.error("Failed to send payment confirmation email:", emailError);
+          }
+        }
+
+        // Trigger report generation
+        console.log("Triggering report generation for:", reportId);
+        
+        try {
+          const generateResponse = await fetch(
+            `${Deno.env.get("SUPABASE_URL")}/functions/v1/generate-report`,
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ reportId }),
+            }
+          );
+          
+          const generateResult = await generateResponse.json();
+          console.log("Report generation triggered:", generateResult);
+
+          // Send report ready email if generation succeeded
+          if (generateResult.success && profile?.email) {
+            try {
+              await fetch(
+                `${Deno.env.get("SUPABASE_URL")}/functions/v1/send-email`,
+                {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${Deno.env.get("SUPABASE_ANON_KEY")}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    to: profile.email,
+                    type: "report_ready",
+                    data: {
+                      reportId: reportId,
+                      downloadUrl: `https://benchmarkai.app/app/reports/${reportId}`,
+                    },
+                  }),
+                }
+              );
+              console.log("Report ready email sent");
+            } catch (emailError) {
+              console.error("Failed to send report ready email:", emailError);
+            }
+          }
+        } catch (generateError) {
+          console.error("Failed to trigger report generation:", generateError);
+          // Don't throw - the payment was successful, generation can be retried
+        }
       }
     }
 

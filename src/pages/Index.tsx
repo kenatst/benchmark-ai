@@ -8,12 +8,16 @@ import { SecondaryProof } from '@/components/landing/SecondaryProof';
 import { PricingSection } from '@/components/landing/PricingSection';
 import { FinalCTA } from '@/components/landing/FinalCTA';
 import { Footer } from '@/components/landing/Footer';
+import { FloatingCharts } from '@/components/landing/FloatingCharts';
 
 const Index = () => {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background relative overflow-hidden">
+      {/* Animated background elements */}
+      <FloatingCharts />
+      
       <Navbar />
-      <main>
+      <main className="relative z-10">
         <Hero />
         <SocialProof />
         <FeatureCards />

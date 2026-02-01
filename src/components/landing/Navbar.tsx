@@ -33,7 +33,7 @@ export const Navbar = () => {
           <div className="w-9 h-9 bg-foreground rounded-xl flex items-center justify-center shadow-md">
             <span className="text-background font-bold text-lg">B</span>
           </div>
-          <span className="font-bold text-foreground text-lg hidden sm:block">BenchAI</span>
+          <span className="font-bold text-foreground text-lg hidden sm:block">BenchmarkAI</span>
         </Link>
 
         {/* Nav Links */}

@@ -28,7 +28,7 @@ export const Hero = () => {
 
           {/* Subheadline */}
           <p className="opacity-0-initial animate-fade-up stagger-2 text-lg sm:text-xl md:text-2xl text-muted-foreground max-w-2xl mx-auto mb-12 leading-relaxed font-medium">
-            Dites adieu aux études de marché froides. <span className="text-foreground font-bold underline decoration-lavender decoration-4 underline-offset-4">BenchAI</span> fusionne élégance et puissance pour votre positionnement.
+            Dites adieu aux études de marché froides. <span className="text-foreground font-bold underline decoration-lavender decoration-4 underline-offset-4">BenchmarkAI</span> fusionne élégance et puissance pour votre positionnement.
           </p>
 
           {/* CTAs */}
