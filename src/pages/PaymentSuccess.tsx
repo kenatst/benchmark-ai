@@ -1,12 +1,13 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuthContext } from '@/contexts/AuthContext';
-import { Loader2, CheckCircle, Sparkles, AlertCircle, RefreshCw } from 'lucide-react';
+import { Loader2, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { toast } from 'sonner';
+import logoB from '@/assets/logo-b.png';
 
 type PaymentStatus = 'verifying' | 'verified' | 'generating' | 'ready' | 'failed' | 'error';
 
@@ -19,8 +20,19 @@ const PaymentSuccess = () => {
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [reportId, setReportId] = useState<string | null>(null);
+  
+  // Use ref to track the highest progress value (never decrease)
+  const maxProgressRef = useRef(0);
 
   const sessionId = searchParams.get('session_id');
+
+  // Helper to update progress - never decreases
+  const updateProgress = useCallback((newValue: number) => {
+    if (newValue > maxProgressRef.current) {
+      maxProgressRef.current = newValue;
+      setProgress(newValue);
+    }
+  }, []);
 
   // Verify payment with Stripe session and get report details
   const verifyPayment = useCallback(async () => {
@@ -46,18 +58,18 @@ const PaymentSuccess = () => {
       if (data?.reportId && data?.paymentStatus === 'paid') {
         setReportId(data.reportId);
         setStatus('verified');
-        setProgress(20);
+        updateProgress(20);
         
         // Start generation if not already started
         if (data.reportStatus === 'paid') {
           await triggerGeneration(data.reportId);
         } else if (data.reportStatus === 'processing') {
           setStatus('generating');
-          setProgress(40);
+          updateProgress(40);
           pollForCompletion(data.reportId);
         } else if (data.reportStatus === 'ready') {
           setStatus('ready');
-          setProgress(100);
+          updateProgress(100);
           setTimeout(() => {
             navigate(`/app/reports/${data.reportId}`);
           }, 2000);
@@ -73,15 +85,15 @@ const PaymentSuccess = () => {
       setError('Une erreur est survenue lors de la vérification');
       setStatus('error');
     }
-  }, [sessionId, navigate]);
+  }, [sessionId, navigate, updateProgress]);
 
   // Trigger report generation
   const triggerGeneration = async (repId: string) => {
     setStatus('generating');
-    setProgress(30);
+    updateProgress(30);
 
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('generate-report', {
+      const { error: fnError } = await supabase.functions.invoke('generate-report', {
         body: { reportId: repId }
       });
 
@@ -107,9 +119,10 @@ const PaymentSuccess = () => {
     const interval = setInterval(async () => {
       pollCount++;
       
-      // Update progress based on poll count
-      const newProgress = Math.min(30 + (pollCount / maxPolls) * 65, 95);
-      setProgress(newProgress);
+      // Calculate progress based on poll count - never decrease
+      // Range from 30 to 95 over the polling period
+      const calculatedProgress = Math.min(30 + (pollCount / maxPolls) * 65, 95);
+      updateProgress(calculatedProgress);
 
       try {
         const { data, error } = await supabase
@@ -126,8 +139,8 @@ const PaymentSuccess = () => {
         if (data?.status === 'ready') {
           clearInterval(interval);
           setStatus('ready');
-          setProgress(100);
-          toast.success('Votre benchmark est prêt ! 🎉');
+          updateProgress(100);
+          toast.success('Votre benchmark est prêt !');
           
           // Redirect after a short delay
           setTimeout(() => {
@@ -154,8 +167,10 @@ const PaymentSuccess = () => {
   const handleRetry = async () => {
     if (!reportId) return;
     
-    setStatus('generating');
+    // Reset progress tracking for retry
+    maxProgressRef.current = 30;
     setProgress(30);
+    setStatus('generating');
     setError(null);
 
     try {
@@ -188,29 +203,29 @@ const PaymentSuccess = () => {
     }
   }, [authLoading, user, sessionId, verifyPayment, navigate]);
 
-  // Progress animation for generating state
+  // Smooth progress animation for generating state (only increment, never decrease)
   useEffect(() => {
     if (status === 'generating') {
       const interval = setInterval(() => {
-        setProgress(prev => {
-          if (prev >= 90) return prev;
-          return prev + Math.random() * 3;
-        });
-      }, 1000);
+        // Small random increment, never exceeding current max + small amount
+        const increment = Math.random() * 2;
+        const newProgress = Math.min(maxProgressRef.current + increment, 94);
+        updateProgress(newProgress);
+      }, 2000);
       return () => clearInterval(interval);
     }
-  }, [status]);
+  }, [status, updateProgress]);
 
   const getStatusMessage = () => {
     switch (status) {
       case 'verifying':
         return { title: 'Vérification du paiement...', subtitle: 'Confirmation avec Stripe en cours' };
       case 'verified':
-        return { title: 'Paiement confirmé ! ✓', subtitle: 'Lancement de la génération...' };
+        return { title: 'Paiement confirmé !', subtitle: 'Lancement de la génération...' };
       case 'generating':
         return { title: 'Génération en cours...', subtitle: getGenerationPhase() };
       case 'ready':
-        return { title: 'Votre benchmark est prêt ! 🎉', subtitle: 'Redirection vers votre rapport...' };
+        return { title: 'Votre benchmark est prêt !', subtitle: 'Redirection vers votre rapport...' };
       case 'failed':
         return { title: 'Échec de la génération', subtitle: 'Vous pouvez réessayer gratuitement' };
       case 'error':
@@ -241,11 +256,11 @@ const PaymentSuccess = () => {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <Card className="max-w-lg w-full">
         <CardContent className="p-8 text-center space-y-6">
-          {/* Status Icon */}
+          {/* Status Icon - Using Logo instead of emojis */}
           <div className="relative mx-auto w-24 h-24">
             {status === 'verifying' && (
               <div className="w-full h-full rounded-full bg-primary/10 flex items-center justify-center">
-                <Loader2 className="w-12 h-12 text-primary animate-spin" />
+                <img src={logoB} alt="Logo" className="w-12 h-12 animate-pulse" />
               </div>
             )}
             {status === 'verified' && (
@@ -254,8 +269,9 @@ const PaymentSuccess = () => {
               </div>
             )}
             {status === 'generating' && (
-              <div className="w-full h-full rounded-full bg-primary/10 flex items-center justify-center">
-                <Sparkles className="w-12 h-12 text-primary animate-pulse" />
+              <div className="w-full h-full rounded-full bg-primary/10 flex items-center justify-center relative">
+                <img src={logoB} alt="Logo" className="w-12 h-12" />
+                <div className="absolute inset-0 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
               </div>
             )}
             {status === 'ready' && (
@@ -300,16 +316,6 @@ const PaymentSuccess = () => {
               <Button onClick={() => navigate('/app/new')}>
                 Nouveau benchmark
               </Button>
-            </div>
-          )}
-
-          {/* Tips during generation */}
-          {status === 'generating' && (
-            <div className="bg-muted/50 rounded-xl p-4 text-left">
-              <p className="text-sm text-muted-foreground">
-                💡 <strong>Bon à savoir :</strong> La génération peut prendre 1-3 minutes selon la complexité de votre benchmark. 
-                Vous pouvez quitter cette page - vous recevrez un email quand ce sera prêt.
-              </p>
             </div>
           )}
 
