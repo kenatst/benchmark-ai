@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom';
 
 export const Footer = () => {
+  const contactEmail = "benchmarkaiapp@outlook.com";
+  
   const links = {
     product: [
       { label: 'Fonctionnalités', href: '#product' },
@@ -9,12 +11,12 @@ export const Footer = () => {
     ],
     company: [
       { label: 'À propos', href: '/about' },
-      { label: 'Contact', href: 'mailto:contact@benchmarkai.app' },
+      { label: 'Contact', href: `mailto:${contactEmail}` },
     ],
     legal: [
-      { label: 'CGV', href: '/legal' },
-      { label: 'Confidentialité', href: '/legal' },
-      { label: 'Mentions légales', href: '/legal' },
+      { label: 'CGV', href: '/legal#terms' },
+      { label: 'Confidentialité', href: '/legal#privacy' },
+      { label: 'Mentions légales', href: '/legal#legal' },
     ],
   };
 
