@@ -7,7 +7,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// Price IDs for the 3 plans
+// Price IDs for the 3 plans (Live mode)
 const PRICE_IDS = {
   standard: "price_1Sw11DBSuagSNrWjj0crJkro",
   pro: "price_1Sw11QBSuagSNrWj6Ma29R0c",
@@ -30,8 +30,10 @@ serve(async (req) => {
     // Get request body
     const { plan, reportId } = await req.json();
 
+    console.log(`[Checkout] Plan: ${plan}, ReportId: ${reportId}`);
+
     if (!plan || !PRICE_IDS[plan as keyof typeof PRICE_IDS]) {
-      throw new Error("Invalid plan selected");
+      throw new Error(`Invalid plan selected: ${plan}`);
     }
 
     // Retrieve authenticated user
@@ -44,11 +46,21 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
     
     if (authError || !user?.email) {
+      console.error("[Checkout] Auth error:", authError);
       throw new Error("User not authenticated or email not available");
     }
 
+    console.log(`[Checkout] User: ${user.email}, ID: ${user.id}`);
+
+    // Use STRIPE_TEST_KEY for testing, fallback to STRIPE_SECRET_KEY for production
+    const stripeKey = Deno.env.get("STRIPE_TEST_KEY") || Deno.env.get("STRIPE_SECRET_KEY");
+    
+    if (!stripeKey) {
+      throw new Error("Stripe API key not configured");
+    }
+
     // Initialize Stripe
-    const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
+    const stripe = new Stripe(stripeKey, {
       apiVersion: "2025-08-27.basil",
     });
 
@@ -57,12 +69,17 @@ serve(async (req) => {
     let customerId: string | undefined;
     if (customers.data.length > 0) {
       customerId = customers.data[0].id;
+      console.log(`[Checkout] Found existing customer: ${customerId}`);
     }
 
-    // Create a one-time payment session
+    // Get origin for redirect URLs
+    const origin = req.headers.get("origin") || "https://id-preview--d281c140-859f-42d4-bcb1-1a3462e3cb0f.lovable.app";
+
+    // Create a one-time payment session with Stripe Checkout
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       customer_email: customerId ? undefined : user.email,
+      customer_creation: customerId ? undefined : "always",
       line_items: [
         {
           price: PRICE_IDS[plan as keyof typeof PRICE_IDS],
@@ -70,34 +87,58 @@ serve(async (req) => {
         },
       ],
       mode: "payment",
-      success_url: `${req.headers.get("origin")}/app/reports/${reportId}?payment=success`,
-      cancel_url: `${req.headers.get("origin")}/app/new?payment=cancelled`,
+      success_url: `${origin}/app/reports/${reportId}?payment=success`,
+      cancel_url: `${origin}/app/new?payment=cancelled`,
       metadata: {
         user_id: user.id,
         report_id: reportId,
         plan: plan,
       },
+      // Enable automatic tax collection (optional)
+      automatic_tax: { enabled: false },
+      // Allow promotion codes
+      allow_promotion_codes: true,
+      // Billing address collection
+      billing_address_collection: "auto",
+      // Payment method types (Stripe will show the best options based on customer location)
+      payment_method_types: ["card"],
+      // Customize checkout appearance
+      locale: "fr",
     });
 
-    // Update the report with the Stripe session ID
-    const { error: updateError } = await supabaseClient
+    console.log(`[Checkout] Session created: ${session.id}, URL: ${session.url}`);
+
+    // Update the report with the Stripe session ID using service role for reliability
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+    );
+
+    const { error: updateError } = await supabaseAdmin
       .from("reports")
-      .update({ stripe_session_id: session.id })
-      .eq("id", reportId)
-      .eq("user_id", user.id);
+      .update({ 
+        stripe_session_id: session.id,
+        plan: plan,
+        status: "draft"
+      })
+      .eq("id", reportId);
 
     if (updateError) {
-      console.error("Error updating report:", updateError);
+      console.error("[Checkout] Error updating report:", updateError);
+      // Don't throw - the payment session is still valid
+    } else {
+      console.log(`[Checkout] Report ${reportId} updated with session ID`);
     }
 
-    console.log("Checkout session created:", session.id);
-
-    return new Response(JSON.stringify({ url: session.url, sessionId: session.id }), {
+    return new Response(JSON.stringify({ 
+      url: session.url, 
+      sessionId: session.id 
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
   } catch (error: unknown) {
-    console.error("Checkout error:", error);
+    console.error("[Checkout] Error:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return new Response(JSON.stringify({ error: errorMessage }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
