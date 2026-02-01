@@ -2,6 +2,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Plus, Settings, Menu, X } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import logoB from '@/assets/logo-b.png';
 
 export const Navbar = () => {
   const location = useLocation();
@@ -30,8 +31,8 @@ export const Navbar = () => {
       <div className={`flex items-center gap-2 px-3 py-2 rounded-full bg-card/95 backdrop-blur-xl border border-border/80 shadow-xl transition-all duration-500 ${scrolled ? 'shadow-2xl' : ''}`}>
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2.5 px-3 py-1.5 rounded-full hover:bg-secondary transition-colors">
-          <div className="w-9 h-9 bg-foreground rounded-xl flex items-center justify-center shadow-md">
-            <span className="text-background font-bold text-lg">B</span>
+          <div className="w-9 h-9 rounded-xl overflow-hidden shadow-md">
+            <img src={logoB} alt="BenchmarkAI" className="w-full h-full object-cover" />
           </div>
           <span className="font-bold text-foreground text-lg hidden sm:block">BenchmarkAI</span>
         </Link>
