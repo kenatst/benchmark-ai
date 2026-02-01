@@ -3,27 +3,25 @@ import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Navbar } from '@/components/landing/Navbar';
 import { Footer } from '@/components/landing/Footer';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { useReports, Report } from '@/hooks/useReports';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { ReportInput, ReportOutput, StandardReportOutput, ProReportOutput, AgencyReportOutput } from '@/types/report';
 import { toast } from 'sonner';
+import { ArrowLeft, FileText, Download, ExternalLink } from 'lucide-react';
+import { ReportHero } from '@/components/report/ReportHero';
+import { AnimatedCard } from '@/components/report/AnimatedCard';
+import { SWOTGrid } from '@/components/report/SWOTGrid';
+import { ActionPlanGrid } from '@/components/report/ActionPlanGrid';
+import { FinancialMetrics } from '@/components/report/FinancialMetrics';
+import { CompetitorTable } from '@/components/report/CompetitorTable';
 import { 
-  Download, 
-  RefreshCw, 
-  ArrowLeft, 
-  CheckCircle, 
-  Clock, 
-  AlertCircle,
-  FileText,
-  TrendingUp,
-  Target,
-  Users,
+  Zap, 
+  TrendingUp, 
+  Target, 
+  Users, 
   DollarSign,
-  Zap,
-  ExternalLink
+  CheckCircle
 } from 'lucide-react';
 
 // Helper to check report tier
@@ -142,7 +140,12 @@ const ReportDetail = () => {
   if (authLoading || isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <div className="relative">
+          <div className="w-16 h-16 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Zap className="w-6 h-6 text-primary animate-pulse" />
+          </div>
+        </div>
       </div>
     );
   }
@@ -152,12 +155,15 @@ const ReportDetail = () => {
       <div className="min-h-screen bg-background flex flex-col">
         <Navbar />
         <main className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <h2 className="text-xl font-semibold text-foreground mb-2">Rapport introuvable</h2>
+          <div className="text-center animate-fade-up" style={{ animationFillMode: 'forwards' }}>
+            <div className="w-20 h-20 rounded-3xl bg-muted flex items-center justify-center mx-auto mb-6">
+              <FileText className="w-10 h-10 text-muted-foreground" />
+            </div>
+            <h2 className="text-2xl font-bold text-foreground mb-3">Rapport introuvable</h2>
+            <p className="text-muted-foreground mb-6">Ce rapport n'existe pas ou vous n'y avez pas accès.</p>
             <Link to="/app/reports">
-              <Button variant="ghost">
-                <ArrowLeft className="w-4 h-4 mr-2" />
+              <Button variant="outline" className="gap-2">
+                <ArrowLeft className="w-4 h-4" />
                 Retour aux rapports
               </Button>
             </Link>
@@ -170,126 +176,6 @@ const ReportDetail = () => {
 
   const inputData = report.input_data as ReportInput;
   const outputData = report.output_data as ReportOutput | null;
-
-  const renderStatus = () => {
-    switch (report.status) {
-      case 'paid':
-      case 'processing':
-        return (
-          <Card className="mb-8 border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
-            <CardContent className="p-8 text-center">
-              <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-6">
-                <Clock className="w-10 h-10 text-primary animate-pulse" />
-              </div>
-              <h2 className="text-2xl font-bold text-foreground mb-2">
-                Génération en cours...
-              </h2>
-              <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                Notre IA analyse vos données, recherche sur le web et construit votre rapport stratégique personnalisé.
-              </p>
-              <Progress value={processingProgress} className="max-w-md mx-auto mb-4 h-3" />
-              <p className="text-sm text-muted-foreground">
-                {processingProgress < 30 && "Analyse des données..."}
-                {processingProgress >= 30 && processingProgress < 60 && "Recherche web en cours..."}
-                {processingProgress >= 60 && processingProgress < 90 && "Génération du rapport..."}
-                {processingProgress >= 90 && "Finalisation..."}
-              </p>
-            </CardContent>
-          </Card>
-        );
-      
-      case 'ready':
-        return (
-          <Card className="mb-8 border-mint/30 bg-gradient-to-br from-mint/10 to-transparent">
-            <CardContent className="p-8 text-center">
-              <div className="w-20 h-20 rounded-full bg-mint/20 flex items-center justify-center mx-auto mb-6">
-                <CheckCircle className="w-10 h-10 text-mint-foreground" />
-              </div>
-              <h2 className="text-2xl font-bold text-foreground mb-2">
-                Votre rapport est prêt ! 🎉
-              </h2>
-              <p className="text-muted-foreground mb-6">
-                {report.plan === 'agency' ? 'Rapport Agency-Grade complet' : 
-                 report.plan === 'pro' ? 'Rapport Premium avec recherche web' : 
-                 'Rapport Standard'}
-              </p>
-              <div className="flex gap-4 justify-center">
-                <Button size="lg" onClick={handleDownload} className="gap-2">
-                  <Download className="w-5 h-5" />
-                  Télécharger le rapport
-                </Button>
-                {report.pdf_url && (
-                  <Button size="lg" variant="outline" onClick={() => window.open(report.pdf_url!, '_blank')} className="gap-2">
-                    <ExternalLink className="w-5 h-5" />
-                    Ouvrir dans un nouvel onglet
-                  </Button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        );
-      
-      case 'failed':
-        return (
-          <Card className="mb-8 border-destructive/30 bg-gradient-to-br from-destructive/5 to-transparent">
-            <CardContent className="p-8 text-center">
-              <div className="w-20 h-20 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-6">
-                <AlertCircle className="w-10 h-10 text-destructive" />
-              </div>
-              <h2 className="text-2xl font-bold text-foreground mb-2">
-                Échec de la génération
-              </h2>
-              <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                Un problème technique est survenu. Vous pouvez relancer la génération gratuitement.
-              </p>
-              <Button 
-                size="lg" 
-                onClick={handleRetry}
-                disabled={isRetrying}
-                className="gap-2"
-              >
-                {isRetrying ? (
-                  <>
-                    <RefreshCw className="w-5 h-5 animate-spin" />
-                    Relance en cours...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="w-5 h-5" />
-                    Réessayer la génération
-                  </>
-                )}
-              </Button>
-            </CardContent>
-          </Card>
-        );
-
-      case 'draft':
-        return (
-          <Card className="mb-8">
-            <CardContent className="p-8 text-center">
-              <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
-                <FileText className="w-8 h-8 text-muted-foreground" />
-              </div>
-              <h2 className="text-xl font-semibold text-foreground mb-2">
-                Rapport en attente de paiement
-              </h2>
-              <p className="text-muted-foreground mb-6">
-                Ce rapport n'a pas encore été payé.
-              </p>
-              <Link to="/app/new">
-                <Button size="lg">
-                  Finaliser le paiement
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
-        );
-      
-      default:
-        return null;
-    }
-  };
 
   // Render report content based on tier
   const renderReportContent = () => {
@@ -306,239 +192,173 @@ const ReportDetail = () => {
     
     // Fallback for unknown format
     return (
-      <Card>
-        <CardContent className="p-6">
-          <pre className="text-xs overflow-auto max-h-96">
-            {JSON.stringify(outputData, null, 2)}
-          </pre>
-        </CardContent>
-      </Card>
+      <AnimatedCard title="Données du rapport" icon={<FileText className="w-5 h-5 text-primary" />}>
+        <pre className="text-xs overflow-auto max-h-96 bg-muted/50 rounded-xl p-4">
+          {JSON.stringify(outputData, null, 2)}
+        </pre>
+      </AnimatedCard>
     );
   };
 
   const renderStandardReport = (data: StandardReportOutput) => (
     <div className="space-y-6">
       {/* Executive Summary */}
-      <Card>
-        <CardHeader className="flex flex-row items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-            <Zap className="w-5 h-5 text-primary" />
-          </div>
-          <CardTitle>Résumé Exécutif</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="bg-muted/50 rounded-xl p-4">
-            <h4 className="font-semibold text-lg mb-2">{data.executive_summary.headline}</h4>
+      <AnimatedCard 
+        title="Résumé Exécutif" 
+        icon={<Zap className="w-6 h-6 text-primary" />}
+        iconBg="bg-primary/10"
+        delay={0}
+      >
+        <div className="space-y-4">
+          <div className="bg-gradient-to-br from-primary/5 to-transparent rounded-2xl p-5 border border-primary/10">
+            <h4 className="font-bold text-xl text-foreground mb-2">{data.executive_summary.headline}</h4>
           </div>
           <div className="grid md:grid-cols-2 gap-4">
-            <div className="bg-primary/5 rounded-xl p-4 border border-primary/10">
-              <h5 className="font-medium text-sm text-muted-foreground mb-2">Situation actuelle</h5>
+            <div className="bg-lavender/10 rounded-2xl p-5 border border-lavender/20 transition-all duration-300 hover:shadow-md">
+              <h5 className="font-semibold text-sm text-muted-foreground mb-2 uppercase tracking-wide">Situation actuelle</h5>
               <p className="text-foreground">{data.executive_summary.situation_actuelle}</p>
             </div>
-            <div className="bg-mint/5 rounded-xl p-4 border border-mint/10">
-              <h5 className="font-medium text-sm text-muted-foreground mb-2">Opportunité principale</h5>
+            <div className="bg-mint/10 rounded-2xl p-5 border border-mint/20 transition-all duration-300 hover:shadow-md">
+              <h5 className="font-semibold text-sm text-muted-foreground mb-2 uppercase tracking-wide">Opportunité principale</h5>
               <p className="text-foreground">{data.executive_summary.opportunite_principale}</p>
             </div>
           </div>
           {data.executive_summary.key_findings?.length > 0 && (
             <div>
-              <h5 className="font-medium mb-3">Points clés</h5>
+              <h5 className="font-semibold mb-3 text-foreground">Points clés</h5>
               <ul className="space-y-2">
                 {data.executive_summary.key_findings.map((finding, i) => (
-                  <li key={i} className="flex items-start gap-2 text-sm">
-                    <CheckCircle className="w-4 h-4 text-mint-foreground flex-shrink-0 mt-0.5" />
-                    <span>{finding}</span>
+                  <li key={i} className="flex items-start gap-3 text-sm bg-muted/30 rounded-xl p-3 transition-all duration-200 hover:bg-muted/50">
+                    <CheckCircle className="w-5 h-5 text-mint-foreground flex-shrink-0 mt-0.5" />
+                    <span className="text-foreground">{finding}</span>
                   </li>
                 ))}
               </ul>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </AnimatedCard>
 
       {/* Market Context */}
-      <Card>
-        <CardHeader className="flex flex-row items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-sky/10 flex items-center justify-center">
-            <TrendingUp className="w-5 h-5 text-sky-foreground" />
-          </div>
-          <CardTitle>Contexte Marché</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p>{data.market_context.sector_overview}</p>
-          <div className="bg-muted/50 rounded-xl p-4">
-            <h5 className="font-medium mb-2">Maturité du marché: {data.market_context.market_maturity}</h5>
-            <p className="text-sm text-muted-foreground">{data.market_context.local_market_specifics}</p>
+      <AnimatedCard 
+        title="Contexte Marché" 
+        icon={<TrendingUp className="w-6 h-6 text-sky-foreground" />}
+        iconBg="bg-sky/10"
+        delay={100}
+      >
+        <div className="space-y-4">
+          <p className="text-foreground">{data.market_context.sector_overview}</p>
+          <div className="bg-muted/50 rounded-2xl p-5">
+            <h5 className="font-semibold mb-2 text-foreground">Maturité du marché: <span className="text-primary">{data.market_context.market_maturity}</span></h5>
+            <p className="text-muted-foreground">{data.market_context.local_market_specifics}</p>
           </div>
           {data.market_context.key_trends_impacting?.length > 0 && (
             <div>
-              <h5 className="font-medium mb-3">Tendances clés</h5>
+              <h5 className="font-semibold mb-3 text-foreground">Tendances clés</h5>
               <div className="flex flex-wrap gap-2">
                 {data.market_context.key_trends_impacting.map((trend, i) => (
-                  <Badge key={i} variant="secondary">{trend}</Badge>
+                  <Badge key={i} variant="secondary" className="bg-sky/10 text-sky-foreground border-sky/20 px-3 py-1">
+                    {trend}
+                  </Badge>
                 ))}
               </div>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </AnimatedCard>
 
       {/* Competitive Landscape */}
-      <Card>
-        <CardHeader className="flex flex-row items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-coral/10 flex items-center justify-center">
-            <Users className="w-5 h-5 text-coral-foreground" />
-          </div>
-          <CardTitle>Analyse Concurrentielle</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="mb-4 p-4 bg-muted/50 rounded-xl">
-            <p className="font-medium">Intensité: {data.competitive_landscape.competition_intensity}</p>
-            <p className="text-sm text-muted-foreground mt-1">Position actuelle: {data.competitive_landscape.your_current_position}</p>
-          </div>
-          
-          {data.competitive_landscape.competitors_analyzed?.length > 0 && (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border">
-                    <th className="text-left py-3 pr-4 font-semibold">Concurrent</th>
-                    <th className="text-left py-3 pr-4 font-semibold">Positionnement</th>
-                    <th className="text-left py-3 pr-4 font-semibold">Forces</th>
-                    <th className="text-left py-3 font-semibold">Menace</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.competitive_landscape.competitors_analyzed.map((comp, i) => (
-                    <tr key={i} className="border-b border-border/50">
-                      <td className="py-3 pr-4 font-medium">{comp.name}</td>
-                      <td className="py-3 pr-4 text-muted-foreground">{comp.positioning}</td>
-                      <td className="py-3 pr-4 text-muted-foreground">
-                        {comp.strengths?.slice(0, 2).join(', ')}
-                      </td>
-                      <td className="py-3">
-                        <Badge variant={comp.threat_level === 'Élevé' || comp.threat_level === 'High' ? 'destructive' : 'secondary'}>
-                          {comp.threat_level}
-                        </Badge>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <AnimatedCard 
+        title="Analyse Concurrentielle" 
+        icon={<Users className="w-6 h-6 text-coral-foreground" />}
+        iconBg="bg-coral/10"
+        delay={200}
+      >
+        <CompetitorTable 
+          competitors={data.competitive_landscape.competitors_analyzed || []}
+          intensity={data.competitive_landscape.competition_intensity}
+          currentPosition={data.competitive_landscape.your_current_position}
+        />
+      </AnimatedCard>
 
       {/* Positioning */}
-      <Card>
-        <CardHeader className="flex flex-row items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-lavender/10 flex items-center justify-center">
-            <Target className="w-5 h-5 text-lavender-foreground" />
+      <AnimatedCard 
+        title="Recommandations de Positionnement" 
+        icon={<Target className="w-6 h-6 text-lavender-foreground" />}
+        iconBg="bg-lavender/10"
+        delay={300}
+      >
+        <div className="space-y-4">
+          <div className="bg-gradient-to-br from-primary/10 to-primary/5 rounded-2xl p-5 border border-primary/20">
+            <h5 className="font-bold text-lg mb-2 text-foreground">{data.positioning_recommendations.recommended_positioning}</h5>
+            <p className="text-muted-foreground">{data.positioning_recommendations.rationale}</p>
           </div>
-          <CardTitle>Recommandations de Positionnement</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="bg-primary/5 rounded-xl p-4 border border-primary/10">
-            <h5 className="font-semibold mb-2">{data.positioning_recommendations.recommended_positioning}</h5>
-            <p className="text-sm text-muted-foreground">{data.positioning_recommendations.rationale}</p>
-          </div>
-          <div className="bg-mint/5 rounded-xl p-4 border border-mint/10">
-            <h5 className="font-medium mb-2">Proposition de valeur</h5>
-            <p>{data.positioning_recommendations.value_proposition}</p>
+          <div className="bg-mint/10 rounded-2xl p-5 border border-mint/20">
+            <h5 className="font-semibold mb-2 text-mint-foreground">Proposition de valeur</h5>
+            <p className="text-foreground">{data.positioning_recommendations.value_proposition}</p>
           </div>
           {data.positioning_recommendations.tagline_suggestions?.length > 0 && (
             <div>
-              <h5 className="font-medium mb-3">Suggestions de taglines</h5>
+              <h5 className="font-semibold mb-3 text-foreground">Suggestions de taglines</h5>
               <div className="space-y-2">
                 {data.positioning_recommendations.tagline_suggestions.map((tagline, i) => (
-                  <div key={i} className="bg-muted/50 rounded-lg px-4 py-2 text-sm italic">
+                  <div key={i} className="bg-muted/50 rounded-xl px-5 py-3 text-foreground italic border-l-4 border-lavender">
                     "{tagline}"
                   </div>
                 ))}
               </div>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </AnimatedCard>
 
       {/* Pricing Strategy */}
-      <Card>
-        <CardHeader className="flex flex-row items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gold/10 flex items-center justify-center">
-            <DollarSign className="w-5 h-5 text-gold" />
-          </div>
-          <CardTitle>Stratégie Tarifaire</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p>{data.pricing_strategy.current_assessment}</p>
+      <AnimatedCard 
+        title="Stratégie Tarifaire" 
+        icon={<DollarSign className="w-6 h-6 text-gold" />}
+        iconBg="bg-gold/10"
+        delay={400}
+      >
+        <div className="space-y-4">
+          <p className="text-foreground">{data.pricing_strategy.current_assessment}</p>
           <div className="grid md:grid-cols-3 gap-4">
-            <div className="bg-muted/50 rounded-xl p-4 text-center">
-              <p className="text-xs text-muted-foreground uppercase mb-1">Budget</p>
-              <p className="font-semibold">{data.pricing_strategy.market_benchmarks.budget_tier}</p>
+            <div className="bg-muted/50 rounded-2xl p-5 text-center transition-all duration-300 hover:shadow-md hover:-translate-y-1">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Budget</p>
+              <p className="text-xl font-bold text-foreground">{data.pricing_strategy.market_benchmarks.budget_tier}</p>
             </div>
-            <div className="bg-muted/50 rounded-xl p-4 text-center">
-              <p className="text-xs text-muted-foreground uppercase mb-1">Milieu</p>
-              <p className="font-semibold">{data.pricing_strategy.market_benchmarks.mid_tier}</p>
+            <div className="bg-primary/10 rounded-2xl p-5 text-center border border-primary/20 transition-all duration-300 hover:shadow-md hover:-translate-y-1">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Milieu</p>
+              <p className="text-xl font-bold text-foreground">{data.pricing_strategy.market_benchmarks.mid_tier}</p>
             </div>
-            <div className="bg-muted/50 rounded-xl p-4 text-center">
-              <p className="text-xs text-muted-foreground uppercase mb-1">Premium</p>
-              <p className="font-semibold">{data.pricing_strategy.market_benchmarks.premium_tier}</p>
+            <div className="bg-gold/10 rounded-2xl p-5 text-center border border-gold/20 transition-all duration-300 hover:shadow-md hover:-translate-y-1">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Premium</p>
+              <p className="text-xl font-bold text-foreground">{data.pricing_strategy.market_benchmarks.premium_tier}</p>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </AnimatedCard>
 
       {/* Action Plan */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Plan d'Action 30/60/90 Jours</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid md:grid-cols-3 gap-6">
-            <div className="bg-primary/5 rounded-xl p-4 border border-primary/10">
-              <h4 className="font-semibold text-primary mb-4">📅 J1-7 : Quick Wins</h4>
-              <ul className="space-y-3">
-                {data.action_plan.now_7_days?.map((item, i) => (
-                  <li key={i} className="text-sm">
-                    <p className="font-medium">{item.action}</p>
-                    <p className="text-muted-foreground text-xs mt-1">→ {item.outcome}</p>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div className="bg-sky/5 rounded-xl p-4 border border-sky/10">
-              <h4 className="font-semibold text-sky-foreground mb-4">📅 J8-30 : Fondations</h4>
-              <ul className="space-y-3">
-                {data.action_plan.days_8_30?.map((item, i) => (
-                  <li key={i} className="text-sm">
-                    <p className="font-medium">{item.action}</p>
-                    <p className="text-muted-foreground text-xs mt-1">→ {item.outcome}</p>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div className="bg-mint/5 rounded-xl p-4 border border-mint/10">
-              <h4 className="font-semibold text-mint-foreground mb-4">📅 J31-90 : Croissance</h4>
-              <ul className="space-y-3">
-                {data.action_plan.days_31_90?.map((item, i) => (
-                  <li key={i} className="text-sm">
-                    <p className="font-medium">{item.action}</p>
-                    <p className="text-muted-foreground text-xs mt-1">→ {item.outcome}</p>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <AnimatedCard 
+        title="Plan d'Action 30/60/90 Jours" 
+        delay={500}
+      >
+        <ActionPlanGrid 
+          now_7_days={data.action_plan.now_7_days}
+          days_8_30={data.action_plan.days_8_30}
+          days_31_90={data.action_plan.days_31_90}
+        />
+      </AnimatedCard>
 
       {/* Download CTA */}
-      <div className="text-center py-8">
+      <div 
+        className="text-center py-10 bg-gradient-to-br from-primary/10 via-lavender/10 to-transparent rounded-3xl border border-border animate-fade-up"
+        style={{ animationDelay: '600ms', animationFillMode: 'forwards' }}
+      >
         <p className="text-muted-foreground mb-4">
-          Ceci est un aperçu interactif. Téléchargez le rapport complet pour toutes les sections.
+          Téléchargez le rapport complet pour toutes les sections détaillées.
         </p>
-        <Button size="lg" onClick={handleDownload} className="gap-2">
+        <Button size="lg" onClick={handleDownload} className="gap-2 shadow-lg hover:shadow-xl transition-all hover:scale-105">
           <Download className="w-5 h-5" />
           Télécharger le rapport complet
         </Button>
@@ -553,44 +373,48 @@ const ReportDetail = () => {
       
       {/* Market Intelligence - Pro exclusive */}
       {data.market_intelligence && (
-        <Card className="border-primary/20">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Badge variant="secondary" className="bg-primary/10 text-primary">PRO</Badge>
-              Market Intelligence
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <AnimatedCard 
+          title="Market Intelligence" 
+          icon={<TrendingUp className="w-6 h-6 text-primary" />}
+          iconBg="bg-primary/10"
+          badge={<Badge className="bg-primary/10 text-primary border-primary/20">PRO</Badge>}
+          delay={700}
+        >
+          <div className="space-y-4">
             {data.market_intelligence.sector_trends_2026?.map((trend, i) => (
-              <div key={i} className="bg-muted/50 rounded-xl p-4">
-                <h5 className="font-medium mb-2">{trend.trend}</h5>
+              <div key={i} className="bg-muted/50 rounded-2xl p-5 transition-all duration-300 hover:shadow-md">
+                <h5 className="font-semibold text-foreground mb-2">{trend.trend}</h5>
                 <p className="text-sm text-muted-foreground mb-2">Impact: {trend.impact_on_you}</p>
-                <p className="text-sm text-primary">→ {trend.how_to_leverage}</p>
+                <p className="text-sm text-primary flex items-center gap-2">
+                  <span>→</span> {trend.how_to_leverage}
+                </p>
               </div>
             ))}
-          </CardContent>
-        </Card>
+          </div>
+        </AnimatedCard>
       )}
       
       {/* Customer Insights - Pro exclusive */}
       {data.customer_insights && (
-        <Card className="border-primary/20">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Badge variant="secondary" className="bg-primary/10 text-primary">PRO</Badge>
-              Customer Insights
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <AnimatedCard 
+          title="Customer Insights" 
+          icon={<Users className="w-6 h-6 text-primary" />}
+          iconBg="bg-primary/10"
+          badge={<Badge className="bg-primary/10 text-primary border-primary/20">PRO</Badge>}
+          delay={800}
+        >
+          <div className="space-y-4">
             {data.customer_insights.pain_points_identified?.map((pp, i) => (
-              <div key={i} className="bg-coral/5 rounded-xl p-4 border border-coral/10">
-                <h5 className="font-medium mb-2">{pp.pain_point}</h5>
+              <div key={i} className="bg-coral/5 rounded-2xl p-5 border border-coral/10 transition-all duration-300 hover:shadow-md">
+                <h5 className="font-semibold text-foreground mb-2">{pp.pain_point}</h5>
                 <p className="text-sm text-muted-foreground mb-2">Evidence: {pp.evidence}</p>
-                <p className="text-sm text-mint-foreground">Opportunité: {pp.opportunity}</p>
+                <p className="text-sm text-mint-foreground flex items-center gap-2">
+                  <span>💡</span> Opportunité: {pp.opportunity}
+                </p>
               </div>
             ))}
-          </CardContent>
-        </Card>
+          </div>
+        </AnimatedCard>
       )}
     </div>
   );
@@ -598,165 +422,90 @@ const ReportDetail = () => {
   const renderAgencyReport = (data: AgencyReportOutput) => (
     <div className="space-y-6">
       {/* Executive Summary - Agency style */}
-      <Card className="border-sky/20 bg-gradient-to-br from-sky/5 to-transparent">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Badge className="bg-sky text-white">AGENCY</Badge>
-            Résumé Exécutif
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="bg-card rounded-xl p-6 border">
-            <p className="text-lg leading-relaxed">{data.executive_summary.one_page_summary}</p>
+      <AnimatedCard 
+        title="Résumé Exécutif" 
+        icon={<Zap className="w-6 h-6 text-sky-foreground" />}
+        iconBg="bg-sky/10"
+        badge={<Badge className="bg-sky text-sky-foreground border-sky/30">AGENCY</Badge>}
+        className="border-sky/20"
+        delay={0}
+      >
+        <div className="space-y-4">
+          <div className="bg-card rounded-2xl p-6 border border-border">
+            <p className="text-lg leading-relaxed text-foreground">{data.executive_summary.one_page_summary}</p>
           </div>
           <div className="grid md:grid-cols-2 gap-4">
-            <div className="bg-primary/5 rounded-xl p-4">
-              <h5 className="font-medium text-sm text-muted-foreground mb-2">Investissement requis</h5>
-              <p className="text-xl font-bold">{data.executive_summary.investment_required}</p>
+            <div className="bg-primary/10 rounded-2xl p-5 border border-primary/20 transition-all duration-300 hover:shadow-md hover:-translate-y-1">
+              <h5 className="font-semibold text-sm text-muted-foreground mb-2">Investissement requis</h5>
+              <p className="text-2xl font-black text-foreground">{data.executive_summary.investment_required}</p>
             </div>
-            <div className="bg-mint/5 rounded-xl p-4">
-              <h5 className="font-medium text-sm text-muted-foreground mb-2">ROI attendu</h5>
-              <p className="text-xl font-bold">{data.executive_summary.expected_roi}</p>
+            <div className="bg-mint/10 rounded-2xl p-5 border border-mint/20 transition-all duration-300 hover:shadow-md hover:-translate-y-1">
+              <h5 className="font-semibold text-sm text-muted-foreground mb-2">ROI attendu</h5>
+              <p className="text-2xl font-black text-foreground">{data.executive_summary.expected_roi}</p>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </AnimatedCard>
 
       {/* SWOT Analysis */}
       {data.swot_analysis && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Analyse SWOT</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid md:grid-cols-2 gap-4">
-              <div className="bg-mint/5 rounded-xl p-4 border border-mint/10">
-                <h5 className="font-semibold text-mint-foreground mb-3">Forces</h5>
-                <ul className="space-y-2">
-                  {data.swot_analysis.strengths.map((s, i) => (
-                    <li key={i} className="text-sm flex items-start gap-2">
-                      <span className="text-mint-foreground">+</span> {s}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div className="bg-coral/5 rounded-xl p-4 border border-coral/10">
-                <h5 className="font-semibold text-coral-foreground mb-3">Faiblesses</h5>
-                <ul className="space-y-2">
-                  {data.swot_analysis.weaknesses.map((w, i) => (
-                    <li key={i} className="text-sm flex items-start gap-2">
-                      <span className="text-coral-foreground">-</span> {w}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div className="bg-sky/5 rounded-xl p-4 border border-sky/10">
-                <h5 className="font-semibold text-sky-foreground mb-3">Opportunités</h5>
-                <ul className="space-y-2">
-                  {data.swot_analysis.opportunities.map((o, i) => (
-                    <li key={i} className="text-sm flex items-start gap-2">
-                      <span className="text-sky-foreground">↗</span> {o}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div className="bg-gold/5 rounded-xl p-4 border border-gold/10">
-                <h5 className="font-semibold text-gold mb-3">Menaces</h5>
-                <ul className="space-y-2">
-                  {data.swot_analysis.threats.map((t, i) => (
-                    <li key={i} className="text-sm flex items-start gap-2">
-                      <span className="text-gold">⚠</span> {t}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <AnimatedCard 
+          title="Analyse SWOT" 
+          delay={100}
+        >
+          <SWOTGrid data={data.swot_analysis} />
+        </AnimatedCard>
       )}
 
       {/* Financial Projections */}
       {data.financial_projections && (
-        <Card className="border-gold/20">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Badge className="bg-gold text-white">AGENCY</Badge>
-              Projections Financières
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="grid md:grid-cols-3 gap-4">
-              <div className="bg-muted/50 rounded-xl p-4 text-center">
-                <p className="text-xs text-muted-foreground uppercase mb-1">Conservatif Y1</p>
-                <p className="text-2xl font-bold">{data.financial_projections.revenue_scenarios.conservative.year_1.toLocaleString()}€</p>
-              </div>
-              <div className="bg-primary/10 rounded-xl p-4 text-center border border-primary/20">
-                <p className="text-xs text-muted-foreground uppercase mb-1">Baseline Y1</p>
-                <p className="text-2xl font-bold">{data.financial_projections.revenue_scenarios.baseline.year_1.toLocaleString()}€</p>
-              </div>
-              <div className="bg-mint/10 rounded-xl p-4 text-center border border-mint/20">
-                <p className="text-xs text-muted-foreground uppercase mb-1">Optimiste Y1</p>
-                <p className="text-2xl font-bold">{data.financial_projections.revenue_scenarios.optimistic.year_1.toLocaleString()}€</p>
-              </div>
-            </div>
-            
-            <div className="bg-muted/30 rounded-xl p-4">
-              <h5 className="font-medium mb-3">Unit Economics</h5>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-                <div>
-                  <p className="text-xs text-muted-foreground">CAC</p>
-                  <p className="font-semibold">{data.financial_projections.unit_economics.customer_acquisition_cost}€</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">LTV</p>
-                  <p className="font-semibold">{data.financial_projections.unit_economics.lifetime_value}€</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">LTV/CAC</p>
-                  <p className="font-semibold">{data.financial_projections.unit_economics.ltv_cac_ratio}x</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Payback</p>
-                  <p className="font-semibold">{data.financial_projections.unit_economics.payback_period_months} mois</p>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <AnimatedCard 
+          title="Projections Financières" 
+          icon={<DollarSign className="w-6 h-6 text-gold" />}
+          iconBg="bg-gold/10"
+          badge={<Badge className="bg-gold text-gold-foreground border-gold/30">AGENCY</Badge>}
+          delay={200}
+        >
+          <FinancialMetrics 
+            scenarios={data.financial_projections.revenue_scenarios}
+            unitEconomics={data.financial_projections.unit_economics}
+          />
+        </AnimatedCard>
       )}
 
       {/* Sources */}
       {data.sources?.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Sources ({data.sources.length})</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid md:grid-cols-2 gap-2">
-              {data.sources.slice(0, 10).map((source, i) => (
-                <a 
-                  key={i} 
-                  href={source.url} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-sm text-primary hover:underline flex items-center gap-2 truncate"
-                >
-                  <ExternalLink className="w-3 h-3 flex-shrink-0" />
-                  {source.title || source.url}
-                </a>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+        <AnimatedCard 
+          title={`Sources (${data.sources.length})`}
+          delay={300}
+        >
+          <div className="grid md:grid-cols-2 gap-3">
+            {data.sources.slice(0, 12).map((source, i) => (
+              <a 
+                key={i} 
+                href={source.url} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-sm text-primary hover:text-primary/80 flex items-center gap-2 truncate bg-muted/30 rounded-xl p-3 transition-all duration-200 hover:bg-muted/50"
+              >
+                <ExternalLink className="w-4 h-4 flex-shrink-0" />
+                <span className="truncate">{source.title || source.url}</span>
+              </a>
+            ))}
+          </div>
+        </AnimatedCard>
       )}
 
       {/* Download CTA */}
-      <div className="text-center py-8 bg-gradient-to-br from-sky/10 to-primary/10 rounded-2xl">
-        <h3 className="text-xl font-bold mb-2">Rapport Agency-Grade Complet</h3>
-        <p className="text-muted-foreground mb-6">
+      <div 
+        className="text-center py-12 bg-gradient-to-br from-sky/15 via-primary/10 to-transparent rounded-3xl border border-sky/20 animate-fade-up"
+        style={{ animationDelay: '400ms', animationFillMode: 'forwards' }}
+      >
+        <h3 className="text-2xl font-black text-foreground mb-3">Rapport Agency-Grade Complet</h3>
+        <p className="text-muted-foreground mb-6 max-w-lg mx-auto">
           Incluant PESTEL, Porter 5 Forces, Roadmap 12 mois et bien plus.
         </p>
-        <Button size="lg" onClick={handleDownload} className="gap-2">
+        <Button size="lg" onClick={handleDownload} className="gap-2 shadow-lg hover:shadow-xl transition-all hover:scale-105">
           <Download className="w-5 h-5" />
           Télécharger le rapport complet
         </Button>
@@ -765,41 +514,39 @@ const ReportDetail = () => {
   );
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-lavender/5 flex flex-col">
+      {/* Animated background */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-gradient-to-br from-primary/10 via-lavender/5 to-transparent rounded-full blur-3xl" />
+        <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-gradient-to-tr from-sky/10 via-mint/5 to-transparent rounded-full blur-3xl" />
+      </div>
+
       <Navbar />
       
-      <main className="flex-1 py-8">
+      <main className="flex-1 py-8 relative z-10">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-5xl">
           {/* Back link */}
-          <Link to="/app/reports" className="inline-flex items-center text-muted-foreground hover:text-foreground mb-6 transition-colors">
-            <ArrowLeft className="w-4 h-4 mr-2" />
+          <Link 
+            to="/app/reports" 
+            className="inline-flex items-center text-muted-foreground hover:text-foreground mb-6 transition-all duration-200 hover:gap-3 gap-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
             Retour aux rapports
           </Link>
 
-          {/* Header */}
-          <div className="flex items-start justify-between mb-8">
-            <div>
-              <h1 className="text-3xl font-bold text-foreground mb-2">
-                {inputData?.businessName || 'Rapport'}
-              </h1>
-              <p className="text-muted-foreground text-lg">
-                {inputData?.sector} • {inputData?.location?.city}, {inputData?.location?.country}
-              </p>
-            </div>
-            <Badge 
-              variant="secondary" 
-              className={
-                report.plan === 'agency' ? 'bg-sky/10 text-sky-foreground border-sky/20' :
-                report.plan === 'pro' ? 'bg-primary/10 text-primary border-primary/20' :
-                'bg-muted'
-              }
-            >
-              {report.plan?.toUpperCase()}
-            </Badge>
-          </div>
-
-          {/* Status */}
-          {renderStatus()}
+          {/* Hero Section */}
+          <ReportHero
+            status={report.status || 'draft'}
+            plan={report.plan || 'standard'}
+            businessName={inputData?.businessName || 'Rapport'}
+            sector={inputData?.sector || ''}
+            location={`${inputData?.location?.city || ''}, ${inputData?.location?.country || ''}`}
+            pdfUrl={report.pdf_url}
+            processingProgress={processingProgress}
+            onDownload={handleDownload}
+            onRetry={handleRetry}
+            isRetrying={isRetrying}
+          />
 
           {/* Report Content */}
           {renderReportContent()}
