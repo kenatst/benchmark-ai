@@ -7,11 +7,11 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// Price IDs for the 3 plans - TEST MODE (created in acct_1Sw0y9BlwVXDER87)
+// Price IDs for the 3 plans - TEST MODE
 const PRICE_IDS = {
-  standard: "price_1Sw8fwBSuagSNrWjjDesh8I0", // 4.99€
-  pro: "price_1Sw8g6BSuagSNrWjA3ZUjqxp",      // 14.99€
-  agency: "price_1Sw8gIBSuagSNrWjnwcN8gqR",   // 29.00€
+  standard: "price_1Sw8hjBlwVXDER871XEMv04h", // tier 1
+  pro: "price_1Sw8icBlwVXDER87uAVufweT",      // tier 2
+  agency: "price_1Sw8jBBlwVXDER87uehhluPB",   // tier 3
 };
 
 serve(async (req) => {
@@ -52,11 +52,11 @@ serve(async (req) => {
 
     console.log(`[Checkout] User: ${user.email}, ID: ${user.id}`);
 
-    // Use STRIPE_SECRET_KEY which matches the connected Stripe account
-    const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
+    // Use STRIPE_TEST_KEY for test mode
+    const stripeKey = Deno.env.get("STRIPE_TEST_KEY");
 
     if (!stripeKey) {
-      throw new Error("STRIPE_SECRET_KEY not configured");
+      throw new Error("STRIPE_TEST_KEY not configured");
     }
 
     // Initialize Stripe
