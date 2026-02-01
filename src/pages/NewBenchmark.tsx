@@ -128,8 +128,9 @@ const NewBenchmark = () => {
       // Clear the draft
       localStorage.removeItem(STORAGE_KEY);
 
-      // Redirect to Stripe checkout
-      window.location.href = checkoutUrl;
+      // Redirect to Stripe checkout - use assign for better compatibility
+      console.log('Redirecting to Stripe:', checkoutUrl);
+      window.location.assign(checkoutUrl);
     } catch (error) {
       console.error('Payment error:', error);
       toast.error('Erreur lors de la création du paiement. Veuillez réessayer.');

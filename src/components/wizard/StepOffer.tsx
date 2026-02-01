@@ -49,18 +49,20 @@ export const StepOffer = ({ data, updateData }: StepOfferProps) => {
         </div>
 
         <div className="space-y-4">
-          <Label>Your Price Range *</Label>
+          <Label>Votre fourchette de prix *</Label>
           <div className="px-2">
             <Slider
               value={[data.priceRange.min, data.priceRange.max]}
               onValueChange={([min, max]) => updateData({ priceRange: { min, max } })}
+              min={0}
               max={10000}
               step={50}
+              minStepsBetweenThumbs={1}
               className="mb-4"
             />
             <div className="flex justify-between text-sm text-muted-foreground">
-              <span>${data.priceRange.min}</span>
-              <span>${data.priceRange.max}+</span>
+              <span>{data.priceRange.min}€</span>
+              <span>{data.priceRange.max}€+</span>
             </div>
           </div>
         </div>
