@@ -77,6 +77,7 @@ export const initialFormData: ReportInput = {
   businessName: '',
   website: '',
   sector: '',
+  sectorDetails: '',
   location: { city: '', country: '' },
   targetCustomers: { type: 'B2B', persona: '' },
   whatYouSell: '',

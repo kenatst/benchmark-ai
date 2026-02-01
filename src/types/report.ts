@@ -450,6 +450,7 @@ export interface ReportInput {
   businessName: string;
   website?: string;
   sector: string;
+  sectorDetails?: string; // Used when sector is "Other"
   location: {
     city: string;
     country: string;
