@@ -52,11 +52,11 @@ serve(async (req) => {
 
     console.log(`[Checkout] User: ${user.email}, ID: ${user.id}`);
 
-    // TEST MODE ONLY (as requested)
-    const stripeKey = Deno.env.get("STRIPE_TEST_KEY");
+    // Use STRIPE_SECRET_KEY which matches the connected Stripe account
+    const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
 
     if (!stripeKey) {
-      throw new Error("STRIPE_TEST_KEY not configured");
+      throw new Error("STRIPE_SECRET_KEY not configured");
     }
 
     // Initialize Stripe
