@@ -3,6 +3,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
 import { ReportInput } from '@/types/report';
 import { ACQUISITION_CHANNELS, DIFFERENTIATORS } from '@/data/formOptions';
 
@@ -50,6 +51,30 @@ export const StepOffer = ({ data, updateData }: StepOfferProps) => {
 
         <div className="space-y-4">
           <Label>Votre fourchette de prix *</Label>
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div className="space-y-2">
+              <Label htmlFor="priceMin" className="text-xs text-muted-foreground">Prix minimum (€)</Label>
+              <Input
+                id="priceMin"
+                type="number"
+                min={0}
+                value={data.priceRange.min}
+                onChange={(e) => updateData({ priceRange: { ...data.priceRange, min: Math.max(0, parseInt(e.target.value) || 0) } })}
+                placeholder="0"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="priceMax" className="text-xs text-muted-foreground">Prix maximum (€)</Label>
+              <Input
+                id="priceMax"
+                type="number"
+                min={0}
+                value={data.priceRange.max}
+                onChange={(e) => updateData({ priceRange: { ...data.priceRange, max: Math.max(0, parseInt(e.target.value) || 0) } })}
+                placeholder="1000"
+              />
+            </div>
+          </div>
           <div className="px-2">
             <Slider
               value={[data.priceRange.min, data.priceRange.max]}
@@ -58,11 +83,11 @@ export const StepOffer = ({ data, updateData }: StepOfferProps) => {
               max={10000}
               step={50}
               minStepsBetweenThumbs={1}
-              className="mb-4"
+              className="mb-2"
             />
-            <div className="flex justify-between text-sm text-muted-foreground">
-              <span>{data.priceRange.min}€</span>
-              <span>{data.priceRange.max}€+</span>
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>0€</span>
+              <span>10 000€+</span>
             </div>
           </div>
         </div>

@@ -56,6 +56,18 @@ export const StepBasics = ({ data, updateData }: StepBasicsProps) => {
               </Button>
             ))}
           </div>
+          {data.sector === 'Other' && (
+            <div className="mt-3 space-y-2">
+              <Label htmlFor="sectorDetails">Please describe your sector *</Label>
+              <Textarea
+                id="sectorDetails"
+                value={data.sectorDetails || ''}
+                onChange={(e) => updateData({ sectorDetails: e.target.value })}
+                placeholder="Describe your industry, business model, and main activities in detail..."
+                rows={3}
+              />
+            </div>
+          )}
         </div>
 
         <div className="grid sm:grid-cols-2 gap-4">
