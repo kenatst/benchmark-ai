@@ -1,6 +1,6 @@
-import { ReportOutput } from '@/types/report';
+import { LegacyReportOutput } from '@/types/report';
 
-export const mockReportOutput: ReportOutput = {
+export const mockReportOutput: LegacyReportOutput = {
   title: "Benchmark Report: Your Business",
   executiveSummary: [
     "Your market position shows strong differentiation potential in the mid-tier segment",
