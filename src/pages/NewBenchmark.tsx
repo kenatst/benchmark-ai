@@ -119,19 +119,11 @@ const NewBenchmark = () => {
         throw new Error('Failed to create report');
       }
 
-      // Create Stripe checkout session
-      const checkoutUrl = await createCheckoutSession(report.id, plan);
-      
-      if (!checkoutUrl) {
-        throw new Error('Failed to create checkout session');
-      }
-
       // Clear the draft
       localStorage.removeItem(STORAGE_KEY);
 
-      // Redirect to Stripe checkout - use assign for better compatibility
-      console.log('Redirecting to Stripe:', checkoutUrl);
-      window.location.assign(checkoutUrl);
+      // Redirect to embedded checkout page
+      navigate(`/checkout?reportId=${report.id}&plan=${plan}`);
     } catch (error) {
       console.error('Payment error:', error);
       toast.error('Erreur lors de la création du paiement. Veuillez réessayer.');
