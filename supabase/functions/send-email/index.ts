@@ -9,12 +9,13 @@ const corsHeaders = {
 
 interface EmailRequest {
   to: string;
-  subject: string;
-  type: "report_ready" | "payment_confirmation" | "welcome";
+  subject?: string;
+  type: "report_ready" | "payment_confirmation" | "welcome" | "generation_failed";
   data: {
     reportId?: string;
     reportTitle?: string;
     downloadUrl?: string;
+    retryUrl?: string;
     userName?: string;
     amount?: number;
     plan?: string;
@@ -144,6 +145,49 @@ const getEmailTemplate = (type: string, data: EmailRequest["data"]) => {
               <p style="text-align: center; margin: 30px 0;">
                 <a href="https://benchmarkai.app/app/new" class="button">Créer mon premier benchmark →</a>
               </p>
+              
+              <div class="footer">
+                <p>BenchmarkAI - Votre outil de benchmark intelligent</p>
+              </div>
+            </div>
+          </body>
+          </html>
+        `,
+      };
+
+    case "generation_failed":
+      return {
+        subject: `Un problème est survenu - BenchmarkAI`,
+        html: `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <style>
+              body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #1a1a1a; }
+              .container { max-width: 600px; margin: 0 auto; padding: 40px 20px; }
+              .logo { font-size: 24px; font-weight: bold; margin-bottom: 30px; }
+              .card { background: #fef2f2; border-radius: 16px; padding: 30px; margin: 20px 0; border: 1px solid #fecaca; }
+              .button { display: inline-block; background: #1a1a1a; color: white !important; padding: 14px 28px; border-radius: 30px; text-decoration: none; font-weight: 600; }
+              .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e5e5; font-size: 14px; color: #666; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="logo">⚡ BenchmarkAI</div>
+              
+              <h1 style="font-size: 28px; margin-bottom: 10px;">Oups, un problème est survenu 😔</h1>
+              
+              <div class="card">
+                <p>La génération de votre rapport a rencontré un problème technique. Pas de panique, notre équipe est sur le coup !</p>
+                <p>Vous pouvez réessayer la génération en cliquant sur le bouton ci-dessous.</p>
+              </div>
+              
+              <p style="text-align: center; margin: 30px 0;">
+                <a href="${data.retryUrl || '#'}" class="button">Réessayer la génération →</a>
+              </p>
+              
+              <p style="color: #666;">Si le problème persiste, répondez à cet email et nous vous aiderons dans les plus brefs délais.</p>
               
               <div class="footer">
                 <p>BenchmarkAI - Votre outil de benchmark intelligent</p>

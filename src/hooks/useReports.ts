@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { ReportInput, ReportOutput } from '@/types/report';
-import { mockReportOutput } from '@/data/mockReport';
 
 export interface Report {
   id: string;
@@ -99,61 +98,27 @@ export const useReports = () => {
     }
   };
 
-  const processReport = async (reportId: string): Promise<Report | null> => {
-    // Update status to processing
-    const { error: updateError } = await supabase
-      .from('reports')
-      .update({ status: 'processing' })
-      .eq('id', reportId);
+  const triggerGeneration = async (reportId: string): Promise<boolean> => {
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-report', {
+        body: { reportId },
+      });
 
-    if (updateError) {
-      console.error('Error updating report status:', updateError);
-      return null;
+      if (error) {
+        console.error('Generation error:', error);
+        return false;
+      }
+
+      // Update local state to processing
+      setReports(prev => 
+        prev.map(r => r.id === reportId ? { ...r, status: 'processing' as const } : r)
+      );
+
+      return data?.success || false;
+    } catch (error) {
+      console.error('Error triggering generation:', error);
+      return false;
     }
-
-    // Update local state
-    setReports(prev => 
-      prev.map(r => r.id === reportId ? { ...r, status: 'processing' as const } : r)
-    );
-
-    // Simulate processing delay (will be replaced by actual AI generation)
-    const delay = 5000 + Math.random() * 5000;
-    await new Promise(resolve => setTimeout(resolve, delay));
-
-    // Get the report to generate output
-    const report = reports.find(r => r.id === reportId);
-    if (!report) return null;
-
-    // Generate mock output (will be replaced by AI)
-    const inputData = report.input_data as ReportInput;
-    const output: ReportOutput = {
-      ...mockReportOutput,
-      title: `Benchmark Report: ${inputData.businessName || 'Unknown'}`,
-    };
-
-    // Update with output
-    const { data, error } = await supabase
-      .from('reports')
-      .update({ 
-        status: 'ready' as const, 
-        output_data: JSON.parse(JSON.stringify(output)),
-        completed_at: new Date().toISOString(),
-      })
-      .eq('id', reportId)
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Error updating report:', error);
-      return null;
-    }
-
-    const updatedReport = data as unknown as Report;
-    setReports(prev => 
-      prev.map(r => r.id === reportId ? updatedReport : r)
-    );
-
-    return updatedReport;
   };
 
   const getReport = (reportId: string): Report | undefined => {
@@ -189,7 +154,7 @@ export const useReports = () => {
     isLoading,
     createReport,
     createCheckoutSession,
-    processReport,
+    triggerGeneration,
     getReport,
     refetchReport,
     refetch: fetchReports,
