@@ -14,7 +14,89 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      profiles: {
+        Row: {
+          company: string | null
+          created_at: string | null
+          email: string | null
+          full_name: string | null
+          id: string
+          updated_at: string | null
+        }
+        Insert: {
+          company?: string | null
+          created_at?: string | null
+          email?: string | null
+          full_name?: string | null
+          id: string
+          updated_at?: string | null
+        }
+        Update: {
+          company?: string | null
+          created_at?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      reports: {
+        Row: {
+          amount_paid: number | null
+          completed_at: string | null
+          created_at: string | null
+          id: string
+          input_data: Json
+          output_data: Json | null
+          pdf_url: string | null
+          plan: string | null
+          status: string | null
+          stripe_payment_id: string | null
+          stripe_session_id: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          amount_paid?: number | null
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          input_data: Json
+          output_data?: Json | null
+          pdf_url?: string | null
+          plan?: string | null
+          status?: string | null
+          stripe_payment_id?: string | null
+          stripe_session_id?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          amount_paid?: number | null
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          input_data?: Json
+          output_data?: Json | null
+          pdf_url?: string | null
+          plan?: string | null
+          status?: string | null
+          stripe_payment_id?: string | null
+          stripe_session_id?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reports_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

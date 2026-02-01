@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Navbar } from '@/components/landing/Navbar';
 import { Footer } from '@/components/landing/Footer';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { useReports } from '@/hooks/useReports';
-import { Report } from '@/types/report';
+import { useReports, Report } from '@/hooks/useReports';
+import { useAuthContext } from '@/contexts/AuthContext';
+import { ReportOutput, ReportInput } from '@/types/report';
+import { toast } from 'sonner';
 import { 
   Download, 
   RefreshCw, 
@@ -20,44 +22,86 @@ import {
 
 const ReportDetail = () => {
   const { id } = useParams<{ id: string }>();
-  const { getReport, processReport } = useReports();
-  const [report, setReport] = useState<Report | undefined>();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const { user, loading: authLoading } = useAuthContext();
+  const { getReport, processReport, refetchReport } = useReports();
+  const [report, setReport] = useState<Report | null>(null);
   const [processingProgress, setProcessingProgress] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
 
+  // Redirect if not authenticated
   useEffect(() => {
-    if (id) {
-      const r = getReport(id);
-      setReport(r);
-      
-      // If processing, simulate progress
-      if (r?.status === 'processing') {
-        const interval = setInterval(() => {
-          setProcessingProgress(prev => {
-            if (prev >= 95) {
-              clearInterval(interval);
-              return prev;
-            }
-            return prev + Math.random() * 15;
-          });
-        }, 500);
+    if (!authLoading && !user) {
+      navigate('/auth');
+    }
+  }, [user, authLoading, navigate]);
 
-        // Check for completion
-        const checkInterval = setInterval(() => {
-          const updated = getReport(id);
-          if (updated?.status === 'ready') {
-            setReport(updated);
-            setProcessingProgress(100);
-            clearInterval(checkInterval);
-          }
-        }, 1000);
-
-        return () => {
-          clearInterval(interval);
-          clearInterval(checkInterval);
-        };
+  // Handle payment success
+  useEffect(() => {
+    if (searchParams.get('payment') === 'success') {
+      toast.success('Paiement réussi ! Génération en cours...');
+      // Trigger processing after payment
+      if (id) {
+        processReport(id);
       }
     }
-  }, [id, getReport]);
+  }, [searchParams, id, processReport]);
+
+  useEffect(() => {
+    const loadReport = async () => {
+      if (id) {
+        setIsLoading(true);
+        let r = getReport(id);
+        
+        // If not in local state, fetch from DB
+        if (!r) {
+          r = await refetchReport(id);
+        }
+        
+        setReport(r || null);
+        setIsLoading(false);
+        
+        // If processing, simulate progress
+        if (r?.status === 'processing') {
+          const interval = setInterval(() => {
+            setProcessingProgress(prev => {
+              if (prev >= 95) {
+                clearInterval(interval);
+                return prev;
+              }
+              return prev + Math.random() * 15;
+            });
+          }, 500);
+
+          // Check for completion
+          const checkInterval = setInterval(async () => {
+            const updated = await refetchReport(id);
+            if (updated?.status === 'ready') {
+              setReport(updated);
+              setProcessingProgress(100);
+              clearInterval(checkInterval);
+            }
+          }, 2000);
+
+          return () => {
+            clearInterval(interval);
+            clearInterval(checkInterval);
+          };
+        }
+      }
+    };
+
+    loadReport();
+  }, [id, getReport, refetchReport]);
+
+  if (authLoading || isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   if (!report) {
     return (
@@ -66,11 +110,11 @@ const ReportDetail = () => {
         <main className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <h2 className="text-xl font-semibold text-foreground mb-2">Report not found</h2>
+            <h2 className="text-xl font-semibold text-foreground mb-2">Rapport introuvable</h2>
             <Link to="/app/reports">
               <Button variant="ghost">
                 <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to reports
+                Retour aux rapports
               </Button>
             </Link>
           </div>
@@ -80,8 +124,12 @@ const ReportDetail = () => {
     );
   }
 
+  const inputData = report.input_data as ReportInput;
+  const outputData = report.output_data as ReportOutput | null;
+
   const renderStatus = () => {
     switch (report.status) {
+      case 'paid':
       case 'processing':
         return (
           <Card className="mb-8">
@@ -90,14 +138,14 @@ const ReportDetail = () => {
                 <Clock className="w-8 h-8 text-primary animate-pulse" />
               </div>
               <h2 className="text-xl font-semibold text-foreground mb-2">
-                Generating your report...
+                Génération de votre rapport...
               </h2>
               <p className="text-muted-foreground mb-6">
-                Our AI is analyzing your inputs and competitors
+                Notre IA analyse vos données et vos concurrents
               </p>
               <Progress value={processingProgress} className="max-w-md mx-auto mb-2" />
               <p className="text-sm text-muted-foreground">
-                This usually takes 5-10 seconds
+                Cela prend généralement 5-10 secondes
               </p>
             </CardContent>
           </Card>
@@ -111,14 +159,14 @@ const ReportDetail = () => {
                 <CheckCircle className="w-8 h-8 text-primary" />
               </div>
               <h2 className="text-xl font-semibold text-foreground mb-2">
-                Your report is ready!
+                Votre rapport est prêt !
               </h2>
               <p className="text-muted-foreground mb-6">
-                Download your premium PDF report below
+                Téléchargez votre rapport PDF premium ci-dessous
               </p>
               <Button size="lg" className="px-8">
                 <Download className="w-4 h-4 mr-2" />
-                Download PDF
+                Télécharger le PDF
               </Button>
             </CardContent>
           </Card>
@@ -132,10 +180,10 @@ const ReportDetail = () => {
                 <AlertCircle className="w-8 h-8 text-destructive" />
               </div>
               <h2 className="text-xl font-semibold text-foreground mb-2">
-                Generation failed
+                Échec de la génération
               </h2>
               <p className="text-muted-foreground mb-6">
-                Something went wrong. Please try again.
+                Une erreur s'est produite. Veuillez réessayer.
               </p>
               <Button 
                 size="lg" 
@@ -143,8 +191,30 @@ const ReportDetail = () => {
                 onClick={() => processReport(report.id)}
               >
                 <RefreshCw className="w-4 h-4 mr-2" />
-                Retry
+                Réessayer
               </Button>
+            </CardContent>
+          </Card>
+        );
+
+      case 'draft':
+        return (
+          <Card className="mb-8">
+            <CardContent className="p-8 text-center">
+              <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+                <FileText className="w-8 h-8 text-muted-foreground" />
+              </div>
+              <h2 className="text-xl font-semibold text-foreground mb-2">
+                Rapport en attente de paiement
+              </h2>
+              <p className="text-muted-foreground mb-6">
+                Ce rapport n'a pas encore été payé.
+              </p>
+              <Link to="/app/new">
+                <Button size="lg">
+                  Finaliser le paiement
+                </Button>
+              </Link>
             </CardContent>
           </Card>
         );
@@ -163,21 +233,21 @@ const ReportDetail = () => {
           {/* Back link */}
           <Link to="/app/reports" className="inline-flex items-center text-muted-foreground hover:text-foreground mb-6">
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to reports
+            Retour aux rapports
           </Link>
 
           {/* Header */}
           <div className="flex items-start justify-between mb-6">
             <div>
               <h1 className="text-2xl font-bold text-foreground mb-1">
-                {report.inputPayload.businessName}
+                {inputData?.businessName || 'Rapport'}
               </h1>
               <p className="text-muted-foreground">
-                {report.inputPayload.sector} • {report.inputPayload.location.city}, {report.inputPayload.location.country}
+                {inputData?.sector} • {inputData?.location?.city}, {inputData?.location?.country}
               </p>
             </div>
             <Badge variant={report.status === 'ready' ? 'default' : 'secondary'}>
-              {report.status}
+              {report.plan}
             </Badge>
           </div>
 
@@ -185,15 +255,15 @@ const ReportDetail = () => {
           {renderStatus()}
 
           {/* Report Preview (when ready) */}
-          {report.status === 'ready' && report.output && (
+          {report.status === 'ready' && outputData && (
             <div className="space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Executive Summary</CardTitle>
+                  <CardTitle>Résumé exécutif</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <ul className="space-y-2">
-                    {report.output.executiveSummary.map((point, i) => (
+                    {outputData.executiveSummary.map((point, i) => (
                       <li key={i} className="flex items-start gap-2 text-sm">
                         <CheckCircle className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
                         <span className="text-foreground">{point}</span>
@@ -205,32 +275,32 @@ const ReportDetail = () => {
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Market Overview</CardTitle>
+                  <CardTitle>Vue d'ensemble du marché</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p className="text-foreground text-sm leading-relaxed">
-                    {report.output.marketOverview}
+                    {outputData.marketOverview}
                   </p>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Competitor Analysis</CardTitle>
+                  <CardTitle>Analyse concurrentielle</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-border">
-                          <th className="text-left py-2 pr-4 font-medium text-foreground">Competitor</th>
-                          <th className="text-left py-2 pr-4 font-medium text-foreground">Strengths</th>
-                          <th className="text-left py-2 pr-4 font-medium text-foreground">Weaknesses</th>
-                          <th className="text-left py-2 font-medium text-foreground">Price</th>
+                          <th className="text-left py-2 pr-4 font-medium text-foreground">Concurrent</th>
+                          <th className="text-left py-2 pr-4 font-medium text-foreground">Forces</th>
+                          <th className="text-left py-2 pr-4 font-medium text-foreground">Faiblesses</th>
+                          <th className="text-left py-2 font-medium text-foreground">Prix</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {report.output.competitorTable.map((comp, i) => (
+                        {outputData.competitorTable.map((comp, i) => (
                           <tr key={i} className="border-b border-border/50">
                             <td className="py-3 pr-4 font-medium text-foreground">{comp.name}</td>
                             <td className="py-3 pr-4 text-muted-foreground">
@@ -250,14 +320,14 @@ const ReportDetail = () => {
 
               <Card>
                 <CardHeader>
-                  <CardTitle>30/60/90 Day Action Plan</CardTitle>
+                  <CardTitle>Plan d'action 30/60/90 jours</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="grid md:grid-cols-3 gap-6">
-                    {report.output.actionPlan30_60_90.map((plan) => (
+                    {outputData.actionPlan30_60_90.map((plan) => (
                       <div key={plan.timeframe}>
                         <h4 className="font-semibold text-primary mb-3">
-                          {plan.timeframe} Days
+                          {plan.timeframe} jours
                         </h4>
                         <ul className="space-y-2">
                           {plan.tasks.map((task, i) => (
@@ -275,11 +345,11 @@ const ReportDetail = () => {
 
               <div className="text-center py-6">
                 <p className="text-muted-foreground text-sm mb-4">
-                  This is a preview. Download the full PDF for all sections.
+                  Ceci est un aperçu. Téléchargez le PDF complet pour toutes les sections.
                 </p>
                 <Button size="lg">
                   <Download className="w-4 h-4 mr-2" />
-                  Download Full PDF
+                  Télécharger le PDF complet
                 </Button>
               </div>
             </div>
