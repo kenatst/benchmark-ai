@@ -1,248 +1,285 @@
+# BenchAI - Guide de Déploiement Complet
 
+## 🎯 Vue d'ensemble du projet
 
-# AI Benchmark Generator - Full Build Plan
+**BenchAI** est un générateur de benchmarks de positionnement qui permet aux entrepreneurs d'obtenir un diagnostic stratégique et un plan d'action en 10 minutes.
 
-## Overview
-A premium web application that generates AI-powered benchmark reports for businesses. Users complete a guided questionnaire, pay $4.99, and receive a beautifully formatted PDF report with competitor analysis, pricing strategies, and actionable 30/60/90 day plans.
+### État actuel ✅
+- **Frontend**: React + Vite + TypeScript + Tailwind CSS + shadcn/ui ✅
+- **Design**: Premium "god-tier" avec animations et couleurs pastels ✅
+- **Pages**: Landing, Pricing, About, Example, Settings, Auth, Dashboard, Wizard, Reports ✅
+- **État local**: localStorage pour mock data ✅
+- **Paiement**: Mock (simulé) - prêt pour Stripe
+- **Génération**: Mock (délai 5-10s) - prêt pour Claude API
 
----
-
-## Design System
-
-**Color Palette:** Soft grays + teal accents
-- Background: Light warm gray (#F9FAFB)
-- Cards: Pure white with subtle shadows
-- Primary accent: Teal (#0D9488)
-- Text: Charcoal gray (#1F2937)
-- Muted text: Cool gray (#6B7280)
-
-**Typography:** Clean, single font family (Inter) with 3 sizes
-- Hero: 48px bold
-- Section: 32px semibold  
-- Body: 16px regular
-
-**Style:** Premium, calm aesthetic with generous whitespace, soft shadows, subtle borders
+### Tarification
+| Plan | Prix | Contenu |
+|------|------|---------|
+| Standard | 4,99€ | 2000-3000 mots, 3-5 concurrents, PDF standard |
+| Pro | 14,99€ | 4000-6000 mots, 5-10 concurrents, recherche web, PDF premium |
+| Agence | 29€ | 8000-12000 mots, 10-15 concurrents, multi-marchés, PDF+Excel+Slides |
 
 ---
 
-## Pages & Features
+## 📋 Checklist de Déploiement Step-by-Step
 
-### 1. Landing Page (/)
-A high-converting page following the exact structure you specified:
+### Phase 1: Backend & Base de données
 
-**Navigation**
-- Sticky navbar with: Product, Use Cases, Pricing, About
-- Primary CTA button: "Generate my benchmark"
-
-**Hero Section**
-- Centered headline: "Get a premium benchmark report for your business in 10 minutes"
-- 3 value bullets with icons
-- Product screenshot mockup showing report preview
-- Primary CTA + "See an example report" link
-
-**Social Proof Section**
-- 3 realistic testimonials with avatars
-- Logo row (placeholder brands)
-- Trust badges: "Instant delivery", "Secure payments", "Designed for decision-making"
-
-**Problem → Solution Section**
-- Left: 3 pain points with red indicators
-- Right: 3 solutions with green indicators
-- Clean illustration between
-
-**Feature Cards (6 cards)**
-- Smart questionnaire → No blank page
-- Competitor comparison → Know where you win
-- Local market angle → Regional relevance
-- Pricing strategy → Package with confidence
-- Positioning matrix → Clear differentiation
-- Action plan → Execute step-by-step
-
-**Visual Product Demo**
-- Report preview with 3 toggleable tabs: Overview, Competitors, Action Plan
-- Polished mock UI with blurred sample pages
-
-**Secondary Proof**
-- 2 additional testimonials
-- Stats: "Average completion: 8-12 minutes"
-- Guarantees: "Premium PDF format", "24-hour refund policy"
-
-**Final CTA Section**
-- "Ready to benchmark your market?"
-- Large teal CTA button
-- Price displayed: $4.99
-
-**Footer**
-- Links to legal pages, about, contact
-
----
-
-### 2. Authentication (/auth)
-- Clean login/signup page matching site design
-- Toggle between Sign In and Sign Up
-- Both options: Magic link OR email/password
-- Password reset flow
-- Automatic redirect after auth
-
----
-
-### 3. Dashboard (/app)
-- Overview of user's reports
-- Quick stats: Reports generated, Last report date
-- "Generate New Benchmark" prominent button
-- Recent reports list with status indicators
-
----
-
-### 4. Questionnaire Wizard (/app/new)
-Multi-step form with progress bar, autosave, premium UX:
-
-**Step 1 - Basics**
-- Business name, website (optional)
-- Sector with suggested chips
-- Location (city, country picker)
-- Target customers (B2B/B2C toggle + persona)
-
-**Step 2 - Offer & Pricing**
-- What you sell (textarea)
-- Price range (min/max sliders)
-- Differentiators (chips + custom)
-- Acquisition channels (checkboxes)
-
-**Step 3 - Benchmark Goals**
-- Multi-select cards: Competitor map, Pricing strategy, Positioning, Go-to-market plan, Risks, Growth opportunities
-
-**Step 4 - Competitors**
-- Add 3-10 competitors (name + URL)
-- Gentle nudge if less than 3
-- Allow skip for MVP
-
-**Step 5 - Constraints & Context**
-- Budget level (toggle: Low/Medium/High)
-- Timeline picker (Now/30/90 days)
-- Notes textarea
-- Tone preference (Professional/Bold/Minimalist)
-
-**Step 6 - Review & Pay**
-- Clean summary of all inputs
-- Checklist of what report includes
-- Price: $4.99
-- "Pay & generate my benchmark" button
-- Mock payment flow (simulates Stripe)
-
----
-
-### 5. Reports List (/app/reports)
-- Card grid of all user reports
-- Status badges: Processing, Ready, Failed
-- Date and sector displayed
-- Click to view details
-
----
-
-### 6. Report Detail (/app/reports/:id)
-- Status indicator with progress animation
-- **Processing state:** Animated loading (5-10 seconds)
-- **Ready state:** 
-  - Download PDF button (prominent)
-  - Inline preview of key sections
-  - Summary highlights
-- **Failed state:** Error message + retry button
-- Regenerate option (disabled for MVP)
-
----
-
-### 7. Pricing Page (/pricing)
-- Clean single-plan presentation: $4.99 per report
-- Feature checklist included
-- "Coming soon" add-on teaser: "With sources & competitor scraping"
-- FAQ accordion
-- CTA to start questionnaire
-
----
-
-### 8. About Page (/about)
-- Company story/mission
-- Methodology accordion explaining:
-  - What inputs are used
-  - How AI structures the report
-  - What users should validate
-- Trust signals
-
----
-
-### 9. Example Report (/example)
-- Modal or dedicated page
-- Sample PDF pages displayed
-- Blurred sensitive sections
-- CTA to generate own report
-
----
-
-### 10. Legal Page (/legal)
-- Terms of Service
-- Privacy Policy
-- Disclaimer: "Decision support, not official market research"
-- Data handling explanation
-
----
-
-## Backend (Mock Data Phase)
-
-**Database Tables (Supabase)**
-- `profiles` - User profile data
-- `reports` - All benchmark reports with status, input payload, generated output
-
-**Mock Report Generation**
-- Simulated 5-10 second processing delay
-- Pre-built mock JSON output following your schema
-- Mock PDF preview displayed inline
-
-**Report Data Structure (Mock)**
+#### 1.1 Activer Lovable Cloud
 ```
-- title
-- executive_summary (bullets)
-- market_overview
-- target_segments
-- competitor_table (array)
-- positioning_matrix
-- pricing_recommendations
-- go_to_market
-- risks_and_checks
-- action_plan_30_60_90
-- assumptions_and_questions
-- sources (when URLs provided)
+□ Cliquer sur "Enable Cloud" dans Lovable
+□ Attendre la création du projet Supabase
+□ Vérifier l'accès au dashboard Cloud
 ```
 
-**Mock Payment**
-- Simulated checkout flow
-- Success triggers processing animation
-- No real Stripe integration yet
+#### 1.2 Créer les tables de base de données
+```sql
+-- Table profiles (utilisateurs)
+CREATE TABLE profiles (
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  email TEXT,
+  full_name TEXT,
+  company TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Table reports (rapports générés)
+CREATE TABLE reports (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  status TEXT DEFAULT 'draft' CHECK (status IN ('draft', 'processing', 'ready', 'failed')),
+  plan TEXT DEFAULT 'standard' CHECK (plan IN ('standard', 'pro', 'agency')),
+  input_data JSONB NOT NULL,
+  output_data JSONB,
+  stripe_payment_id TEXT,
+  amount_paid INTEGER,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  completed_at TIMESTAMPTZ
+);
+
+-- RLS Policies
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE reports ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view own profile" ON profiles
+  FOR SELECT USING (auth.uid() = id);
+
+CREATE POLICY "Users can update own profile" ON profiles
+  FOR UPDATE USING (auth.uid() = id);
+
+CREATE POLICY "Users can view own reports" ON reports
+  FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own reports" ON reports
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+```
+
+#### 1.3 Configurer l'authentification
+```
+□ Aller dans Cloud > Authentication
+□ Activer Email/Password
+□ (Optionnel) Désactiver "Confirm email" pour les tests
+□ Configurer les URLs de redirection
+```
 
 ---
 
-## Mobile Optimization
-- Stack elements below 768px
-- Full-width CTAs below 480px
-- Shortened copy on mobile
-- CTAs surface earlier in scroll
-- Touch-friendly form elements
-- Swipeable tabs for report preview
+### Phase 2: Intégration Stripe
+
+#### 2.1 Créer un compte Stripe
+```
+□ Créer un compte sur stripe.com
+□ Activer le mode Test
+□ Récupérer les clés API (Dashboard > Developers > API keys)
+```
+
+#### 2.2 Créer les produits Stripe
+```
+□ Créer produit "BenchAI Standard" - 4.99€ (one-time)
+   → price_id: price_xxx_standard
+□ Créer produit "BenchAI Pro" - 14.99€ (one-time)  
+   → price_id: price_xxx_pro
+□ Créer produit "BenchAI Agence" - 29€ (one-time)
+   → price_id: price_xxx_agency
+```
+
+#### 2.3 Ajouter les secrets dans Lovable
+```
+□ STRIPE_SECRET_KEY (sk_test_xxx ou sk_live_xxx)
+□ STRIPE_WEBHOOK_SECRET (whsec_xxx)
+□ STRIPE_PRICE_STANDARD (price_xxx)
+□ STRIPE_PRICE_PRO (price_xxx)
+□ STRIPE_PRICE_AGENCY (price_xxx)
+```
+
+#### 2.4 Edge Functions à créer
+```
+□ supabase/functions/create-checkout/index.ts
+   - Crée une session Stripe Checkout
+   - Retourne l'URL de paiement
+
+□ supabase/functions/stripe-webhook/index.ts
+   - Reçoit les événements Stripe
+   - checkout.session.completed → déclenche génération
+```
 
 ---
 
-## Future Phase (After Mock)
-- Stripe integration for real payments
-- Claude API integration for AI generation
-- HTML → PDF conversion
-- Email delivery with Resend
-- Regenerate functionality
+### Phase 3: Génération de rapports (Claude API)
+
+#### 3.1 Obtenir une clé API Anthropic
+```
+□ Créer un compte sur console.anthropic.com
+□ Générer une clé API
+□ Ajouter ANTHROPIC_API_KEY dans les secrets Lovable
+```
+
+#### 3.2 Edge Function de génération
+```
+□ supabase/functions/generate-report/index.ts
+   - Reçoit les données du questionnaire
+   - Appelle Claude API avec prompt structuré
+   - Sauvegarde le JSON dans reports.output_data
+   - Met à jour status → "ready"
+```
+
+#### 3.3 Modèle recommandé
+```
+Standard: claude-3-haiku (rapide, économique)
+Pro/Agence: claude-3-5-sonnet (plus détaillé)
+```
 
 ---
 
-## Trust & Safety Microcopy
-Throughout the app:
-- "We don't invent sources. If you provide competitor URLs, we cite them."
-- "This is decision-support, not legal/financial advice."
-- "If anything looks off, you can regenerate once."
+### Phase 4: Génération PDF
 
+#### Option A: HTML → PDF avec Puppeteer
+```
+□ supabase/functions/generate-pdf/index.ts
+   - Génère HTML depuis output_data
+   - Convertit en PDF avec Puppeteer
+   - Upload dans Supabase Storage
+```
+
+#### Option B: Service externe (PDFShift, DocRaptor)
+```
+□ Ajouter clé API du service
+□ Appeler l'API avec le HTML
+```
+
+---
+
+### Phase 5: Stockage des fichiers
+
+```
+□ Créer bucket "reports" dans Supabase Storage
+□ Configurer comme privé
+□ Ajouter policy: users peuvent télécharger leurs propres fichiers
+```
+
+---
+
+### Phase 6: Emails transactionnels
+
+#### Configurer Resend
+```
+□ Créer compte Resend
+□ Vérifier domaine (benchai.app)
+□ Ajouter RESEND_API_KEY
+```
+
+#### Emails à configurer
+```
+□ Confirmation de paiement
+□ Rapport prêt (avec lien temporaire)
+□ (Optionnel) Onboarding, rappels
+```
+
+---
+
+### Phase 7: Déploiement Production
+
+#### 7.1 Stripe Production
+```
+□ Activer mode Live
+□ Compléter vérification compte
+□ Mettre à jour clés (sk_live_xxx)
+□ Recréer webhooks avec URL production
+```
+
+#### 7.2 Publier
+```
+□ Cliquer "Publish" dans Lovable
+□ Configurer domaine personnalisé
+□ Vérifier certificat SSL
+```
+
+#### 7.3 Tests finaux
+```
+□ Flow complet de paiement
+□ Génération de rapport
+□ Téléchargement PDF
+□ Emails reçus
+```
+
+---
+
+## 🔧 Secrets à configurer
+
+| Secret | Description | Source |
+|--------|-------------|--------|
+| `STRIPE_SECRET_KEY` | Clé secrète Stripe | stripe.com/dashboard |
+| `STRIPE_WEBHOOK_SECRET` | Secret webhook | stripe.com/webhooks |
+| `ANTHROPIC_API_KEY` | Clé Claude API | console.anthropic.com |
+| `RESEND_API_KEY` | Clé emails | resend.com |
+
+---
+
+## 💰 Coûts estimés
+
+| Service | Coût |
+|---------|------|
+| Lovable Cloud | Inclus |
+| Stripe | 1.4% + 0.25€/transaction |
+| Claude API | ~0.01€/rapport (haiku), ~0.05€ (sonnet) |
+| Resend | Gratuit < 3000 emails/mois |
+| **Total fixe mensuel** | **~0€** |
+
+---
+
+## 🎯 Ordre de priorité
+
+1. ⚡ **Activer Cloud** - Bloque tout le reste
+2. 💳 **Intégrer Stripe** - Revenus
+3. 🤖 **Connecter Claude** - Vrais rapports
+4. 📄 **Génération PDF** - Livrable final
+5. 📧 **Emails** - Expérience complète
+
+---
+
+## 📱 Fonctionnalités actuelles
+
+### Pages publiques
+- `/` - Landing page premium
+- `/pricing` - Plans et FAQ
+- `/about` - Mission et méthodologie
+- `/example` - Aperçu d'un rapport type
+- `/legal` - CGV et mentions légales
+
+### Pages app (authentifié)
+- `/auth` - Connexion/Inscription
+- `/app` - Dashboard utilisateur
+- `/app/new` - Wizard de création (6 étapes)
+- `/app/reports` - Liste des rapports
+- `/app/reports/:id` - Détail d'un rapport
+- `/settings` - Paramètres utilisateur
+
+### Wizard (6 étapes)
+1. **Business** - Nom, secteur, localisation
+2. **Offre** - Description, pricing, différenciateurs
+3. **Objectifs** - Ce que l'utilisateur veut obtenir
+4. **Concurrents** - URLs optionnelles
+5. **Contexte** - Budget, timeline, ton
+6. **Finaliser** - Résumé et paiement

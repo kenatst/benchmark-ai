@@ -33,17 +33,17 @@ export const Navbar = () => {
           <div className="w-9 h-9 bg-foreground rounded-xl flex items-center justify-center shadow-md">
             <span className="text-background font-bold text-lg">B</span>
           </div>
-          <span className="font-bold text-foreground text-lg hidden sm:block">Benchmark</span>
+          <span className="font-bold text-foreground text-lg hidden sm:block">BenchAI</span>
         </Link>
 
         {/* Nav Links */}
-        <div className="hidden md:flex items-center gap-1">
+        <div className="hidden md:flex items-center">
           {navItems.map((item) => (
             item.href.startsWith('#') && isLandingPage ? (
               <a
                 key={item.label}
                 href={item.href}
-                className="px-4 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors tracking-wide"
+                className="px-3 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors tracking-wide whitespace-nowrap"
               >
                 {item.label}
               </a>
@@ -51,7 +51,7 @@ export const Navbar = () => {
               <Link
                 key={item.label}
                 to={item.href.startsWith('#') ? '/' + item.href : item.href}
-                className="px-4 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors tracking-wide"
+                className="px-3 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors tracking-wide whitespace-nowrap"
               >
                 {item.label}
               </Link>

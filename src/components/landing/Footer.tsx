@@ -9,7 +9,7 @@ export const Footer = () => {
     ],
     company: [
       { label: 'À propos', href: '/about' },
-      { label: 'Contact', href: 'mailto:contact@benchmark.ai' },
+      { label: 'Contact', href: 'mailto:contact@benchai.app' },
     ],
     legal: [
       { label: 'CGV', href: '/legal' },
@@ -28,7 +28,7 @@ export const Footer = () => {
               <div className="w-10 h-10 bg-foreground rounded-xl flex items-center justify-center shadow-md">
                 <span className="text-background font-bold text-xl">B</span>
               </div>
-              <span className="font-bold text-foreground text-xl">Benchmark</span>
+              <span className="font-bold text-foreground text-xl">BenchAI</span>
             </div>
             <p className="text-muted-foreground text-sm leading-relaxed">
               Votre outil de benchmark intelligent pour des décisions éclairées.
@@ -80,7 +80,7 @@ export const Footer = () => {
 
         <div className="flex flex-col md:flex-row justify-between items-center pt-8 border-t border-border gap-4">
           <p className="text-sm text-muted-foreground">
-            © 2025 Benchmark. Tous droits réservés.
+            © 2025 BenchAI. Tous droits réservés.
           </p>
           <div className="flex items-center gap-6 text-sm text-muted-foreground">
             <span>Fait avec ❤️ en France</span>
