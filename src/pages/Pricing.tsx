@@ -8,21 +8,27 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { Check, Sparkles, Zap, Crown, ArrowRight } from 'lucide-react';
+import { Check, X, Zap, Sparkles, Crown, ArrowRight } from 'lucide-react';
 
 const plans = [
   {
     name: "Standard",
     price: "4,99",
-    description: "Benchmark de positionnement essentiel",
+    description: "Diagnostic & plan d'action essentiel",
     icon: Zap,
+    color: 'card-sky',
     features: [
-      "Questionnaire guidé (10 min)",
-      "Analyse de positionnement",
-      "Recommandations pricing",
-      "Plan d'action 30/60/90",
-      "PDF premium exportable",
-      "Jusqu'à 5 concurrents (URLs fournis)"
+      { text: '2000-3000 mots', included: true },
+      { text: '3-5 concurrents (URLs fournis)', included: true },
+      { text: 'Sections stratégie basique', included: true },
+      { text: 'Messaging simple', included: true },
+      { text: 'Recommandations pricing', included: true },
+      { text: 'Plan d\'action 30/60/90 jours', included: true },
+      { text: 'Sources citées (si URLs fournis)', included: true },
+      { text: 'PDF standard', included: true },
+      { text: 'Recherche web automatique', included: false },
+      { text: 'Multi-localisations', included: false },
+      { text: 'Projections financières', included: false },
     ],
     cta: "Générer mon benchmark",
     popular: false
@@ -32,13 +38,19 @@ const plans = [
     price: "14,99",
     description: "Collecte web automatique incluse",
     icon: Sparkles,
+    color: 'card-lavender',
     features: [
-      "Tout du plan Standard",
-      "Collecte web automatique",
-      "10 concurrents analysés",
-      "Sources citées et vérifiées",
-      "Analyse de sentiment marché",
-      "Benchmark pricing détaillé"
+      { text: '4000-6000 mots', included: true },
+      { text: '5-10 concurrents (recherchés)', included: true },
+      { text: 'Sections stratégie intermédiaire', included: true },
+      { text: 'Positionnement + taglines', included: true },
+      { text: 'Analyse concurrentielle pricing', included: true },
+      { text: 'Plan d\'action avec preuves', included: true },
+      { text: '10-20 sources citées', included: true },
+      { text: 'PDF premium', included: true },
+      { text: 'Recherche web automatique', included: true },
+      { text: '1-2 marchés multi-localisations', included: true },
+      { text: 'Projections financières basiques', included: true },
     ],
     cta: "Choisir Pro",
     popular: true
@@ -46,15 +58,21 @@ const plans = [
   {
     name: "Agence",
     price: "29",
-    description: "Multi-localisations & branding",
+    description: "Multi-localisations & branding complet",
     icon: Crown,
+    color: 'card-mint',
     features: [
-      "Tout du plan Pro",
-      "Jusqu'à 3 localisations",
-      "Branding personnalisé",
-      "Export multi-formats",
-      "Comparatif inter-marchés",
-      "Support prioritaire"
+      { text: '8000-12000 mots', included: true },
+      { text: '10-15 concurrents (deep dive)', included: true },
+      { text: 'Agency-grade (PESTEL, Porter...)', included: true },
+      { text: 'Stratégie complète brand', included: true },
+      { text: 'Modèle économique complet', included: true },
+      { text: 'Roadmap 12 mois phasé', included: true },
+      { text: '30-50 sources catégorisées', included: true },
+      { text: 'PDF + Excel + Slides deck', included: true },
+      { text: 'Recherche multi-sources approfondie', included: true },
+      { text: 'Analyse comparative multi-marchés', included: true },
+      { text: 'Scénarios + unit economics', included: true },
     ],
     cta: "Choisir Agence",
     popular: false
@@ -64,19 +82,19 @@ const plans = [
 const faqs = [
   {
     question: 'Combien de temps faut-il pour générer un rapport ?',
-    answer: 'La plupart des rapports sont générés en moins de 2 minutes après avoir complété le questionnaire et le paiement. Les rapports complexes avec beaucoup de concurrents peuvent prendre jusqu\'à 5 minutes.'
+    answer: 'La plupart des rapports sont générés en moins de 2 minutes après avoir complété le questionnaire et le paiement. Les rapports Pro et Agence avec collecte web peuvent prendre jusqu\'à 5 minutes.'
   },
   {
     question: 'Quelles informations dois-je fournir ?',
-    answer: 'Vous répondrez à des questions sur votre entreprise, secteur, localisation, pricing, différenciateurs, et optionnellement vos concurrents. Plus vous fournissez de détails, plus le rapport sera précis.'
+    answer: 'Vous répondrez à des questions sur votre entreprise, secteur, localisation, pricing, différenciateurs, et optionnellement vos concurrents. Plus vous fournissez de détails, plus le rapport sera précis et actionnable.'
   },
   {
-    question: 'Puis-je obtenir un remboursement ?',
-    answer: 'Oui ! Si votre rapport ne répond pas à vos attentes, contactez-nous dans les 24 heures pour un remboursement complet. Sans justification.'
+    question: 'Quelle est la différence entre Standard et Pro ?',
+    answer: 'Le plan Standard analyse les concurrents que vous fournissez (URLs). Le plan Pro inclut une recherche web automatique pour découvrir vos concurrents, avec des sources citées et vérifiées dans votre rapport.'
   },
   {
     question: 'Quel est le format du rapport ?',
-    answer: 'Les rapports sont livrés en PDF premium que vous pouvez télécharger, imprimer, et partager avec votre équipe ou vos partenaires.'
+    answer: 'Standard : PDF. Pro : PDF premium haute qualité. Agence : PDF + fichier Excel avec données brutes + slides deck prêt pour présentation.'
   },
   {
     question: 'Puis-je ajouter des URLs de concurrents ?',
@@ -93,60 +111,72 @@ const Pricing = () => {
     <div className="min-h-screen bg-background flex flex-col">
       <Navbar />
       
-      <main className="flex-1 pt-24 md:pt-32 pb-16">
+      <main className="flex-1 pt-32 md:pt-40 pb-16">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           {/* Hero */}
-          <div className="text-center max-w-3xl mx-auto mb-16">
-            <p className="text-primary font-medium mb-3 opacity-0-initial animate-fade-up">Tarifs</p>
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground mb-6 opacity-0-initial animate-fade-up stagger-1">
+          <div className="text-center max-w-3xl mx-auto mb-20">
+            <div className="inline-flex items-center gap-3 text-sm text-muted-foreground mb-6">
+              <div className="w-8 h-0.5 bg-gold rounded-full" />
+              <span className="font-semibold tracking-wide">TARIFICATION</span>
+              <div className="w-8 h-0.5 bg-gold rounded-full" />
+            </div>
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-foreground mb-6 opacity-0-initial animate-fade-up">
               Un prix simple,{' '}
-              <span className="gradient-text">pas de surprise</span>
+              <span className="text-gradient-lavender italic">zéro surprise</span>
             </h1>
-            <p className="text-lg text-muted-foreground opacity-0-initial animate-fade-up stagger-2">
+            <p className="text-lg text-muted-foreground opacity-0-initial animate-fade-up stagger-1">
               Payez par rapport. Pas d'abonnement, pas d'engagement. Choisissez le niveau de détail dont vous avez besoin.
             </p>
           </div>
 
           {/* Pricing Cards */}
-          <div className="grid md:grid-cols-3 gap-6 lg:gap-8 max-w-6xl mx-auto mb-24">
+          <div className="grid lg:grid-cols-3 gap-6 lg:gap-8 max-w-6xl mx-auto mb-32">
             {plans.map((plan, index) => (
               <div 
                 key={plan.name}
-                className={`opacity-0-initial animate-fade-up relative bg-card rounded-3xl p-8 border-2 ${
+                className={`opacity-0-initial animate-fade-up relative rounded-[2rem] p-8 border ${plan.color} ${
                   plan.popular 
-                    ? 'border-primary shadow-lg shadow-primary/10' 
-                    : 'border-border hover:border-primary/30'
-                } transition-all duration-300 hover:-translate-y-1`}
-                style={{ animationDelay: `${(index + 3) * 0.1}s` }}
+                    ? 'ring-2 ring-lavender shadow-xl' 
+                    : ''
+                } transition-all duration-500 hover-lift`}
+                style={{ animationDelay: `${(index + 2) * 0.1}s` }}
               >
                 {plan.popular && (
-                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1.5 bg-primary rounded-full text-primary-foreground text-sm font-medium">
-                    Populaire
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 badge-lavender text-xs">
+                    POPULAIRE
                   </div>
                 )}
                 
-                <div className="flex items-center gap-3 mb-4">
-                  <div className={`w-12 h-12 rounded-2xl ${plan.popular ? 'bg-primary/20' : 'bg-accent'} flex items-center justify-center`}>
-                    <plan.icon className="w-6 h-6 text-primary" />
-                  </div>
+                <div className="flex items-start justify-between mb-6">
                   <div>
-                    <h3 className="font-semibold text-foreground text-lg">{plan.name}</h3>
+                    <h3 className="font-bold text-foreground text-xl">{plan.name}</h3>
                     <p className="text-sm text-muted-foreground">{plan.description}</p>
+                  </div>
+                  <div className="w-12 h-12 rounded-2xl bg-card flex items-center justify-center border border-border">
+                    <plan.icon className="w-6 h-6 text-foreground" />
                   </div>
                 </div>
                 
-                <div className="mb-6">
-                  <span className="text-4xl font-bold text-foreground">{plan.price} €</span>
+                <div className="mb-8">
+                  <span className="text-4xl font-black text-foreground">{plan.price} €</span>
                   <span className="text-muted-foreground ml-1">/ rapport</span>
                 </div>
                 
                 <ul className="space-y-3 mb-8">
                   {plan.features.map((feature, featureIndex) => (
                     <li key={featureIndex} className="flex items-start gap-3">
-                      <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <Check className="w-3 h-3 text-primary" />
-                      </div>
-                      <span className="text-muted-foreground text-sm">{feature}</span>
+                      {feature.included ? (
+                        <div className="w-5 h-5 rounded-full bg-mint/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <Check className="w-3 h-3 text-mint-foreground" />
+                        </div>
+                      ) : (
+                        <div className="w-5 h-5 rounded-full bg-muted/50 flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <X className="w-3 h-3 text-muted-foreground/50" />
+                        </div>
+                      )}
+                      <span className={`text-sm ${feature.included ? 'text-foreground' : 'text-muted-foreground/60'}`}>
+                        {feature.text}
+                      </span>
                     </li>
                   ))}
                 </ul>
@@ -167,17 +197,24 @@ const Pricing = () => {
 
           {/* FAQ */}
           <div className="max-w-3xl mx-auto">
-            <h2 className="text-3xl font-bold text-foreground text-center mb-12 opacity-0-initial animate-fade-up">
-              Questions fréquentes
-            </h2>
+            <div className="text-center mb-12">
+              <div className="inline-flex items-center gap-3 text-sm text-muted-foreground mb-6">
+                <div className="w-8 h-0.5 bg-sky rounded-full" />
+                <span className="font-semibold tracking-wide">FAQ</span>
+                <div className="w-8 h-0.5 bg-sky rounded-full" />
+              </div>
+              <h2 className="text-3xl md:text-4xl font-black text-foreground opacity-0-initial animate-fade-up">
+                Questions fréquentes
+              </h2>
+            </div>
             <Accordion type="single" collapsible className="w-full space-y-4">
               {faqs.map((faq, index) => (
                 <AccordionItem 
                   key={index} 
                   value={`item-${index}`}
-                  className="bg-card rounded-2xl border border-border px-6 data-[state=open]:border-primary/30"
+                  className="bg-card rounded-2xl border border-border px-6 data-[state=open]:border-lavender/50 transition-colors"
                 >
-                  <AccordionTrigger className="text-left text-foreground hover:no-underline py-5">
+                  <AccordionTrigger className="text-left text-foreground hover:no-underline py-5 font-semibold">
                     {faq.question}
                   </AccordionTrigger>
                   <AccordionContent className="text-muted-foreground pb-5">

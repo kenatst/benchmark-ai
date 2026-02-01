@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FileText, Users, Calendar, CheckCircle2 } from 'lucide-react';
+import { FileText, Users, Calendar, CheckCircle2, TrendingUp, Target } from 'lucide-react';
 
 const tabs = [
   { id: 'overview', label: 'APERÇU', icon: FileText },
@@ -55,7 +55,7 @@ export const ProductDemo = () => {
               </div>
               <div className="flex-1 flex justify-center">
                 <div className="px-6 py-2 rounded-xl bg-background text-xs text-muted-foreground font-medium border border-border">
-                  benchmark-techstartup-paris.pdf
+                  benchmark-startup-paris.pdf
                 </div>
               </div>
             </div>
@@ -66,8 +66,8 @@ export const ProductDemo = () => {
                 <div className="space-y-6 animate-fade-in">
                   <div className="flex items-start gap-6">
                     <div className="flex-1">
-                      <div className="h-8 w-64 bg-foreground/10 rounded-xl mb-3" />
-                      <div className="h-4 w-48 bg-foreground/5 rounded-lg" />
+                      <h3 className="text-xl font-bold text-foreground mb-2">Benchmark de Positionnement</h3>
+                      <p className="text-muted-foreground">MonEntreprise SAS • Tech B2B • Paris</p>
                     </div>
                     <div className="w-14 h-14 rounded-2xl bg-lavender/30 flex items-center justify-center">
                       <FileText className="w-6 h-6 text-lavender-foreground" />
@@ -75,12 +75,15 @@ export const ProductDemo = () => {
                   </div>
 
                   <div className="grid grid-cols-3 gap-4">
-                    {['Positionnement', 'Pricing', 'Go-to-market'].map((item, i) => (
+                    {[
+                      { label: 'Score positionnement', value: '4.8', icon: Target },
+                      { label: 'Pricing recommandé', value: '€249', icon: TrendingUp },
+                      { label: 'Quick wins', value: '12', icon: CheckCircle2 },
+                    ].map((item, i) => (
                       <div key={i} className="p-5 rounded-2xl bg-secondary/50 border border-border">
-                        <div className="text-2xl font-black text-foreground mb-1">
-                          {i === 0 ? '4.8' : i === 1 ? '€249' : '30j'}
-                        </div>
-                        <div className="text-xs text-muted-foreground font-medium">{item}</div>
+                        <item.icon className="w-5 h-5 text-muted-foreground mb-2" />
+                        <div className="text-2xl font-black text-foreground mb-1">{item.value}</div>
+                        <div className="text-xs text-muted-foreground font-medium">{item.label}</div>
                       </div>
                     ))}
                   </div>
@@ -90,29 +93,43 @@ export const ProductDemo = () => {
                       <CheckCircle2 className="w-5 h-5" />
                       Résumé exécutif
                     </div>
-                    <div className="space-y-2">
-                      <div className="h-3 w-full bg-foreground/5 rounded" />
-                      <div className="h-3 w-4/5 bg-foreground/5 rounded" />
-                      <div className="h-3 w-3/5 bg-foreground/5 rounded" />
-                    </div>
+                    <ul className="space-y-2 text-sm text-muted-foreground">
+                      <li className="flex items-start gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-mint mt-2" />
+                        Positionnement solide sur le segment mid-market B2B
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-mint mt-2" />
+                        Opportunité pricing de +25% vs concurrents directs
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-mint mt-2" />
+                        3 axes différenciants identifiés à exploiter
+                      </li>
+                    </ul>
                   </div>
                 </div>
               )}
 
               {activeTab === 'competitors' && (
                 <div className="space-y-4 animate-fade-in">
-                  {[1, 2, 3, 4].map((i) => (
+                  {[
+                    { name: 'Concurrent Alpha', type: 'Direct', match: '85%', pricing: '€199-499/mo' },
+                    { name: 'Concurrent Beta', type: 'Indirect', match: '72%', pricing: '€99-299/mo' },
+                    { name: 'Concurrent Gamma', type: 'Direct', match: '68%', pricing: '€149-399/mo' },
+                    { name: 'Concurrent Delta', type: 'Émergent', match: '54%', pricing: '€79-199/mo' },
+                  ].map((competitor, i) => (
                     <div key={i} className="flex items-center gap-4 p-5 rounded-2xl bg-secondary/30 border border-border">
                       <div className="w-12 h-12 rounded-xl bg-lavender/20 flex items-center justify-center font-bold text-lavender-foreground">
-                        C{i}
+                        {competitor.name.charAt(0)}
                       </div>
                       <div className="flex-1">
-                        <div className="h-4 w-32 bg-foreground/10 rounded mb-2" />
-                        <div className="h-3 w-48 bg-foreground/5 rounded" />
+                        <div className="font-semibold text-foreground mb-1">{competitor.name}</div>
+                        <div className="text-sm text-muted-foreground">{competitor.type} • {competitor.pricing}</div>
                       </div>
                       <div className="text-right">
-                        <div className="text-lg font-bold text-foreground">{85 - i * 5}%</div>
-                        <div className="text-xs text-muted-foreground">Match</div>
+                        <div className="text-lg font-bold text-foreground">{competitor.match}</div>
+                        <div className="text-xs text-muted-foreground">Similarité</div>
                       </div>
                     </div>
                   ))}
@@ -122,19 +139,19 @@ export const ProductDemo = () => {
               {activeTab === 'action' && (
                 <div className="space-y-6 animate-fade-in">
                   {[
-                    { period: '30 jours', color: 'coral', items: 3 },
-                    { period: '60 jours', color: 'sky', items: 4 },
-                    { period: '90 jours', color: 'mint', items: 3 },
+                    { period: '30 jours', color: 'card-coral', tasks: ['Ajuster messaging page d\'accueil', 'Lancer test pricing A/B', 'Créer 2 case studies clients'] },
+                    { period: '60 jours', color: 'card-sky', tasks: ['Campagne positionnement LinkedIn', 'Refonte page pricing', 'Outreach 50 prospects qualifiés', 'Webinar expertise sectorielle'] },
+                    { period: '90 jours', color: 'card-mint', tasks: ['Valider nouveau pricing', 'Expansion vertical adjacent', 'Mesurer et documenter résultats'] },
                   ].map((phase, index) => (
-                    <div key={index} className={`p-6 rounded-2xl card-${phase.color} border`}>
+                    <div key={index} className={`p-6 rounded-2xl ${phase.color} border`}>
                       <div className="font-bold text-foreground mb-4">{phase.period}</div>
                       <div className="space-y-2">
-                        {Array.from({ length: phase.items }).map((_, i) => (
+                        {phase.tasks.map((task, i) => (
                           <div key={i} className="flex items-center gap-3">
                             <div className="w-5 h-5 rounded-full bg-card border border-border flex items-center justify-center">
                               <div className="w-2 h-2 rounded-full bg-foreground/30" />
                             </div>
-                            <div className="h-3 flex-1 bg-foreground/5 rounded" />
+                            <span className="text-sm text-foreground">{task}</span>
                           </div>
                         ))}
                       </div>

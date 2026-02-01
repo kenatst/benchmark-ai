@@ -61,9 +61,9 @@ export const Navbar = () => {
 
         {/* Right section */}
         <div className="flex items-center gap-2 ml-2">
-          <button className="w-10 h-10 rounded-full border border-border flex items-center justify-center hover:bg-secondary transition-colors hidden sm:flex">
+          <Link to="/settings" className="w-10 h-10 rounded-full border border-border flex items-center justify-center hover:bg-secondary transition-colors hidden sm:flex">
             <Settings className="w-4 h-4 text-muted-foreground" />
-          </button>
+          </Link>
           
           <Link to="/app/new">
             <Button size="sm" className="bg-coral/90 hover:bg-coral text-coral-foreground border-0 gap-2">
