@@ -90,7 +90,7 @@ serve(async (req) => {
       ],
       mode: "payment",
       ui_mode: "embedded",
-      return_url: `${origin}/app/reports/${reportId}?payment=success&session_id={CHECKOUT_SESSION_ID}`,
+      return_url: `${origin}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
       metadata: {
         user_id: user.id,
         report_id: reportId,
