@@ -1,33 +1,65 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { ArrowRight, Sparkles, Check } from 'lucide-react';
+
+const benefits = [
+  "Livraison instantanée",
+  "PDF premium exportable",
+  "Plan d'action 30/60/90"
+];
 
 export const FinalCTA = () => {
   return (
-    <section className="py-16 md:py-24">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="max-w-3xl mx-auto text-center">
-          <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-            Ready to benchmark your market?
+    <section className="py-24 md:py-32 relative overflow-hidden">
+      {/* Premium gradient background */}
+      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-chart-1/5" />
+      
+      {/* Floating orbs */}
+      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl animate-float" />
+      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-chart-1/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '3s' }} />
+      
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+        <div className="max-w-4xl mx-auto text-center">
+          {/* Badge */}
+          <div className="opacity-0-initial animate-fade-up inline-flex items-center gap-2 px-4 py-2 rounded-full bg-accent border border-primary/20 mb-8">
+            <Sparkles className="w-4 h-4 text-primary" />
+            <span className="text-sm font-medium text-primary">Prêt en 10 minutes</span>
+          </div>
+          
+          <h2 className="opacity-0-initial animate-fade-up stagger-1 text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-foreground mb-6 leading-tight">
+            Prêt à benchmarker
+            <br />
+            <span className="gradient-text">votre marché ?</span>
           </h2>
-          <p className="text-muted-foreground mb-8 text-lg">
-            Join thousands of businesses making smarter decisions with data-driven insights.
-          </p>
           
-          <Link to="/app/new">
-            <Button size="lg" className="text-base px-10 py-6 h-auto">
-              Generate my benchmark
-            </Button>
-          </Link>
-          
-          <p className="mt-4 text-muted-foreground text-sm">
-            $4.99 — delivered instantly as a premium PDF
+          <p className="opacity-0-initial animate-fade-up stagger-2 text-lg text-muted-foreground mb-8 max-w-xl mx-auto">
+            Rejoignez des centaines d'entrepreneurs qui ont déjà clarifié leur positionnement.
           </p>
 
-          {/* Trust microcopy */}
-          <div className="mt-8 pt-8 border-t border-border max-w-lg mx-auto">
-            <p className="text-muted-foreground text-xs leading-relaxed">
-              We don't invent sources. If you provide competitor URLs, we cite them.
-              This is decision-support, not legal or financial advice.
+          {/* Benefits */}
+          <div className="opacity-0-initial animate-fade-up stagger-3 flex flex-wrap justify-center gap-4 mb-10">
+            {benefits.map((benefit, index) => (
+              <div 
+                key={index}
+                className="flex items-center gap-2 px-4 py-2 rounded-full bg-card border border-border"
+              >
+                <Check className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium text-foreground">{benefit}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* CTA */}
+          <div className="opacity-0-initial animate-fade-up stagger-4">
+            <Link to="/app/new">
+              <Button size="xl" className="group shadow-lg hover:shadow-xl">
+                Générer mon benchmark
+                <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
+              </Button>
+            </Link>
+            
+            <p className="mt-6 text-muted-foreground">
+              À partir de <span className="font-semibold text-foreground">4,99 €</span> — Livré instantanément
             </p>
           </div>
         </div>
