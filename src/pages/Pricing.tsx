@@ -2,52 +2,89 @@ import { Link } from 'react-router-dom';
 import { Navbar } from '@/components/landing/Navbar';
 import { Footer } from '@/components/landing/Footer';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { Check, Sparkles } from 'lucide-react';
+import { Check, Sparkles, Zap, Crown, ArrowRight } from 'lucide-react';
 
-const features = [
-  'Executive summary with key insights',
-  'Detailed competitor comparison table',
-  'Positioning matrix visualization',
-  'Pricing strategy recommendations',
-  'Go-to-market channel analysis',
-  'Risk assessment & compliance checks',
-  '30/60/90-day action plan',
-  'Premium PDF format',
-  'Instant delivery',
-  '24-hour refund policy'
+const plans = [
+  {
+    name: "Standard",
+    price: "4,99",
+    description: "Benchmark de positionnement essentiel",
+    icon: Zap,
+    features: [
+      "Questionnaire guidé (10 min)",
+      "Analyse de positionnement",
+      "Recommandations pricing",
+      "Plan d'action 30/60/90",
+      "PDF premium exportable",
+      "Jusqu'à 5 concurrents (URLs fournis)"
+    ],
+    cta: "Générer mon benchmark",
+    popular: false
+  },
+  {
+    name: "Pro",
+    price: "14,99",
+    description: "Collecte web automatique incluse",
+    icon: Sparkles,
+    features: [
+      "Tout du plan Standard",
+      "Collecte web automatique",
+      "10 concurrents analysés",
+      "Sources citées et vérifiées",
+      "Analyse de sentiment marché",
+      "Benchmark pricing détaillé"
+    ],
+    cta: "Choisir Pro",
+    popular: true
+  },
+  {
+    name: "Agence",
+    price: "29",
+    description: "Multi-localisations & branding",
+    icon: Crown,
+    features: [
+      "Tout du plan Pro",
+      "Jusqu'à 3 localisations",
+      "Branding personnalisé",
+      "Export multi-formats",
+      "Comparatif inter-marchés",
+      "Support prioritaire"
+    ],
+    cta: "Choisir Agence",
+    popular: false
+  }
 ];
 
 const faqs = [
   {
-    question: 'How long does it take to generate a report?',
-    answer: 'Most reports are generated within 10 seconds after completing the questionnaire and payment. Complex reports with many competitors may take up to 30 seconds.'
+    question: 'Combien de temps faut-il pour générer un rapport ?',
+    answer: 'La plupart des rapports sont générés en moins de 2 minutes après avoir complété le questionnaire et le paiement. Les rapports complexes avec beaucoup de concurrents peuvent prendre jusqu\'à 5 minutes.'
   },
   {
-    question: 'What inputs do I need to provide?',
-    answer: 'You\'ll answer questions about your business, sector, location, pricing, differentiators, and optionally your competitors. The more detail you provide, the more accurate the report.'
+    question: 'Quelles informations dois-je fournir ?',
+    answer: 'Vous répondrez à des questions sur votre entreprise, secteur, localisation, pricing, différenciateurs, et optionnellement vos concurrents. Plus vous fournissez de détails, plus le rapport sera précis.'
   },
   {
-    question: 'Can I get a refund?',
-    answer: 'Yes! If your report doesn\'t meet your expectations, contact us within 24 hours for a full refund. No questions asked.'
+    question: 'Puis-je obtenir un remboursement ?',
+    answer: 'Oui ! Si votre rapport ne répond pas à vos attentes, contactez-nous dans les 24 heures pour un remboursement complet. Sans justification.'
   },
   {
-    question: 'What format is the report?',
-    answer: 'Reports are delivered as premium PDF documents that you can download, print, and share with your team or stakeholders.'
+    question: 'Quel est le format du rapport ?',
+    answer: 'Les rapports sont livrés en PDF premium que vous pouvez télécharger, imprimer, et partager avec votre équipe ou vos partenaires.'
   },
   {
-    question: 'Can I add competitor URLs?',
-    answer: 'Yes! When you provide competitor URLs, we analyze them and cite them in your report. We never invent sources.'
+    question: 'Puis-je ajouter des URLs de concurrents ?',
+    answer: 'Oui ! Quand vous fournissez des URLs de concurrents, nous les analysons et les citons dans votre rapport. Nous n\'inventons jamais de sources.'
   },
   {
-    question: 'Is this legal/financial advice?',
-    answer: 'No. This is decision-support benchmarking. You should validate the recommendations and consult professionals for legal or financial decisions.'
+    question: 'Est-ce un conseil juridique ou financier ?',
+    answer: 'Non. C\'est un outil d\'aide à la décision. Vous devez valider les recommandations et consulter des professionnels pour les décisions juridiques ou financières.'
   }
 ];
 
@@ -56,78 +93,94 @@ const Pricing = () => {
     <div className="min-h-screen bg-background flex flex-col">
       <Navbar />
       
-      <main className="flex-1 py-16">
+      <main className="flex-1 pt-24 md:pt-32 pb-16">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           {/* Hero */}
-          <div className="text-center max-w-2xl mx-auto mb-12">
-            <h1 className="text-4xl font-bold text-foreground mb-4">
-              Simple, transparent pricing
+          <div className="text-center max-w-3xl mx-auto mb-16">
+            <p className="text-primary font-medium mb-3 opacity-0-initial animate-fade-up">Tarifs</p>
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground mb-6 opacity-0-initial animate-fade-up stagger-1">
+              Un prix simple,{' '}
+              <span className="gradient-text">pas de surprise</span>
             </h1>
-            <p className="text-muted-foreground text-lg">
-              One price. Everything included. No subscriptions.
+            <p className="text-lg text-muted-foreground opacity-0-initial animate-fade-up stagger-2">
+              Payez par rapport. Pas d'abonnement, pas d'engagement. Choisissez le niveau de détail dont vous avez besoin.
             </p>
           </div>
 
-          {/* Pricing Card */}
-          <Card className="max-w-lg mx-auto mb-16 border-primary">
-            <CardHeader className="text-center pb-4">
-              <CardTitle className="text-2xl">Benchmark Report</CardTitle>
-              <div className="mt-4">
-                <span className="text-5xl font-bold text-foreground">$4.99</span>
-                <span className="text-muted-foreground ml-2">per report</span>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-3">
-                {features.map((feature, index) => (
-                  <div key={index} className="flex items-center gap-3">
-                    <Check className="w-5 h-5 text-primary flex-shrink-0" />
-                    <span className="text-foreground text-sm">{feature}</span>
+          {/* Pricing Cards */}
+          <div className="grid md:grid-cols-3 gap-6 lg:gap-8 max-w-6xl mx-auto mb-24">
+            {plans.map((plan, index) => (
+              <div 
+                key={plan.name}
+                className={`opacity-0-initial animate-fade-up relative bg-card rounded-3xl p-8 border-2 ${
+                  plan.popular 
+                    ? 'border-primary shadow-lg shadow-primary/10' 
+                    : 'border-border hover:border-primary/30'
+                } transition-all duration-300 hover:-translate-y-1`}
+                style={{ animationDelay: `${(index + 3) * 0.1}s` }}
+              >
+                {plan.popular && (
+                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1.5 bg-primary rounded-full text-primary-foreground text-sm font-medium">
+                    Populaire
                   </div>
-                ))}
+                )}
+                
+                <div className="flex items-center gap-3 mb-4">
+                  <div className={`w-12 h-12 rounded-2xl ${plan.popular ? 'bg-primary/20' : 'bg-accent'} flex items-center justify-center`}>
+                    <plan.icon className="w-6 h-6 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-foreground text-lg">{plan.name}</h3>
+                    <p className="text-sm text-muted-foreground">{plan.description}</p>
+                  </div>
+                </div>
+                
+                <div className="mb-6">
+                  <span className="text-4xl font-bold text-foreground">{plan.price} €</span>
+                  <span className="text-muted-foreground ml-1">/ rapport</span>
+                </div>
+                
+                <ul className="space-y-3 mb-8">
+                  {plan.features.map((feature, featureIndex) => (
+                    <li key={featureIndex} className="flex items-start gap-3">
+                      <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <Check className="w-3 h-3 text-primary" />
+                      </div>
+                      <span className="text-muted-foreground text-sm">{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+                
+                <Link to="/app/new" className="block">
+                  <Button 
+                    className="w-full group" 
+                    variant={plan.popular ? "default" : "outline"}
+                    size="lg"
+                  >
+                    {plan.cta}
+                    <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                  </Button>
+                </Link>
               </div>
-
-              <Link to="/app/new" className="block">
-                <Button size="lg" className="w-full">
-                  Generate my benchmark
-                </Button>
-              </Link>
-
-              <p className="text-center text-xs text-muted-foreground">
-                Secure payment via Stripe
-              </p>
-            </CardContent>
-          </Card>
-
-          {/* Coming Soon */}
-          <Card className="max-w-lg mx-auto mb-16 bg-muted/20">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-3 mb-3">
-                <Sparkles className="w-5 h-5 text-primary" />
-                <span className="font-semibold text-foreground">Coming Soon</span>
-              </div>
-              <h3 className="font-medium text-foreground mb-2">
-                Enhanced Report with Sources
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                Deep competitor analysis with automated web scraping, live pricing data, 
-                and verified source citations. Stay tuned!
-              </p>
-            </CardContent>
-          </Card>
+            ))}
+          </div>
 
           {/* FAQ */}
-          <div className="max-w-2xl mx-auto">
-            <h2 className="text-2xl font-bold text-foreground text-center mb-8">
-              Frequently Asked Questions
+          <div className="max-w-3xl mx-auto">
+            <h2 className="text-3xl font-bold text-foreground text-center mb-12 opacity-0-initial animate-fade-up">
+              Questions fréquentes
             </h2>
-            <Accordion type="single" collapsible className="w-full">
+            <Accordion type="single" collapsible className="w-full space-y-4">
               {faqs.map((faq, index) => (
-                <AccordionItem key={index} value={`item-${index}`}>
-                  <AccordionTrigger className="text-left">
+                <AccordionItem 
+                  key={index} 
+                  value={`item-${index}`}
+                  className="bg-card rounded-2xl border border-border px-6 data-[state=open]:border-primary/30"
+                >
+                  <AccordionTrigger className="text-left text-foreground hover:no-underline py-5">
                     {faq.question}
                   </AccordionTrigger>
-                  <AccordionContent className="text-muted-foreground">
+                  <AccordionContent className="text-muted-foreground pb-5">
                     {faq.answer}
                   </AccordionContent>
                 </AccordionItem>
