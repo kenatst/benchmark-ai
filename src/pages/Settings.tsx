@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Navbar } from '@/components/landing/Navbar';
 import { Footer } from '@/components/landing/Footer';
 import { Button } from '@/components/ui/button';
@@ -6,17 +7,86 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
-import { User, Bell, Shield, CreditCard, Globe, Moon, Sun, Save, LogOut } from 'lucide-react';
+import { User, Bell, Shield, CreditCard, Save, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
+import { useAuthContext } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 
 const Settings = () => {
-  const [darkMode, setDarkMode] = useState(false);
+  const navigate = useNavigate();
+  const { user, loading: authLoading, signOut } = useAuthContext();
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [marketingEmails, setMarketingEmails] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [profile, setProfile] = useState({
+    full_name: '',
+    company: '',
+  });
 
-  const handleSave = () => {
-    toast.success('Paramètres sauvegardés avec succès');
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate('/auth');
+    }
+  }, [user, authLoading, navigate]);
+
+  // Load profile data
+  useEffect(() => {
+    const loadProfile = async () => {
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('full_name, company')
+        .eq('id', user.id)
+        .single();
+
+      if (!error && data) {
+        setProfile({
+          full_name: data.full_name || '',
+          company: data.company || '',
+        });
+      }
+    };
+
+    loadProfile();
+  }, [user]);
+
+  const handleSave = async () => {
+    if (!user) return;
+
+    setIsSaving(true);
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        full_name: profile.full_name,
+        company: profile.company,
+      })
+      .eq('id', user.id);
+
+    if (error) {
+      toast.error('Erreur lors de la sauvegarde');
+    } else {
+      toast.success('Paramètres sauvegardés avec succès');
+    }
+
+    setIsSaving(false);
   };
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/');
+    toast.success('Déconnexion réussie');
+  };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -45,25 +115,38 @@ const Settings = () => {
               </div>
 
               <div className="space-y-6">
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <Label htmlFor="firstName">Prénom</Label>
-                    <Input id="firstName" placeholder="Jean" className="rounded-xl" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="lastName">Nom</Label>
-                    <Input id="lastName" placeholder="Dupont" className="rounded-xl" />
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="fullName">Nom complet</Label>
+                  <Input 
+                    id="fullName" 
+                    value={profile.full_name}
+                    onChange={(e) => setProfile(prev => ({ ...prev, full_name: e.target.value }))}
+                    placeholder="Jean Dupont" 
+                    className="rounded-xl" 
+                  />
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" placeholder="jean@exemple.com" className="rounded-xl" />
+                  <Input 
+                    id="email" 
+                    type="email" 
+                    value={user?.email || ''}
+                    disabled
+                    className="rounded-xl bg-muted" 
+                  />
+                  <p className="text-xs text-muted-foreground">L'email ne peut pas être modifié</p>
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="company">Entreprise (optionnel)</Label>
-                  <Input id="company" placeholder="Ma Startup SAS" className="rounded-xl" />
+                  <Input 
+                    id="company" 
+                    value={profile.company}
+                    onChange={(e) => setProfile(prev => ({ ...prev, company: e.target.value }))}
+                    placeholder="Ma Startup SAS" 
+                    className="rounded-xl" 
+                  />
                 </div>
               </div>
             </div>
@@ -104,77 +187,61 @@ const Settings = () => {
               </div>
             </div>
 
-            {/* Appearance Section */}
-            <div className="rounded-[2rem] border border-border bg-card p-8">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 rounded-xl bg-coral/20 flex items-center justify-center">
-                  <Globe className="w-5 h-5 text-coral-foreground" />
-                </div>
-                <h2 className="text-xl font-bold text-foreground">Apparence</h2>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  {darkMode ? <Moon className="w-5 h-5 text-muted-foreground" /> : <Sun className="w-5 h-5 text-muted-foreground" />}
-                  <div>
-                    <div className="font-medium text-foreground">Mode sombre</div>
-                    <div className="text-sm text-muted-foreground">Basculer entre thème clair et sombre</div>
-                  </div>
-                </div>
-                <Switch 
-                  checked={darkMode} 
-                  onCheckedChange={setDarkMode}
-                />
-              </div>
-            </div>
-
-            {/* Billing Section */}
-            <div className="rounded-[2rem] border border-border bg-card p-8">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 rounded-xl bg-mint/20 flex items-center justify-center">
-                  <CreditCard className="w-5 h-5 text-mint-foreground" />
-                </div>
-                <h2 className="text-xl font-bold text-foreground">Facturation</h2>
-              </div>
-
-              <div className="space-y-4">
-                <div className="p-4 rounded-xl bg-secondary/50 border border-border">
-                  <div className="text-sm text-muted-foreground mb-1">Historique des achats</div>
-                  <div className="text-foreground font-medium">Aucun achat pour le moment</div>
-                </div>
-
-                <p className="text-sm text-muted-foreground">
-                  Les factures sont envoyées automatiquement par email après chaque achat.
-                </p>
-              </div>
-            </div>
-
             {/* Security Section */}
             <div className="rounded-[2rem] border border-border bg-card p-8">
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 rounded-xl bg-gold/20 flex items-center justify-center">
-                  <Shield className="w-5 h-5 text-gold" />
+                <div className="w-10 h-10 rounded-xl bg-mint/20 flex items-center justify-center">
+                  <Shield className="w-5 h-5 text-mint-foreground" />
                 </div>
                 <h2 className="text-xl font-bold text-foreground">Sécurité</h2>
               </div>
 
               <div className="space-y-4">
                 <Button variant="outline" className="w-full justify-start rounded-xl">
-                  Changer le mot de passe
-                </Button>
-                
-                <Button variant="outline" className="w-full justify-start rounded-xl text-coral-foreground border-coral/30 hover:bg-coral/10">
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Se déconnecter
+                  Changer mon mot de passe
                 </Button>
               </div>
             </div>
 
-            {/* Save Button */}
-            <div className="flex justify-end pt-4">
-              <Button onClick={handleSave} size="lg" className="gap-2">
+            {/* Billing Section */}
+            <div className="rounded-[2rem] border border-border bg-card p-8">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-xl bg-peach/20 flex items-center justify-center">
+                  <CreditCard className="w-5 h-5 text-peach-foreground" />
+                </div>
+                <h2 className="text-xl font-bold text-foreground">Facturation</h2>
+              </div>
+
+              <div className="text-center py-8">
+                <p className="text-muted-foreground mb-4">
+                  Paiement à l'acte - Pas d'abonnement
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Chaque benchmark est facturé individuellement.
+                  <br />
+                  Consultez vos rapports pour voir l'historique de vos achats.
+                </p>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex flex-col sm:flex-row gap-4">
+              <Button 
+                onClick={handleSave} 
+                disabled={isSaving}
+                className="flex-1 rounded-xl gap-2"
+              >
                 <Save className="w-4 h-4" />
-                Sauvegarder les modifications
+                {isSaving ? 'Sauvegarde...' : 'Sauvegarder les modifications'}
+              </Button>
+              
+              <Button 
+                variant="outline" 
+                onClick={handleSignOut}
+                className="rounded-xl gap-2 text-destructive border-destructive/30 hover:bg-destructive/10"
+              >
+                <LogOut className="w-4 h-4" />
+                Se déconnecter
               </Button>
             </div>
           </div>

@@ -164,7 +164,7 @@ const NewBenchmark = () => {
               <div className="w-8 h-8 bg-foreground rounded-lg flex items-center justify-center">
                 <span className="text-background font-bold text-sm">B</span>
               </div>
-              <span className="font-bold text-foreground hidden sm:block">BenchAI</span>
+              <span className="font-bold text-foreground hidden sm:block">BenchmarkAI</span>
             </div>
 
             <div className="text-sm text-muted-foreground">
