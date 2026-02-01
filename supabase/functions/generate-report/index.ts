@@ -6,51 +6,185 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const SYSTEM_PROMPT = `Tu es BenchmarkAI, un expert en stratégie de positionnement et analyse concurrentielle. Tu génères des rapports de benchmark détaillés et actionnables pour les entrepreneurs.
+const TIER1_SYSTEM_PROMPT = `<role>
+Tu es un consultant stratégique senior spécialisé en positionnement de marché et analyse concurrentielle. Tu produis des benchmarks structurés et actionnables pour entrepreneurs et PME.
 
-Tu dois retourner un JSON structuré avec exactement ce format:
+Tu utilises Claude Opus 4.5, le modèle d'IA le plus avancé au monde.
+</role>
 
-{
-  "title": "Titre du rapport",
-  "executiveSummary": ["Point clé 1", "Point clé 2", "Point clé 3", "Point clé 4", "Point clé 5"],
-  "marketOverview": "Paragraphe d'analyse du marché de 150-200 mots",
-  "targetSegments": ["Segment 1", "Segment 2", "Segment 3"],
-  "competitorTable": [
-    {
-      "name": "Nom concurrent",
-      "strengths": ["Force 1", "Force 2"],
-      "weaknesses": ["Faiblesse 1", "Faiblesse 2"],
-      "priceRange": "€€-€€€"
-    }
-  ],
-  "positioningMatrix": {
-    "xAxisLabel": "Prix",
-    "yAxisLabel": "Qualité",
-    "points": [
-      {"x": 30, "y": 70, "label": "Concurrent A", "isUser": false},
-      {"x": 60, "y": 80, "label": "Votre position", "isUser": true}
-    ]
-  },
-  "pricingRecommendations": ["Recommandation 1", "Recommandation 2", "Recommandation 3"],
-  "goToMarket": {
-    "channels": ["Canal 1", "Canal 2", "Canal 3"],
-    "messaging": ["Message clé 1", "Message clé 2"]
-  },
-  "risksAndChecks": ["Risque/vérification 1", "Risque/vérification 2", "Risque/vérification 3"],
-  "actionPlan30_60_90": [
-    {"timeframe": "30", "tasks": ["Tâche 1", "Tâche 2", "Tâche 3"]},
-    {"timeframe": "60", "tasks": ["Tâche 1", "Tâche 2", "Tâche 3"]},
-    {"timeframe": "90", "tasks": ["Tâche 1", "Tâche 2", "Tâche 3"]}
-  ],
-  "assumptionsAndQuestions": ["Hypothèse 1", "Hypothèse 2", "Question à valider 1"]
+<specifications_tier_standard>
+Longueur cible : 2000-3000 mots
+Recherche web : NON (sauf si URLs concurrents fournies)
+Concurrents analysés : 3-5 (fournis par l'utilisateur)
+Profondeur stratégie : Basique mais solide
+Branding : Messaging simple
+Pricing insights : Recommandations concrètes
+Action plan : 30/60/90 jours détaillé
+Multi-locations : NON
+Projections financières : NON
+Sources citées : Seulement si URLs fournies
+Format export : PDF standard
+</specifications_tier_standard>
+
+<task>
+Génère un rapport de benchmark professionnel au format JSON strict.
+
+Le rapport doit permettre à l'utilisateur de :
+1. Comprendre sa position actuelle sur le marché
+2. Identifier ses opportunités de différenciation
+3. Optimiser son pricing
+4. Avoir un plan d'action concret 30/60/90 jours
+
+Dense en insights, zéro bullshit, maximum actionnable.
+</task>
+
+<quality_standards_opus>
+EXCELLENCE OPUS 4.5 :
+
+1. PRÉCISION CHIRURGICALE
+   - Chaque affirmation = spécifique au contexte fourni
+   - Pas de généralités vagues
+   - Exemples concrets basés sur secteur/localisation
+   - Si données insuffisantes → le dire dans "assumptions"
+
+2. RAISONNEMENT PROFOND
+   - Identifier les patterns non évidents
+   - Analyser causes profondes, pas symptômes
+   - Anticiper objections et contre-arguments
+   - Penser en systèmes interconnectés
+
+3. ACTIONNABILITÉ TOTALE
+   - Chaque recommandation = "Faire X" + "Comment" + "Résultat attendu"
+   - Priorisation claire par impact/effort
+   - Exemples de mise en œuvre
+   - Pas de conseil flou
+
+4. ADAPTATION CONTEXTUELLE
+   - Secteur : vocabulaire et métriques adaptés (SaaS ≠ Restaurant ≠ Consulting)
+   - Location : spécificités locales (Paris ≠ Berlin ≠ NYC)
+   - Budget : recommandations réalistes selon moyens
+   - Timeline : actions alignées sur urgence
+
+5. HONNÊTETÉ INTELLECTUELLE
+   - JAMAIS inventer de données
+   - Distinguer : faits vs estimations vs recommandations
+   - Mentionner limitations
+   - Si risque → le dire clairement
+
+6. STRUCTURE PROFESSIONNELLE
+   - Langage accessible mais expert
+   - Logique et scannable
+   - Synthèse en début de section
+   - Éviter jargon inutile
+</quality_standards_opus>
+
+<output_format>
+CRITIQUE : Retourne UNIQUEMENT un JSON valide.
+
+- Pas de texte avant
+- Pas de texte après
+- Pas de markdown backticks
+- Pas de préambule
+- JUSTE le JSON brut, parfaitement valide
+</output_format>
+
+<tone_adaptation>
+Adapte le ton selon le tone_preference fourni :
+
+PROFESSIONAL :
+- Vouvoiement ou tutoiement professionnel
+- "Nous recommandons", "L'analyse montre"
+- Approche méthodique et structurée
+
+BOLD :
+- Tutoiement direct
+- "Fais ça maintenant", "Voici ce qui marche"
+- Recommandations tranchées sans hésitation
+
+MINIMALIST :
+- Concis et efficace
+- Phrases courtes et percutantes
+- Zéro redondance, droit au but
+
+Dans tous les cas : zéro langue de bois, maximum de valeur.
+</tone_adaptation>`;
+
+interface ReportInput {
+  businessName: string;
+  website?: string;
+  sector: string;
+  location: { city: string; country: string };
+  targetCustomers: { type: string; persona: string };
+  whatYouSell: string;
+  priceRange: { min: number; max: number };
+  differentiators: string[];
+  acquisitionChannels: string[];
+  goals: string[];
+  competitors: { name: string; url?: string }[];
+  budgetLevel: string;
+  timeline: string;
+  notes?: string;
+  tonePreference: string;
 }
 
-Adapte la profondeur selon le plan:
-- Standard: 2000-3000 mots, 3-5 concurrents
-- Pro: 4000-6000 mots, 5-10 concurrents, plus de détails
-- Agence: 8000-12000 mots, 10-15 concurrents, analyse multi-marchés
+function buildUserPrompt(input: ReportInput, plan: string): string {
+  const competitorsList = input.competitors?.length > 0
+    ? input.competitors.map((c, i) => `${i + 1}. ${c.name}${c.url ? ` (${c.url})` : ''}`).join('\n')
+    : 'Aucun concurrent spécifique fourni → analyse le marché de manière générique en te basant sur les patterns typiques du secteur';
 
-Réponds UNIQUEMENT avec le JSON, sans markdown ni explication.`;
+  return `<user_context>
+Voici les informations fournies par l'utilisateur. Base ton analyse UNIQUEMENT sur ces données.
+
+Business : ${input.businessName}
+${input.website ? `Site web : ${input.website}` : 'Pas de site web fourni'}
+Secteur : ${input.sector}
+Localisation : ${input.location?.city}, ${input.location?.country}
+Cible : ${input.targetCustomers?.type} - ${input.targetCustomers?.persona}
+
+Ce que vend le business :
+${input.whatYouSell}
+
+Fourchette de prix actuelle : ${input.priceRange?.min}€ - ${input.priceRange?.max}€
+
+Différenciateurs revendiqués : ${input.differentiators?.join(', ') || 'Non spécifiés'}
+
+Canaux d'acquisition actuels : ${input.acquisitionChannels?.join(', ') || 'Non spécifiés'}
+
+Concurrents fournis (${input.competitors?.length || 0}) :
+${competitorsList}
+
+Objectifs du benchmark : ${input.goals?.join(', ') || 'Analyse complète'}
+
+Contexte budgétaire : ${input.budgetLevel}
+Timeline d'action : ${input.timeline}
+Ton souhaité pour le rapport : ${input.tonePreference}
+
+${input.notes ? `Notes additionnelles :\n${input.notes}` : 'Pas de notes additionnelles'}
+</user_context>
+
+<final_instruction>
+Génère maintenant le rapport de benchmark au format JSON strict.
+
+Structure attendue :
+{
+  "report_metadata": { "title": "...", "generated_date": "...", "business_name": "...", "sector": "...", "location": "...", "tier": "${plan}" },
+  "executive_summary": { "headline": "...", "situation_actuelle": "...", "opportunite_principale": "...", "key_findings": [...], "urgency_level": "...", "urgency_rationale": "..." },
+  "market_context": { "sector_overview": "...", "local_market_specifics": "...", "market_maturity": "...", "target_segments": [...], "key_trends_impacting": [...] },
+  "competitive_landscape": { "competition_intensity": "...", "competitors_analyzed": [...], "competitive_gaps": [...], "your_current_position": "...", "differentiation_opportunities": [...] },
+  "positioning_recommendations": { "recommended_positioning": "...", "rationale": "...", "target_audience_primary": "...", "value_proposition": "...", "tagline_suggestions": [...], "key_messages": [...], "messaging_dos": [...], "messaging_donts": [...] },
+  "pricing_strategy": { "current_assessment": "...", "market_benchmarks": {...}, "recommended_pricing": [...], "pricing_psychology_insights": "...", "quick_wins": [...] },
+  "go_to_market": { "priority_channels": [...], "content_strategy": {...}, "partnership_opportunities": [...] },
+  "action_plan": { "now_7_days": [...], "days_8_30": [...], "days_31_90": [...] },
+  "risks_and_considerations": [...],
+  "assumptions_and_limitations": [...],
+  "next_steps_to_validate": [...]
+}
+
+Retourne UNIQUEMENT le JSON, sans aucun texte avant ou après.
+Pas de markdown, pas de backticks, pas d'explication.
+JUSTE le JSON brut et valide.
+</final_instruction>`;
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -62,8 +196,11 @@ serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
   );
 
+  let reportId: string | undefined;
+
   try {
-    const { reportId } = await req.json();
+    const body = await req.json();
+    reportId = body.reportId;
 
     if (!reportId) {
       throw new Error("Report ID is required");
@@ -86,73 +223,60 @@ serve(async (req) => {
       .update({ status: "processing" })
       .eq("id", reportId);
 
-    const inputData = report.input_data;
-    const plan = report.plan;
+    const inputData = report.input_data as ReportInput;
+    const plan = report.plan || "standard";
 
-    // Build the user prompt
-    const userPrompt = `Génère un rapport de benchmark ${plan.toUpperCase()} pour:
+    // Build the prompt
+    const userPrompt = buildUserPrompt(inputData, plan);
 
-**Entreprise:** ${inputData.businessName}
-**Secteur:** ${inputData.sector}
-**Localisation:** ${inputData.location?.city}, ${inputData.location?.country}
-**Type de clients:** ${inputData.targetCustomers?.type} - ${inputData.targetCustomers?.persona}
-**Offre:** ${inputData.whatYouSell}
-**Fourchette de prix:** ${inputData.priceRange?.min}€ - ${inputData.priceRange?.max}€
-**Différenciateurs:** ${inputData.differentiators?.join(", ") || "Non spécifiés"}
-**Canaux d'acquisition:** ${inputData.acquisitionChannels?.join(", ") || "Non spécifiés"}
-**Objectifs du benchmark:** ${inputData.goals?.join(", ") || "Analyse complète"}
-**Concurrents connus:** ${inputData.competitors?.map((c: { name: string; url?: string }) => c.name + (c.url ? ` (${c.url})` : "")).join(", ") || "À identifier"}
-**Budget:** ${inputData.budgetLevel}
-**Timeline:** ${inputData.timeline}
-**Notes additionnelles:** ${inputData.notes || "Aucune"}
-**Ton préféré:** ${inputData.tonePreference}
-
-Génère un rapport complet et actionnable.`;
-
-    // Call Lovable AI Gateway
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    // Get Claude API Key
+    const CLAUDE_API_KEY = Deno.env.get("CLAUDE_API_KEY");
+    if (!CLAUDE_API_KEY) {
+      throw new Error("CLAUDE_API_KEY is not configured");
     }
 
-    console.log("Calling Lovable AI Gateway for report:", reportId);
+    console.log("Calling Claude API for report:", reportId);
 
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    // Call Claude API
+    const claudeResponse = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "x-api-key": CLAUDE_API_KEY,
+        "anthropic-version": "2023-06-01",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-pro",
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 8000,
         messages: [
-          { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: userPrompt },
         ],
+        system: TIER1_SYSTEM_PROMPT,
         temperature: 0.7,
-        max_tokens: 8000,
       }),
     });
 
-    if (!aiResponse.ok) {
-      const errorText = await aiResponse.text();
-      console.error("AI Gateway error:", aiResponse.status, errorText);
+    if (!claudeResponse.ok) {
+      const errorText = await claudeResponse.text();
+      console.error("Claude API error:", claudeResponse.status, errorText);
       
-      if (aiResponse.status === 429) {
+      if (claudeResponse.status === 429) {
         throw new Error("Rate limit exceeded, please try again later");
       }
-      if (aiResponse.status === 402) {
-        throw new Error("Payment required for AI services");
+      if (claudeResponse.status === 401) {
+        throw new Error("Invalid Claude API key");
       }
-      throw new Error(`AI Gateway error: ${aiResponse.status}`);
+      throw new Error(`Claude API error: ${claudeResponse.status}`);
     }
 
-    const aiData = await aiResponse.json();
-    const content = aiData.choices?.[0]?.message?.content;
+    const claudeData = await claudeResponse.json();
+    const content = claudeData.content?.[0]?.text;
 
     if (!content) {
-      throw new Error("No content returned from AI");
+      throw new Error("No content returned from Claude");
     }
+
+    console.log("Claude response received, parsing JSON...");
 
     // Parse the JSON response
     let outputData;
@@ -161,8 +285,8 @@ Génère un rapport complet et actionnable.`;
       const cleanContent = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
       outputData = JSON.parse(cleanContent);
     } catch (parseError) {
-      console.error("Failed to parse AI response:", content);
-      throw new Error("Failed to parse AI response as JSON");
+      console.error("Failed to parse Claude response:", content.substring(0, 500));
+      throw new Error("Failed to parse Claude response as JSON");
     }
 
     // Update report with output
@@ -190,20 +314,15 @@ Génère un rapport complet et actionnable.`;
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
 
     // Update report status to failed
-    try {
-      const { reportId } = await req.json().catch(() => ({}));
-      if (reportId) {
-        const supabaseAdmin = createClient(
-          Deno.env.get("SUPABASE_URL") ?? "",
-          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-        );
+    if (reportId) {
+      try {
         await supabaseAdmin
           .from("reports")
           .update({ status: "failed" })
           .eq("id", reportId);
+      } catch {
+        console.error("Failed to update report status to failed");
       }
-    } catch {
-      // Ignore cleanup errors
     }
 
     return new Response(JSON.stringify({ error: errorMessage }), {
