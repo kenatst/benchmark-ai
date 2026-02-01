@@ -4,7 +4,6 @@ import { SocialProof } from '@/components/landing/SocialProof';
 import { ProblemSolution } from '@/components/landing/ProblemSolution';
 import { FeatureCards } from '@/components/landing/FeatureCards';
 import { ProductDemo } from '@/components/landing/ProductDemo';
-import { SecondaryProof } from '@/components/landing/SecondaryProof';
 import { PricingSection } from '@/components/landing/PricingSection';
 import { FinalCTA } from '@/components/landing/FinalCTA';
 import { Footer } from '@/components/landing/Footer';
@@ -23,7 +22,6 @@ const Index = () => {
         <FeatureCards />
         <ProblemSolution />
         <ProductDemo />
-        <SecondaryProof />
         <PricingSection />
         <FinalCTA />
       </main>
