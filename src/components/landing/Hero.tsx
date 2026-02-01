@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Play } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 
 export const Hero = () => {
   return (
@@ -14,7 +14,7 @@ export const Hero = () => {
         <div className="max-w-5xl mx-auto text-center">
           {/* Feature badges */}
           <div className="opacity-0-initial animate-fade-up flex flex-wrap justify-center gap-3 mb-12">
-            <span className="badge-coral">IA VECTORIELLE</span>
+            <span className="badge-coral">ANALYSE VECTORIELLE</span>
             <span className="badge-sky">DESIGN PREMIUM</span>
             <span className="badge-mint">SÉRÉNITÉ TOTALE</span>
           </div>
@@ -28,7 +28,7 @@ export const Hero = () => {
 
           {/* Subheadline */}
           <p className="opacity-0-initial animate-fade-up stagger-2 text-lg sm:text-xl md:text-2xl text-muted-foreground max-w-2xl mx-auto mb-12 leading-relaxed font-medium">
-            Dites adieu aux études de marché froides. <span className="text-foreground font-bold underline decoration-lavender decoration-4 underline-offset-4">Benchmark</span> fusionne élégance et puissance pour votre positionnement.
+            Dites adieu aux études de marché froides. <span className="text-foreground font-bold underline decoration-lavender decoration-4 underline-offset-4">BenchAI</span> fusionne élégance et puissance pour votre positionnement.
           </p>
 
           {/* CTAs */}
@@ -42,7 +42,7 @@ export const Hero = () => {
             <Link to="/example">
               <Button variant="lavender" size="xl" className="w-full sm:w-auto gap-2">
                 VOIR UN EXEMPLE
-                <span className="text-xs bg-lavender/50 px-2 py-0.5 rounded-full">40+</span>
+                <span className="text-xs bg-lavender/50 px-2 py-0.5 rounded-full">PDF</span>
               </Button>
             </Link>
           </div>
