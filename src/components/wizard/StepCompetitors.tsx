@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ReportInput } from '@/types/report';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { COMPETITOR_TYPES } from '@/data/formOptions';
-import { Users, Plus, X, ExternalLink, AlertCircle } from 'lucide-react';
+import { COMPETITOR_TYPES, SECTORS } from '@/data/formOptions';
+import { Users, Plus, X, ExternalLink, AlertCircle, Sparkles } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface StepCompetitorsProps {
@@ -13,10 +13,99 @@ interface StepCompetitorsProps {
   setFormData: React.Dispatch<React.SetStateAction<ReportInput>>;
 }
 
+// Suggested competitors by sector
+const SECTOR_COMPETITORS: Record<string, Array<{ name: string; type: 'direct' | 'indirect' | 'substitute' }>> = {
+  'SaaS / Software': [
+    { name: 'HubSpot', type: 'direct' },
+    { name: 'Salesforce', type: 'direct' },
+    { name: 'Monday.com', type: 'indirect' },
+  ],
+  'E-commerce': [
+    { name: 'Amazon', type: 'direct' },
+    { name: 'Shopify Stores', type: 'indirect' },
+    { name: 'Local retailers', type: 'substitute' },
+  ],
+  'Agency / Consulting': [
+    { name: 'McKinsey', type: 'direct' },
+    { name: 'Freelancers', type: 'substitute' },
+    { name: 'Big Four', type: 'indirect' },
+  ],
+  'Local Services': [
+    { name: 'Artisans locaux', type: 'direct' },
+    { name: 'Franchises nationales', type: 'indirect' },
+    { name: 'DIY / Self-service', type: 'substitute' },
+  ],
+  'Healthcare': [
+    { name: 'Doctolib', type: 'direct' },
+    { name: 'Cliniques privées', type: 'indirect' },
+    { name: 'Téléconsultation', type: 'substitute' },
+  ],
+  'Finance': [
+    { name: 'Banques traditionnelles', type: 'direct' },
+    { name: 'Néobanques', type: 'indirect' },
+    { name: 'Crypto/DeFi', type: 'substitute' },
+  ],
+  'Education': [
+    { name: 'Coursera', type: 'direct' },
+    { name: 'Universités', type: 'indirect' },
+    { name: 'YouTube Learning', type: 'substitute' },
+  ],
+  'Real Estate': [
+    { name: 'SeLoger', type: 'direct' },
+    { name: 'Agents indépendants', type: 'indirect' },
+    { name: 'Vente directe', type: 'substitute' },
+  ],
+  'Manufacturing': [
+    { name: 'Fabricants asiatiques', type: 'direct' },
+    { name: 'Artisans locaux', type: 'indirect' },
+    { name: 'Impression 3D', type: 'substitute' },
+  ],
+  'Food & Beverage': [
+    { name: 'Restaurants locaux', type: 'direct' },
+    { name: 'Dark kitchens', type: 'indirect' },
+    { name: 'Meal kits', type: 'substitute' },
+  ],
+  'Travel & Hospitality': [
+    { name: 'Booking.com', type: 'direct' },
+    { name: 'Airbnb', type: 'indirect' },
+    { name: 'Staycation', type: 'substitute' },
+  ],
+};
+
+// Default competitors for unknown sectors
+const DEFAULT_COMPETITORS = [
+  { name: 'Leader du marché', type: 'direct' as const },
+  { name: 'Nouvel entrant digital', type: 'indirect' as const },
+  { name: 'Solution alternative', type: 'substitute' as const },
+];
+
 export const StepCompetitors = ({ formData, setFormData }: StepCompetitorsProps) => {
   const [newCompetitorName, setNewCompetitorName] = useState('');
   const [newCompetitorUrl, setNewCompetitorUrl] = useState('');
   const [newCompetitorType, setNewCompetitorType] = useState<'direct' | 'indirect' | 'substitute'>('direct');
+  const [suggestionsShown, setSuggestionsShown] = useState(false);
+
+  // Get suggested competitors based on sector
+  const getSuggestedCompetitors = () => {
+    const sector = formData.sector;
+    return SECTOR_COMPETITORS[sector] || DEFAULT_COMPETITORS;
+  };
+
+  // Auto-populate suggestions when entering the step (only once)
+  useEffect(() => {
+    if (!suggestionsShown && formData.competitors.length === 0 && formData.sector) {
+      const suggestions = getSuggestedCompetitors();
+      setFormData(prev => ({
+        ...prev,
+        competitors: suggestions.map(s => ({
+          name: s.name,
+          type: s.type,
+          url: undefined,
+        })),
+      }));
+      setSuggestionsShown(true);
+    }
+  }, [formData.sector, suggestionsShown]);
 
   const addCompetitor = () => {
     if (!newCompetitorName.trim()) return;
@@ -51,10 +140,32 @@ export const StepCompetitors = ({ formData, setFormData }: StepCompetitorsProps)
 
   const getTypeBadgeColor = (type?: string) => {
     switch (type) {
-      case 'indirect': return 'bg-amber-100 text-amber-800';
-      case 'substitute': return 'bg-purple-100 text-purple-800';
-      default: return 'bg-blue-100 text-blue-800';
+      case 'indirect': return 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300';
+      case 'substitute': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300';
+      default: return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300';
     }
+  };
+
+  const suggestedCompetitors = getSuggestedCompetitors();
+  const hasAllSuggestions = suggestedCompetitors.every(s => 
+    formData.competitors.some(c => c.name === s.name)
+  );
+
+  const addSuggestedCompetitor = (suggestion: typeof suggestedCompetitors[0]) => {
+    const alreadyExists = formData.competitors.some(c => c.name === suggestion.name);
+    if (alreadyExists) return;
+
+    setFormData(prev => ({
+      ...prev,
+      competitors: [
+        ...prev.competitors,
+        {
+          name: suggestion.name,
+          type: suggestion.type,
+          url: undefined,
+        }
+      ]
+    }));
   };
 
   return (
@@ -66,15 +177,51 @@ export const StepCompetitors = ({ formData, setFormData }: StepCompetitorsProps)
           Concurrents
         </div>
         <h2 className="text-2xl font-bold text-foreground">Qui sont vos concurrents ?</h2>
-        <p className="text-muted-foreground mt-2">Ajoutez les entreprises contre lesquelles vous êtes en compétition</p>
+        <p className="text-muted-foreground mt-2">
+          Ajoutez les entreprises contre lesquelles vous êtes en compétition
+          <span className="text-xs text-muted-foreground font-normal ml-2">(optionnel)</span>
+        </p>
       </div>
 
       <div className="grid gap-6">
+        {/* Suggestions banner - only show if not all suggestions are added */}
+        {formData.sector && !hasAllSuggestions && (
+          <div className="bg-primary/5 rounded-lg p-4 border border-primary/20">
+            <div className="flex items-center gap-2 mb-3">
+              <Sparkles className="w-4 h-4 text-primary" />
+              <span className="text-sm font-medium text-foreground">
+                Suggestions basées sur votre secteur ({formData.sector})
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {suggestedCompetitors.map((suggestion, idx) => {
+                const alreadyAdded = formData.competitors.some(c => c.name === suggestion.name);
+                return (
+                  <Button
+                    key={idx}
+                    variant={alreadyAdded ? "secondary" : "outline"}
+                    size="sm"
+                    onClick={() => addSuggestedCompetitor(suggestion)}
+                    disabled={alreadyAdded}
+                    className="gap-2"
+                  >
+                    {alreadyAdded ? '✓' : <Plus className="w-3 h-3" />}
+                    {suggestion.name}
+                    <span className={`text-xs px-1.5 py-0.5 rounded ${getTypeBadgeColor(suggestion.type)}`}>
+                      {getTypeLabel(suggestion.type)}
+                    </span>
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Add Competitor Form */}
         <div className="bg-muted/30 rounded-lg p-5 space-y-4">
           <div className="grid md:grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label className="text-sm font-medium">Nom du concurrent *</Label>
+              <Label className="text-sm font-medium">Nom du concurrent</Label>
               <Input
                 placeholder="Ex: Acme Corp"
                 value={newCompetitorName}
@@ -167,7 +314,7 @@ export const StepCompetitors = ({ formData, setFormData }: StepCompetitorsProps)
                   variant="ghost"
                   size="icon"
                   onClick={() => removeCompetitor(index)}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="opacity-50 hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
                 >
                   <X className="w-4 h-4" />
                 </Button>
@@ -178,6 +325,7 @@ export const StepCompetitors = ({ formData, setFormData }: StepCompetitorsProps)
           <div className="text-center py-8 text-muted-foreground">
             <Users className="w-12 h-12 mx-auto mb-3 opacity-20" />
             <p>Aucun concurrent ajouté</p>
+            <p className="text-sm mt-1">Les concurrents seront recherchés automatiquement</p>
           </div>
         )}
 
