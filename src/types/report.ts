@@ -491,6 +491,7 @@ export interface ReportInput {
   timeline: 'now' | '30days' | '90days';
   notes?: string;
   tonePreference: 'professional' | 'bold' | 'minimalist';
+  reportLanguage?: string; // fr, en, es, it, de, ru, zh
 }
 
 export interface Report {

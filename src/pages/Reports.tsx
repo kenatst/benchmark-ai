@@ -1,20 +1,33 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Navbar } from '@/components/landing/Navbar';
 import { Footer } from '@/components/landing/Footer';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { FileText, Clock, Plus } from 'lucide-react';
+import { FileText, Clock, Plus, Trash2 } from 'lucide-react';
 import { useReports } from '@/hooks/useReports';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { toast } from 'sonner';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 const Reports = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuthContext();
-  const { reports, isLoading } = useReports();
+  const { reports, isLoading, deleteReport } = useReports();
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -22,6 +35,20 @@ const Reports = () => {
       navigate('/auth');
     }
   }, [user, authLoading, navigate]);
+
+  const handleDelete = async (reportId: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDeletingId(reportId);
+    
+    const success = await deleteReport(reportId);
+    if (success) {
+      toast.success('Rapport supprimé');
+    } else {
+      toast.error('Erreur lors de la suppression');
+    }
+    setDeletingId(null);
+  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -86,13 +113,45 @@ const Reports = () => {
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {reports.map((report) => (
                 <Link key={report.id} to={`/app/reports/${report.id}`}>
-                  <Card className="h-full hover:border-primary/30 transition-colors cursor-pointer">
+                  <Card className="h-full hover:border-primary/30 transition-colors cursor-pointer group relative">
                     <CardContent className="p-6">
                       <div className="flex items-start justify-between mb-4">
                         <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
                           <FileText className="w-5 h-5 text-primary" />
                         </div>
-                        {getStatusBadge(report.status)}
+                        <div className="flex items-center gap-2">
+                          {getStatusBadge(report.status)}
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={(e) => e.preventDefault()}
+                              >
+                                <Trash2 className="w-4 h-4 text-muted-foreground hover:text-destructive" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Supprimer ce rapport ?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Cette action est irréversible. Le rapport sera définitivement supprimé.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Annuler</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={(e) => handleDelete(report.id, e)}
+                                  disabled={deletingId === report.id}
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                >
+                                  {deletingId === report.id ? 'Suppression...' : 'Supprimer'}
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
                       </div>
                       <h3 className="font-semibold text-foreground mb-1">
                         {(report.input_data as { businessName?: string })?.businessName || 'Rapport'}

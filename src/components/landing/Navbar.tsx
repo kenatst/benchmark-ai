@@ -20,8 +20,8 @@ export const Navbar = () => {
   const navItems = [
     { label: 'PRODUIT', href: '#product' },
     { label: 'TARIFS', href: '/pricing' },
+    { label: 'MES RAPPORTS', href: '/app/reports' },
     { label: 'À PROPOS', href: '/about' },
-    { label: 'EXEMPLE', href: '/example' },
   ];
 
   const isLandingPage = location.pathname === '/';

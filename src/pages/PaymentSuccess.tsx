@@ -292,6 +292,15 @@ const PaymentSuccess = () => {
             <p className="text-muted-foreground">{subtitle}</p>
           </div>
 
+          {/* Warning message - don't close page */}
+          {(status === 'generating' || status === 'verifying' || status === 'verified') && (
+            <div className="bg-chart-4/10 rounded-lg p-4 border border-chart-4/20">
+              <p className="text-sm text-chart-4 font-medium">
+                ⚠️ La génération peut prendre plusieurs minutes. Ne fermez pas cette page.
+              </p>
+            </div>
+          )}
+
           {/* Progress Bar */}
           {(status === 'verifying' || status === 'verified' || status === 'generating' || status === 'ready') && (
             <div className="space-y-2">

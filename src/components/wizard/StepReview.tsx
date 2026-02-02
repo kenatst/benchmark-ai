@@ -16,8 +16,8 @@ const plans = [
   {
     id: 'standard',
     name: 'Standard',
-    price: '4,99€',
-    priceValue: 499,
+    price: '14,99€',
+    priceValue: 1499,
     description: '2000-3000 mots',
     features: [
       '3-5 concurrents analysés',
@@ -29,8 +29,8 @@ const plans = [
   {
     id: 'pro',
     name: 'Pro',
-    price: '14,99€',
-    priceValue: 1499,
+    price: '34,99€',
+    priceValue: 3499,
     description: '4000-6000 mots',
     features: [
       '5-10 concurrents analysés',
@@ -44,8 +44,8 @@ const plans = [
   {
     id: 'agency',
     name: 'Agence',
-    price: '29€',
-    priceValue: 2900,
+    price: '69,99€',
+    priceValue: 6999,
     description: '8000-12000 mots',
     features: [
       '10-15 concurrents analysés',
