@@ -459,7 +459,11 @@ export interface ReportInput {
     type: 'B2B' | 'B2C' | 'Both';
     persona: string;
   };
-  
+  // Strategic context (Phase 2 additions)
+  businessMaturity?: 'idea' | 'mvp' | 'pmf' | 'scaleup';
+  annualRevenue?: '<10k' | '10-50k' | '50-200k' | '200k+';
+  teamSize?: 'solo' | '2-5' | '6-20' | '20+';
+
   // Step 2 - Offer & Pricing
   whatYouSell: string;
   priceRange: {
@@ -468,13 +472,20 @@ export interface ReportInput {
   };
   differentiators: string[];
   acquisitionChannels: string[];
-  
+  // Strategic context (Phase 2 additions)
+  uniqueValueProposition?: string;
+  businessModel?: 'one-shot' | 'subscription-monthly' | 'subscription-annual' | 'usage-based' | 'commission' | 'freemium';
+  grossMargin?: '<20' | '20-50' | '50-70' | '70+';
+
   // Step 3 - Benchmark Goals
   goals: string[];
-  
+  goalPriorities?: string[]; // Ordered by priority
+  successMetrics?: string;
+
   // Step 4 - Competitors
-  competitors: { name: string; url?: string }[];
-  
+  competitors: { name: string; url?: string; type?: 'direct' | 'indirect' | 'substitute' }[];
+  competitorAdvantage?: string; // Why competitors win
+
   // Step 5 - Constraints & Context
   budgetLevel: 'low' | 'medium' | 'high';
   timeline: 'now' | '30days' | '90days';

@@ -1,52 +1,43 @@
 import { ReactNode } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
 interface AnimatedCardProps {
   title: string;
   icon?: ReactNode;
-  iconBg?: string;
   children: ReactNode;
   className?: string;
-  delay?: number;
   badge?: ReactNode;
 }
 
-export const AnimatedCard = ({ 
-  title, 
-  icon, 
-  iconBg = 'bg-primary/10', 
-  children, 
+export const AnimatedCard = ({
+  title,
+  icon,
+  children,
   className,
-  delay = 0,
   badge
 }: AnimatedCardProps) => {
   return (
-    <Card 
+    <div
       className={cn(
-        "animate-fade-up opacity-0 transition-all duration-300 hover:shadow-lg hover:-translate-y-1",
+        "bg-card rounded-xl border border-border p-6 transition-shadow duration-200 hover:shadow-sm",
         className
       )}
-      style={{ 
-        animationDelay: `${delay}ms`,
-        animationFillMode: 'forwards'
-      }}
     >
-      <CardHeader className="flex flex-row items-center gap-3">
+      {/* Header */}
+      <div className="flex items-center gap-3 mb-5">
         {icon && (
-          <div className={cn(
-            "w-12 h-12 rounded-2xl flex items-center justify-center transition-transform duration-300 hover:scale-110",
-            iconBg
-          )}>
+          <span className="text-muted-foreground">
             {icon}
-          </div>
+          </span>
         )}
-        <div className="flex items-center gap-2 flex-1">
-          <CardTitle className="text-xl">{title}</CardTitle>
-          {badge}
-        </div>
-      </CardHeader>
-      <CardContent>{children}</CardContent>
-    </Card>
+        <h3 className="text-lg font-semibold text-foreground flex-1">
+          {title}
+        </h3>
+        {badge}
+      </div>
+
+      {/* Content */}
+      {children}
+    </div>
   );
 };

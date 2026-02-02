@@ -21,75 +21,118 @@ interface FinancialMetricsProps {
 }
 
 export const FinancialMetrics = ({ scenarios, unitEconomics }: FinancialMetricsProps) => {
-  const scenarioCards = [
-    { 
-      key: 'conservative', 
-      title: 'Conservatif', 
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('fr-FR', {
+      style: 'currency',
+      currency: 'EUR',
+      maximumFractionDigits: 0
+    }).format(value);
+  };
+
+  const scenarioData = [
+    {
+      key: 'conservative',
+      title: 'Conservatif',
       data: scenarios.conservative,
-      bg: 'bg-muted/50',
-      border: 'border-border'
     },
-    { 
-      key: 'baseline', 
-      title: 'Baseline', 
+    {
+      key: 'baseline',
+      title: 'Baseline',
       data: scenarios.baseline,
-      bg: 'bg-primary/10',
-      border: 'border-primary/30'
+      highlight: true
     },
-    { 
-      key: 'optimistic', 
-      title: 'Optimiste', 
+    {
+      key: 'optimistic',
+      title: 'Optimiste',
       data: scenarios.optimistic,
-      bg: 'bg-mint/10',
-      border: 'border-mint/30'
     },
   ];
 
   const metrics = [
-    { label: 'CAC', value: `${unitEconomics.customer_acquisition_cost}€`, icon: '💰' },
-    { label: 'LTV', value: `${unitEconomics.lifetime_value}€`, icon: '📊' },
-    { label: 'LTV/CAC', value: `${unitEconomics.ltv_cac_ratio}x`, icon: '⚡' },
-    { label: 'Payback', value: `${unitEconomics.payback_period_months} mois`, icon: '⏱️' },
+    {
+      label: 'Coût d\'acquisition',
+      abbr: 'CAC',
+      value: formatCurrency(unitEconomics.customer_acquisition_cost)
+    },
+    {
+      label: 'Valeur vie client',
+      abbr: 'LTV',
+      value: formatCurrency(unitEconomics.lifetime_value)
+    },
+    {
+      label: 'Ratio LTV/CAC',
+      abbr: 'Ratio',
+      value: `${unitEconomics.ltv_cac_ratio}x`
+    },
+    {
+      label: 'Délai de récupération',
+      abbr: 'Payback',
+      value: `${unitEconomics.payback_period_months} mois`
+    },
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Revenue Scenarios */}
-      <div className="grid md:grid-cols-3 gap-4">
-        {scenarioCards.map((scenario, index) => (
-          <div 
-            key={scenario.key}
-            className={`${scenario.bg} rounded-2xl p-5 border ${scenario.border} text-center transition-all duration-300 hover:shadow-lg hover:-translate-y-1 animate-fade-up`}
-            style={{ animationDelay: `${index * 100}ms`, animationFillMode: 'forwards' }}
-          >
-            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">{scenario.title} Y1</p>
-            <p className="text-3xl font-black text-foreground">{scenario.data.year_1.toLocaleString()}€</p>
-            {scenario.data.year_2 && (
-              <p className="text-sm text-muted-foreground mt-2">Y2: {scenario.data.year_2.toLocaleString()}€</p>
-            )}
-          </div>
-        ))}
+      <div>
+        <h4 className="font-semibold text-foreground mb-4">Projections de revenus</h4>
+        <div className="grid md:grid-cols-3 gap-4">
+          {scenarioData.map((scenario) => (
+            <div
+              key={scenario.key}
+              className={`
+                rounded-lg border p-5 text-center
+                ${scenario.highlight
+                  ? 'bg-foreground text-background border-foreground'
+                  : 'bg-card border-border'
+                }
+              `}
+            >
+              <p className={`text-xs uppercase tracking-wider mb-3 ${scenario.highlight ? 'text-background/70' : 'text-muted-foreground'
+                }`}>
+                {scenario.title}
+              </p>
+              <p className={`text-3xl font-bold ${scenario.highlight ? 'text-background' : 'text-foreground'
+                }`}>
+                {formatCurrency(scenario.data.year_1)}
+              </p>
+              <p className={`text-xs mt-1 ${scenario.highlight ? 'text-background/60' : 'text-muted-foreground'
+                }`}>
+                Année 1
+              </p>
+              {scenario.data.year_2 && (
+                <div className={`mt-3 pt-3 border-t ${scenario.highlight ? 'border-background/20' : 'border-border'
+                  }`}>
+                  <p className={`text-sm ${scenario.highlight ? 'text-background/80' : 'text-muted-foreground'
+                    }`}>
+                    A2: {formatCurrency(scenario.data.year_2)}
+                    {scenario.data.year_3 && ` • A3: ${formatCurrency(scenario.data.year_3)}`}
+                  </p>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Unit Economics */}
-      <div 
-        className="bg-gradient-to-br from-muted/50 to-muted/30 rounded-2xl p-6 animate-fade-up"
-        style={{ animationDelay: '300ms', animationFillMode: 'forwards' }}
-      >
-        <h5 className="font-bold text-foreground mb-4 flex items-center gap-2">
-          <span className="text-xl">📈</span>
-          Unit Economics
-        </h5>
+      <div>
+        <h4 className="font-semibold text-foreground mb-4">Unit Economics</h4>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {metrics.map((metric, index) => (
-            <div 
-              key={metric.label}
-              className="text-center bg-card/50 rounded-xl p-4 border border-border/50 transition-all duration-300 hover:bg-card/80 animate-fade-up"
-              style={{ animationDelay: `${400 + (index * 50)}ms`, animationFillMode: 'forwards' }}
+          {metrics.map((metric) => (
+            <div
+              key={metric.abbr}
+              className="bg-muted/50 rounded-lg p-4 border border-border/50"
             >
-              <span className="text-2xl mb-2 block">{metric.icon}</span>
-              <p className="text-xs text-muted-foreground uppercase tracking-wide">{metric.label}</p>
-              <p className="text-xl font-bold text-foreground">{metric.value}</p>
+              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
+                {metric.abbr}
+              </p>
+              <p className="text-xl font-bold text-foreground">
+                {metric.value}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {metric.label}
+              </p>
             </div>
           ))}
         </div>

@@ -17,6 +17,8 @@ export interface Report {
   created_at: string;
   updated_at: string;
   completed_at: string | null;
+  processing_step?: string;
+  processing_progress?: number;
 }
 
 export const useReports = () => {
@@ -32,7 +34,7 @@ export const useReports = () => {
     }
 
     setIsLoading(true);
-    
+
     const { data, error } = await supabase
       .from('reports')
       .select('*')
@@ -44,7 +46,7 @@ export const useReports = () => {
     } else {
       setReports(data as unknown as Report[]);
     }
-    
+
     setIsLoading(false);
   }, [user]);
 
@@ -76,7 +78,7 @@ export const useReports = () => {
 
     const newReport = data as unknown as Report;
     setReports(prev => [newReport, ...prev]);
-    
+
     return newReport;
   };
 
@@ -110,7 +112,7 @@ export const useReports = () => {
       }
 
       // Update local state to processing
-      setReports(prev => 
+      setReports(prev =>
         prev.map(r => r.id === reportId ? { ...r, status: 'processing' as const } : r)
       );
 
