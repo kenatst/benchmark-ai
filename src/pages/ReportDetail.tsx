@@ -40,53 +40,80 @@ const ReportDetail = () => {
     }
   }, [searchParams]);
 
+  // Load initial report
   useEffect(() => {
     const loadReport = async () => {
-      if (id) {
-        setIsLoading(true);
-        let r = getReport(id);
+      if (!id) return;
 
+      setIsLoading(true);
+      try {
+        let r = getReport(id);
         if (!r) {
           r = await refetchReport(id);
         }
 
-        setReport(r || null);
-        if (r?.processing_progress) {
-          setProcessingProgress(r.processing_progress);
+        if (r) {
+          setReport(r);
+          if (r.processing_progress) {
+            setProcessingProgress(r.processing_progress);
+          }
         }
+      } catch (err) {
+        console.error('Error loading report:', err);
+      } finally {
         setIsLoading(false);
-
-        if (r?.status === 'processing' || r?.status === 'paid') {
-          // Poll for real-time updates from the database
-          const checkInterval = setInterval(async () => {
-            const updated = await refetchReport(id);
-            if (updated) {
-              setReport(updated);
-              // Use real progress from database
-              if (updated.processing_progress !== undefined) {
-                setProcessingProgress(updated.processing_progress);
-              }
-
-              if (updated.status === 'ready') {
-                setProcessingProgress(100);
-                clearInterval(checkInterval);
-                toast.success('Votre rapport est prêt !');
-              } else if (updated.status === 'failed') {
-                clearInterval(checkInterval);
-                toast.error('La génération a échoué. Vous pouvez réessayer.');
-              }
-            }
-          }, 2000); // Poll every 2 seconds for smoother updates
-
-          return () => {
-            clearInterval(checkInterval);
-          };
-        }
       }
     };
 
     loadReport();
   }, [id, getReport, refetchReport]);
+
+  // Poll for processing updates
+  useEffect(() => {
+    if (!report || (report.status !== 'processing' && report.status !== 'paid')) {
+      return;
+    }
+
+    let isMounted = true;
+    let checkInterval: NodeJS.Timeout | null = null;
+
+    // Start polling
+    checkInterval = setInterval(async () => {
+      if (!isMounted || !id) {
+        if (checkInterval) clearInterval(checkInterval);
+        return;
+      }
+
+      try {
+        const updated = await refetchReport(id);
+        if (!isMounted || !updated) return;
+
+        setReport(updated);
+
+        // Use real progress from database
+        if (updated.processing_progress !== undefined) {
+          setProcessingProgress(updated.processing_progress);
+        }
+
+        if (updated.status === 'ready') {
+          setProcessingProgress(100);
+          if (checkInterval) clearInterval(checkInterval);
+          toast.success('Votre rapport est prêt !');
+        } else if (updated.status === 'failed') {
+          if (checkInterval) clearInterval(checkInterval);
+          toast.error('La génération a échoué. Vous pouvez réessayer.');
+        }
+      } catch (err) {
+        console.error('Polling error:', err);
+      }
+    }, 2000); // Poll every 2 seconds
+
+    // Cleanup
+    return () => {
+      isMounted = false;
+      if (checkInterval) clearInterval(checkInterval);
+    };
+  }, [report?.status, report?.id, id, refetchReport]);
 
   const handleRetry = async () => {
     if (!report) return;
@@ -113,7 +140,7 @@ const ReportDetail = () => {
     try {
       // Try streaming PDF first (new method)
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL || 'https://phmhzbmlszbontpfeddk.supabase.co'}/functions/v1/stream-pdf`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stream-pdf`,
         {
           method: 'POST',
           headers: {
@@ -176,7 +203,7 @@ const ReportDetail = () => {
 
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL || 'https://phmhzbmlszbontpfeddk.supabase.co'}/functions/v1/generate-excel`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-excel`,
         {
           method: 'POST',
           headers: {
@@ -224,7 +251,7 @@ const ReportDetail = () => {
 
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL || 'https://phmhzbmlszbontpfeddk.supabase.co'}/functions/v1/generate-slides`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-slides`,
         {
           method: 'POST',
           headers: {

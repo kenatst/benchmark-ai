@@ -3,7 +3,8 @@ import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": "https://benchmarkai.app",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, stripe-signature",
 };
 
@@ -55,9 +56,14 @@ serve(async (req) => {
         });
       }
     } else {
-      // For testing without webhook signature (NOT recommended for production)
-      console.warn("[Webhook] No signature verification - TEST MODE");
-      event = JSON.parse(body);
+      // Webhook signature verification is REQUIRED
+      console.error("[Webhook] Missing webhook signature or secret. Rejecting unsigned request.");
+      return new Response(JSON.stringify({
+        error: "Webhook verification required. Configure STRIPE_WEBHOOK_SECRET in environment."
+      }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     console.log("[Webhook] Received event:", event.type);

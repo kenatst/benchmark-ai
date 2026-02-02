@@ -1,7 +1,13 @@
 import { loadStripe } from '@stripe/stripe-js';
 
-// Use the Stripe publishable key from environment
-// This is a publishable key, safe to use in frontend code
-const stripePublishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || 'pk_test_51Sw0y9BlwVXDER87pHQRQvL3VrG2MH9CLFTqfHN7z7qKLpvWHRIcGQvxm7rAm8bLNJzLxQbZpA7CLfxPHqZjlGwc00cwlZHvHK';
+const stripePublishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
 
-export const stripePromise = loadStripe(stripePublishableKey);
+// Validate that Stripe key is configured
+if (!stripePublishableKey) {
+  console.error(
+    '❌ CRITICAL: VITE_STRIPE_PUBLISHABLE_KEY environment variable is missing. ' +
+    'Stripe payments will not work. See .env.example for configuration.'
+  );
+}
+
+export const stripePromise = stripePublishableKey ? loadStripe(stripePublishableKey) : Promise.resolve(null);
