@@ -68,7 +68,8 @@ const NewBenchmark = () => {
   const validateStep = (step: number): boolean => {
     switch (step) {
       case 1:
-        return !!(formData.businessName && formData.sector && formData.location.city && formData.location.country);
+        // Seuls businessName et sector sont obligatoires
+        return !!(formData.businessName && formData.sector);
       case 2:
         return !!formData.whatYouSell;
       case 3:

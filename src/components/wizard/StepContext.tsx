@@ -2,7 +2,9 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { ReportInput } from '@/types/report';
-import { Settings, Clock, MessageSquare, FileText } from 'lucide-react';
+import { Settings, Clock, MessageSquare, FileText, Globe } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { REPORT_LANGUAGES } from '@/i18n/LanguageContext';
 
 interface StepContextProps {
   formData: ReportInput;
@@ -27,6 +29,32 @@ export const StepContext = ({ formData, setFormData }: StepContextProps) => {
       </div>
 
       <div className="space-y-6">
+        {/* Report Language */}
+        <div className="space-y-3">
+          <Label className="text-sm font-medium flex items-center gap-2">
+            <Globe className="w-4 h-4 text-muted-foreground" />
+            Langue du rapport *
+          </Label>
+          <Select
+            value={formData.reportLanguage || 'fr'}
+            onValueChange={(value) => updateData({ reportLanguage: value })}
+          >
+            <SelectTrigger className="h-12">
+              <SelectValue placeholder="Sélectionnez la langue" />
+            </SelectTrigger>
+            <SelectContent>
+              {REPORT_LANGUAGES.map((lang) => (
+                <SelectItem key={lang.code} value={lang.code}>
+                  <span className="flex items-center gap-2">
+                    <span>{lang.flag}</span>
+                    <span>{lang.name}</span>
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
         {/* Budget Level */}
         <div className="space-y-3">
           <Label className="text-sm font-medium flex items-center gap-2">

@@ -151,6 +151,21 @@ export const useReports = () => {
     return report;
   };
 
+  const deleteReport = async (reportId: string): Promise<boolean> => {
+    const { error } = await supabase
+      .from('reports')
+      .delete()
+      .eq('id', reportId);
+
+    if (error) {
+      console.error('Error deleting report:', error);
+      return false;
+    }
+
+    setReports(prev => prev.filter(r => r.id !== reportId));
+    return true;
+  };
+
   return {
     reports,
     isLoading,
@@ -159,6 +174,7 @@ export const useReports = () => {
     triggerGeneration,
     getReport,
     refetchReport,
+    deleteReport,
     refetch: fetchReports,
   };
 };

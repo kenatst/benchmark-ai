@@ -28,7 +28,7 @@ export const StepBasics = ({ formData, setFormData }: StepBasicsProps) => {
         {/* Business Name */}
         <div className="space-y-2">
           <Label htmlFor="businessName" className="text-sm font-medium">
-            Nom de l'entreprise *
+            Nom de l'entreprise <span className="text-destructive">*</span>
           </Label>
           <Input
             id="businessName"
@@ -36,6 +36,7 @@ export const StepBasics = ({ formData, setFormData }: StepBasicsProps) => {
             value={formData.businessName}
             onChange={(e) => setFormData(prev => ({ ...prev, businessName: e.target.value }))}
             className="h-12"
+            required
           />
         </div>
 
@@ -43,7 +44,7 @@ export const StepBasics = ({ formData, setFormData }: StepBasicsProps) => {
         <div className="space-y-2">
           <Label htmlFor="website" className="text-sm font-medium flex items-center gap-2">
             <Globe className="w-4 h-4 text-muted-foreground" />
-            Site web
+            Site web <span className="text-muted-foreground text-xs">(optionnel)</span>
           </Label>
           <Input
             id="website"
@@ -57,7 +58,7 @@ export const StepBasics = ({ formData, setFormData }: StepBasicsProps) => {
 
         {/* Sector */}
         <div className="space-y-2">
-          <Label className="text-sm font-medium">Secteur d'activité *</Label>
+          <Label className="text-sm font-medium">Secteur d'activité <span className="text-destructive">*</span></Label>
           <Select
             value={formData.sector}
             onValueChange={(value) => setFormData(prev => ({ ...prev, sector: value }))}
@@ -86,7 +87,7 @@ export const StepBasics = ({ formData, setFormData }: StepBasicsProps) => {
         <div className="space-y-2">
           <Label className="text-sm font-medium flex items-center gap-2">
             <MapPin className="w-4 h-4 text-muted-foreground" />
-            Localisation
+            Localisation <span className="text-muted-foreground text-xs">(optionnel)</span>
           </Label>
           <div className="grid md:grid-cols-2 gap-3">
             <Input
@@ -121,7 +122,7 @@ export const StepBasics = ({ formData, setFormData }: StepBasicsProps) => {
         <div className="space-y-3">
           <Label className="text-sm font-medium flex items-center gap-2">
             <Users className="w-4 h-4 text-muted-foreground" />
-            Type de clients
+            Type de clients <span className="text-muted-foreground text-xs">(optionnel)</span>
           </Label>
           <div className="flex gap-2">
             {['B2B', 'B2C', 'Both'].map((type) => (

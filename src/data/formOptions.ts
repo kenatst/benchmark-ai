@@ -142,5 +142,6 @@ export const initialFormData: ReportInput = {
   budgetLevel: 'medium',
   timeline: 'now',
   notes: '',
-  tonePreference: 'professional'
+  tonePreference: 'professional',
+  reportLanguage: 'fr'
 };

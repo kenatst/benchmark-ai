@@ -155,9 +155,9 @@ export const ReportHero = ({
 function getDefaultStep(progress: number): string {
   if (progress < 15) return "Initialisation...";
   if (progress < 30) return "Analyse du contexte business...";
-  if (progress < 45) return "Recherche des concurrents...";
+  if (progress < 45) return "Recherche concurrentielle...";
   if (progress < 60) return "Analyse du marché...";
-  if (progress < 75) return "Génération des recommandations...";
+  if (progress < 75) return "Élaboration des recommandations...";
   if (progress < 90) return "Création du plan d'action...";
   return "Finalisation du rapport...";
 }
