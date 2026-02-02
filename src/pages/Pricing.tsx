@@ -13,7 +13,7 @@ import { Check, X, Zap, Sparkles, Crown, ArrowRight } from 'lucide-react';
 const plans = [
   {
     name: "Standard",
-    price: "4,99",
+    price: "14,99",
     description: "Diagnostic & plan d'action essentiel",
     icon: Zap,
     color: 'card-sky',
@@ -35,7 +35,7 @@ const plans = [
   },
   {
     name: "Pro",
-    price: "14,99",
+    price: "34,99",
     description: "Collecte web automatique incluse",
     icon: Sparkles,
     color: 'card-lavender',
@@ -57,7 +57,7 @@ const plans = [
   },
   {
     name: "Agence",
-    price: "29",
+    price: "69,99",
     description: "Multi-localisations & branding complet",
     icon: Crown,
     color: 'card-mint',
