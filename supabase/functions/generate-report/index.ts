@@ -854,41 +854,63 @@ async function callClaudeOpus(
   temperature: number
 ): Promise<string> {
   console.log(`[Claude] Calling Opus 4.5 (${CLAUDE_MODEL}) with ${maxTokens} max tokens`);
+  console.log(`[Claude] Prompt length: ${userPrompt.length} chars`);
 
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: CLAUDE_MODEL,
-      max_tokens: maxTokens,
-      temperature: temperature,
-      system: systemPrompt,
-      messages: [{ role: "user", content: userPrompt }],
-    }),
-  });
+  // Create an AbortController for timeout (5 minutes for large reports)
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    console.error(`[Claude] Request timeout after 300s`);
+    controller.abort();
+  }, 300000); // 5 minutes timeout
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error(`[Claude] API error ${response.status}:`, errorText);
-    if (response.status === 429) throw new Error("Rate limit exceeded, please try again later");
-    if (response.status === 401) throw new Error("Invalid Claude API key");
-    throw new Error(`Claude API error: ${response.status}`);
-  }
+  try {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: CLAUDE_MODEL,
+        max_tokens: maxTokens,
+        temperature: temperature,
+        system: systemPrompt,
+        messages: [{ role: "user", content: userPrompt }],
+      }),
+      signal: controller.signal,
+    });
 
-  const data = await response.json();
+    clearTimeout(timeoutId);
 
-  let content = "";
-  for (const block of data.content) {
-    if (block.type === "text") {
-      content += block.text;
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[Claude] API error ${response.status}:`, errorText);
+      if (response.status === 429) throw new Error("Rate limit exceeded, please try again later");
+      if (response.status === 401) throw new Error("Invalid Claude API key");
+      if (response.status === 529) throw new Error("Claude API overloaded, please retry");
+      throw new Error(`Claude API error: ${response.status}`);
     }
-  }
 
-  return content;
+    const data = await response.json();
+    console.log(`[Claude] Response received, stop_reason: ${data.stop_reason}`);
+
+    let content = "";
+    for (const block of data.content) {
+      if (block.type === "text") {
+        content += block.text;
+      }
+    }
+
+    console.log(`[Claude] Content length: ${content.length} chars`);
+    return content;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error("Claude API request timed out after 5 minutes");
+    }
+    throw error;
+  }
 }
 
 // ============================================

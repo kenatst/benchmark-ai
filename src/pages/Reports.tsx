@@ -36,9 +36,7 @@ const Reports = () => {
     }
   }, [user, authLoading, navigate]);
 
-  const handleDelete = async (reportId: string, e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleDelete = async (reportId: string) => {
     setDeletingId(reportId);
     
     const success = await deleteReport(reportId);
@@ -127,7 +125,10 @@ const Reports = () => {
                                 variant="ghost"
                                 size="icon"
                                 className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                                onClick={(e) => e.preventDefault()}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                }}
                               >
                                 <Trash2 className="w-4 h-4 text-muted-foreground hover:text-destructive" />
                               </Button>
@@ -140,9 +141,13 @@ const Reports = () => {
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
-                                <AlertDialogCancel>Annuler</AlertDialogCancel>
+                                <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Annuler</AlertDialogCancel>
                                 <AlertDialogAction
-                                  onClick={(e) => handleDelete(report.id, e)}
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handleDelete(report.id);
+                                  }}
                                   disabled={deletingId === report.id}
                                   className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                 >
