@@ -7,16 +7,16 @@ const corsHeaders = {
 };
 
 // ============================================
-// CLAUDE OPUS 4.5 - THE ONLY MODEL
+// CLAUDE OPUS 4.5 - THE ONLY MODEL (INSTITUTIONAL GRADE)
 // ============================================
-const CLAUDE_MODEL = "claude-sonnet-4-20250514";
+const CLAUDE_MODEL = "claude-opus-4-5-20251101";
 
 // ============================================
 // TIER CONFIGURATION - INSTITUTIONAL GRADE
 // ============================================
 const TIER_CONFIG = {
   standard: {
-    max_tokens: 8000,
+    max_tokens: 12000,
     temperature: 0.2,
     perplexity_searches: 0, // No web search for standard
     system_prompt: `Tu es un DIRECTEUR ASSOCIÉ de cabinet de conseil stratégique (BCG/McKinsey alumni, 15+ ans d'expérience).
@@ -59,7 +59,7 @@ RETOURNE UNIQUEMENT LE JSON VALIDE, sans texte avant/après.`,
   },
   
   pro: {
-    max_tokens: 16000,
+    max_tokens: 24000,
     temperature: 0.15,
     perplexity_searches: 5, // 5 web searches for pro
     system_prompt: `Tu es un PRINCIPAL de cabinet de conseil stratégique tier-1 (ex-McKinsey/BCG/Bain, 10+ ans).
@@ -102,7 +102,7 @@ RETOURNE UNIQUEMENT LE JSON VALIDE.`,
   },
   
   agency: {
-    max_tokens: 32000,
+    max_tokens: 48000,
     temperature: 0.1,
     perplexity_searches: 10, // 10 comprehensive searches for agency
     system_prompt: `Tu es un SENIOR PARTNER d'un cabinet de conseil stratégique de rang mondial.
