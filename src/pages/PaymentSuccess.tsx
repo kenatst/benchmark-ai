@@ -66,7 +66,7 @@ const PaymentSuccess = () => {
         } else if (data.reportStatus === 'processing') {
           setStatus('generating');
           updateProgress(40);
-          pollForCompletion(data.reportId);
+          // Polling effect will automatically start
         } else if (data.reportStatus === 'ready') {
           setStatus('ready');
           updateProgress(100);
@@ -206,7 +206,7 @@ const PaymentSuccess = () => {
       setError('Erreur lors de la relance');
       setStatus('failed');
     }
-  };
+  }, [reportId, updateProgress]);
 
   // Initial verification
   useEffect(() => {
