@@ -417,6 +417,119 @@ export interface AgencyReportOutput {
   }>;
   assumptions_and_limitations: string[];
   sources: Array<{ title: string; url: string }>;
+  
+  // Institutional-grade additions (Agency tier enhanced)
+  methodology?: {
+    scope: string;
+    period: string;
+    segments_analyzed: string[];
+    primary_sources: string[];
+    secondary_sources: string[];
+    evaluation_criteria: {
+      dimension: string;
+      weight_conservative: string;
+      weight_balanced: string;
+      weight_performance: string;
+    }[];
+    limitations: string[];
+  };
+  
+  market_overview_detailed?: {
+    key_metrics: { indicator: string; value: string; source?: string }[];
+    market_structure: {
+      overview: string;
+      leaders: { name: string; detail: string }[];
+      independents_share: string;
+    };
+    market_segments: {
+      segment: string;
+      price_avg: string;
+      margin: string;
+      examples: string;
+    }[];
+    sources: string;
+  };
+  
+  territory_analysis?: {
+    location_name: string;
+    demographics: { indicator: string; value: string }[];
+    real_estate: { indicator: string; value: string }[];
+    commercial_hubs: { name: string; description: string; priority?: 'high' | 'medium' | 'low' }[];
+    local_competitors: { name: string; rating?: string; specialty?: string }[];
+    opportunities: string[];
+    sources: string;
+  };
+  
+  scoring_matrix?: {
+    criteria: string[];
+    competitors: {
+      name: string;
+      scores: Record<string, number>;
+      total: number;
+    }[];
+    sensitivity_analysis: {
+      model: string;
+      rankings: string[];
+    }[];
+    interpretation: string;
+  };
+  
+  trends_analysis?: {
+    period: string;
+    categories: {
+      category: string;
+      icon: 'product' | 'service' | 'consumer' | 'watch';
+      trends: string[];
+    }[];
+    key_insights: string[];
+  };
+  
+  strategic_recommendations_detailed?: {
+    positioning_options: {
+      id: string;
+      name: string;
+      type: 'conservative' | 'balanced' | 'ambitious';
+      description: string;
+      differentiators: string[];
+      target_ticket: string;
+    }[];
+    location_recommendations: {
+      priority: number;
+      name: string;
+      rationale: string[];
+      estimated_rent?: string;
+    }[];
+    recommended_surface: string;
+    budget_rent: string;
+    economic_model: { indicator: string; target: string }[];
+    attention_points: { point: string; impact?: string }[];
+  };
+  
+  detailed_roadmap?: {
+    phases: {
+      phase: string;
+      timeline: string;
+      title: string;
+      tasks: string[];
+      kpis?: string[];
+    }[];
+    kpi_targets: {
+      indicator: string;
+      target_m6: string;
+      target_m12: string;
+    }[];
+    budget_breakdown: { category: string; amount: string }[];
+    total_budget: string;
+    recommended_equity: string;
+  };
+  
+  appendices?: {
+    glossary: { term: string; definition: string }[];
+    sources_by_category: { category: string; sources: string[] }[];
+    assumptions: { assumption: string; validation_plan?: string }[];
+    unknowns: { item: string; how_to_find?: string }[];
+    validation_plan: string[];
+  };
 }
 
 // Union type for all report outputs
