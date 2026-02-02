@@ -7,126 +7,176 @@ const corsHeaders = {
 };
 
 // ============================================
-// TIER CONFIGURATION WITH WEB SEARCH
+// CLAUDE OPUS 4.5 - THE ONLY MODEL
+// ============================================
+const CLAUDE_MODEL = "claude-sonnet-4-20250514";
+
+// ============================================
+// TIER CONFIGURATION - INSTITUTIONAL GRADE
 // ============================================
 const TIER_CONFIG = {
   standard: {
-    model: "claude-sonnet-4-20250514",
     max_tokens: 8000,
-    temperature: 0.3,
-    tools: [],
-    system_prompt: `Tu es un consultant stratégique senior spécialisé en benchmark concurrentiel.
+    temperature: 0.2,
+    perplexity_searches: 0, // No web search for standard
+    system_prompt: `Tu es un DIRECTEUR ASSOCIÉ de cabinet de conseil stratégique (BCG/McKinsey alumni, 15+ ans d'expérience).
 
-MISSION: Génère un rapport de benchmark ACTIONNABLE et SPÉCIFIQUE pour le business décrit.
+═══════════════════════════════════════════════════════════════════════════════
+MISSION: PRODUIRE UN BENCHMARK CONCURRENTIEL EXÉCUTIF EN 48H
+Qualité attendue: Deck présentable à un C-Level sans modification.
+═══════════════════════════════════════════════════════════════════════════════
 
-RÈGLES ABSOLUES:
-1. Chaque recommandation DOIT commencer par un VERBE D'ACTION (Lancer, Créer, Optimiser, Tester...)
-2. Chaque insight DOIT inclure un IMPACT ATTENDU chiffré quand possible (+X%, -Y€, etc.)
-3. ÉVITER les généralités - être SPÉCIFIQUE au secteur et au marché local
-4. Le ton doit être DIRECT et ACTIONNABLE, zéro bullshit corporate
-5. Les données de pricing doivent être réalistes pour le marché spécifié
+STANDARDS DE QUALITÉ NON-NÉGOCIABLES:
 
-STRUCTURE:
-- Executive Summary: 1 headline percutant + situation + opportunité principale
-- Analyse concurrentielle: min 3 concurrents avec forces/faiblesses réelles
-- Positionnement: recommandation claire avec rationale
-- Pricing: benchmarks réalistes du marché
-- Plan d'action: tâches concrètes avec délais (7j/30j/90j)
+1. ORIENTATION ACTION IMMÉDIATE
+   → Chaque recommandation = VERBE D'ACTION + CIBLE + MÉTRIQUE DE SUCCÈS
+   → Format: "[VERBE] [quoi] pour [atteindre X] d'ici [délai]"
+   → Exemples: "Lancer une campagne LinkedIn Ads ciblant les DRH pour générer 50 leads qualifiés d'ici 30 jours"
 
-RETOURNE UNIQUEMENT UN JSON VALIDE, sans texte avant/après.`,
+2. QUANTIFICATION SYSTÉMATIQUE
+   → Chaque insight DOIT inclure un IMPACT CHIFFRÉ (+X%, -Y€, xZ ROI)
+   → Pas d'affirmation sans data point de référence
+   → Utilise des benchmarks sectoriels réalistes
+
+3. SPÉCIFICITÉ GÉOGRAPHIQUE & SECTORIELLE
+   → ZÉRO généralité - tout doit être contextualisé au marché local
+   → Mentionner des acteurs locaux, réglementations spécifiques, pratiques du marché
+   → Prix et budgets en devise locale avec réalisme absolu
+
+4. TON & STYLE
+   → DIRECT, INCISIF, SANS BULLSHIT CORPORATE
+   → Phrases courtes. Assertions claires. Pas de conditionnel inutile.
+   → "Faites X" au lieu de "Il serait peut-être intéressant de considérer X"
+
+5. STRUCTURE EXÉCUTIVE
+   → Executive Summary: 1 headline (15 mots max) + situation + opportunité clé
+   → Competitor Analysis: Forces/Faiblesses FACTUELLES, pas d'opinions vagues
+   → Pricing: Benchmarks RÉALISTES du marché, pas de chiffres inventés
+   → Action Plan: Tâches CONCRÈTES avec owner, délai, deliverable attendu
+
+LIVRABLES ATTENDUS: JSON structuré prêt pour visualisation.
+RETOURNE UNIQUEMENT LE JSON VALIDE, sans texte avant/après.`,
   },
+  
   pro: {
-    model: "claude-sonnet-4-20250514",
     max_tokens: 16000,
-    temperature: 0.3,
-    tools: [{ type: "web_search_20250305", name: "web_search" }],
-    system_prompt: `Tu es un consultant stratégique senior (niveau cabinet top-tier) spécialisé en intelligence compétitive.
-
-MISSION: Génère un rapport PREMIUM de benchmark basé sur des DONNÉES RÉELLES du web.
-
-RÈGLES ABSOLUES:
-1. UTILISE LE WEB SEARCH pour CHAQUE concurrent mentionné - trouve leurs vrais prix, offres, positionnement
-2. Chaque recommandation DOIT être SPÉCIFIQUE et ACTIONNABLE avec impact attendu
-3. Les données financières (CAC, pricing) doivent être TIRÉES de vraies sources
-4. Cite TOUTES tes sources dans le rapport final
-5. Génère des données numériques 1-10 pour les graphiques de positionnement
-
-RECHERCHES OBLIGATOIRES:
-- Prix réels des concurrents (via leurs sites)
-- Tendances du secteur 2025-2026
-- Taille du marché et growth rate
-- Benchmarks CAC/LTV du secteur
-
-QUALITÉ DU CONTENU:
-- Chaque insight = Action + Impact + Timeline
-- Pas de généralités - tout doit être spécifique au business analysé
-- Les taglines proposées doivent être mémorables et différenciantes
-- Le plan d'action doit être exécutable dès demain
-
-RETOURNE UNIQUEMENT UN JSON VALIDE, sans texte avant/après.`,
-  },
-  agency: {
-    model: "claude-sonnet-4-20250514",
-    max_tokens: 32000,
     temperature: 0.15,
-    tools: [{ type: "web_search_20250305", name: "web_search" }],
-    system_prompt: `Tu es un PARTNER de cabinet de conseil stratégique de premier rang mondial (niveau McKinsey, BCG, Bain).
+    perplexity_searches: 5, // 5 web searches for pro
+    system_prompt: `Tu es un PRINCIPAL de cabinet de conseil stratégique tier-1 (ex-McKinsey/BCG/Bain, 10+ ans).
 
 ═══════════════════════════════════════════════════════════════════════════════
-MISSION: PRODUIRE UN RAPPORT D'INTELLIGENCE STRATÉGIQUE DE CALIBRE INSTITUTIONNEL
-Ce rapport doit être digne d'une présentation au Board of Directors d'une entreprise Fortune 500.
+MISSION: PRODUIRE UN RAPPORT D'INTELLIGENCE COMPÉTITIVE DE CALIBRE PREMIUM
+Basé sur des DONNÉES RÉELLES collectées via recherche web approfondie.
+Qualité attendue: Présentable à un Investment Committee / Board Advisor.
 ═══════════════════════════════════════════════════════════════════════════════
 
-PRINCIPES FONDAMENTAUX D'UN RAPPORT INSTITUTIONNEL:
+TU DISPOSES DE DONNÉES DE RECHERCHE WEB - UTILISE-LES INTENSIVEMENT:
 
-1. RIGUEUR MÉTHODOLOGIQUE
-   - Chaque affirmation DOIT être soutenue par des données vérifiables
-   - Utilise des frameworks éprouvés (Porter, PESTEL, SWOT, value chain)
-   - Les hypothèses doivent être explicites et testables
-   - La méthodologie doit être reproductible
+1. EXPLOITATION DES DONNÉES COLLECTÉES
+   → Les données Perplexity t'ont été fournies - CITE-LES SYSTÉMATIQUEMENT
+   → Chaque affirmation sur un concurrent = source obligatoire
+   → Prix, CA, funding, employés = données réelles ou "non trouvé" (jamais inventé)
 
-2. PROFONDEUR D'ANALYSE
-   - Dépasse le niveau "qu'est-ce qui se passe" pour atteindre "pourquoi" et "et alors?"
-   - Identifie les second-order effects et implications stratégiques
-   - Quantifie systématiquement: taille, croissance, parts de marché, marges
-   - Lie chaque insight à une décision ou action concrète
+2. INTELLIGENCE COMPÉTITIVE ACTIONNABLE
+   → Pour CHAQUE concurrent: profil complet avec pricing réel trouvé
+   → Scoring digital (1-10) basé sur présence web, reviews, trafic
+   → Matrice de positionnement avec coordonnées X/Y exploitables
 
-3. OBJECTIVITÉ & ÉQUILIBRE
-   - Présente les risques et opportunités de façon équilibrée
-   - Évite le biais de confirmation - challenge les hypothèses du client
-   - Reconnaît les limites de l'analyse et les zones d'incertitude
-   - Propose des scenarios (base, upside, downside)
+3. MARKET INTELLIGENCE
+   → Tendances 2025-2026 avec sources (articles, études)
+   → Sizing du marché (TAM/SAM si trouvé, sinon estimation sourcée)
+   → Benchmarks CAC/LTV sectoriels avec comparables
 
-4. ORIENTATION RÉSULTAT
-   - Chaque section doit répondre à "So what?" et "Now what?"
-   - Priorise les recommandations par impact et faisabilité
-   - Inclut des metrics de succès clairs et mesurables
-   - Le plan d'action doit être immédiatement exécutable
+4. RECOMMANDATIONS PREMIUM
+   → Chaque reco = SI [contexte trouvé] → ALORS [action] → POUR [impact quantifié]
+   → Taglines proposées: mémorables, différenciantes, testées mentalement
+   → Quick wins identifiés avec timeline J+7, J+30, J+90
 
-RECHERCHES WEB OBLIGATOIRES (utilise intensivement le web search):
-- [MARCHÉ] Données TAM/SAM/SOM avec sources crédibles (Statista, études sectorielles)
-- [CONCURRENCE] Profils détaillés: pricing réel, CA estimé, employés, funding
-- [TRENDS] Tendances 2025-2026 spécifiques au secteur et géographie
-- [REGULATORY] Évolutions réglementaires récentes impactant le secteur
-- [TECH] Innovations technologiques disruptives
-- [BENCHMARKS] KPIs sectoriels (CAC, LTV, marges, growth rates)
+5. STANDARDS DE DOCUMENTATION
+   → TOUTES les sources citées dans le champ "sources" avec URL
+   → Distinction claire: "confirmé par recherche" vs "estimation"
+   → Data points numériques pour tous les graphiques
 
-CRITÈRES DE QUALITÉ DU LIVRABLE:
+LIVRABLES: JSON structuré avec sources, données graphiques, et scoring.
+RETOURNE UNIQUEMENT LE JSON VALIDE.`,
+  },
+  
+  agency: {
+    max_tokens: 32000,
+    temperature: 0.1,
+    perplexity_searches: 10, // 10 comprehensive searches for agency
+    system_prompt: `Tu es un SENIOR PARTNER d'un cabinet de conseil stratégique de rang mondial.
+Expérience: 20+ ans, dont 5+ en tant que Partner. Background: Harvard MBA, ex-McKinsey Director.
 
-✓ Les Porter 5 Forces ont des scores 1-10 pour visualisation radar chart
-✓ La matrice de positionnement a des coordonnées X/Y pour chaque concurrent
-✓ Les projections financières ont 3 scenarios avec hypothèses explicites
-✓ Chaque recommandation suit le format: SI [contexte] → ALORS [action] → POUR [résultat quantifié]
-✓ Toutes les sources sont citées avec titre et URL
-✓ Le risk register inclut probabilité, impact, et mitigation
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  MISSION: RAPPORT D'INTELLIGENCE STRATÉGIQUE DE CALIBRE INSTITUTIONNEL      ║
+║  Standard: Board of Directors d'une entreprise Fortune 500                   ║
+║  Output: Qualité publication-ready, zéro révision nécessaire                ║
+╚══════════════════════════════════════════════════════════════════════════════╝
 
-TONE OF VOICE:
-- Assertif mais nuancé
-- Factuel, jamais spéculatif sans le signaler
-- Vocabulaire business précis
-- Phrases incisives, jamais de verbiage
+═══════════════════════════════════════════════════════════════════════════════
+I. PRINCIPES FONDAMENTAUX D'EXCELLENCE
+═══════════════════════════════════════════════════════════════════════════════
 
-RETOURNE UNIQUEMENT UN JSON VALIDE, sans texte avant/après.`,
+1. RIGUEUR MÉTHODOLOGIQUE ABSOLUE
+   ✓ Chaque affirmation = données vérifiables (les données Perplexity sont ton corpus)
+   ✓ Frameworks obligatoires: Porter 5 Forces, PESTEL, SWOT, Value Chain Analysis
+   ✓ Hypothèses EXPLICITES et TESTABLES
+   ✓ Méthodologie reproductible et auditable
+
+2. PROFONDEUR D'ANALYSE STRATÉGIQUE
+   ✓ Au-delà du "quoi" → le "pourquoi" → le "et alors?" → le "maintenant quoi?"
+   ✓ Second-order effects: si X alors Y, mais aussi si Y alors Z
+   ✓ Implications stratégiques à 3 horizons (court/moyen/long terme)
+   ✓ Quantification systématique: sizing, growth, share, margins, unit economics
+
+3. OBJECTIVITÉ & ÉQUILIBRE INTELLECTUEL
+   ✓ Balance risques/opportunités sans biais optimiste
+   ✓ CHALLENGE explicite des hypothèses du client (Devil's Advocate)
+   ✓ 3 scenarios financiers: Conservative (-20%), Baseline, Optimistic (+30%)
+   ✓ Zones d'incertitude reconnues avec confidence levels
+
+4. ORIENTATION RÉSULTAT IMMÉDIATE
+   ✓ Chaque section répond à "So What?" et "Now What?"
+   ✓ Priorisation Impact × Faisabilité (matrice 2x2)
+   ✓ Métriques de succès SMART pour chaque initiative
+   ✓ Roadmap exécutable dès J+1
+
+═══════════════════════════════════════════════════════════════════════════════
+II. EXPLOITATION DES DONNÉES PERPLEXITY (TU AS REÇU DES DONNÉES - UTILISE-LES)
+═══════════════════════════════════════════════════════════════════════════════
+
+Les recherches web ont été effectuées pour toi. Tu DOIS:
+→ [MARCHÉ] Citer les données TAM/SAM/SOM trouvées avec sources exactes
+→ [CONCURRENCE] Profils détaillés: pricing RÉEL, CA estimé, headcount, funding rounds
+→ [TRENDS] Tendances 2025-2026 avec citations d'articles/études
+→ [REGULATORY] Évolutions réglementaires récentes (RGPD, sectorielles...)
+→ [TECH] Innovations disruptives identifiées dans le secteur
+→ [BENCHMARKS] KPIs sectoriels comparés (CAC, LTV, NRR, Churn, Gross Margin)
+
+═══════════════════════════════════════════════════════════════════════════════
+III. CRITÈRES DE QUALITÉ DU LIVRABLE (TOUS OBLIGATOIRES)
+═══════════════════════════════════════════════════════════════════════════════
+
+✓ Porter 5 Forces: scores 1-10 avec analyse textuelle pour chaque force
+✓ Matrice de positionnement: coordonnées X/Y pour chaque concurrent + position recommandée
+✓ Projections financières: 3 scenarios avec hypothèses explicites détaillées
+✓ Format recommandations: "SI [contexte] → ALORS [action] → POUR [résultat quantifié] → MESURE [KPI]"
+✓ Sources: TOUTES citées avec titre exact et URL
+✓ Risk Register: probabilité (H/M/L) × impact (H/M/L) × mitigation × contingency
+✓ Implementation Roadmap: 3 phases avec milestones, owners, budgets, success metrics
+
+═══════════════════════════════════════════════════════════════════════════════
+IV. TONE OF VOICE
+═══════════════════════════════════════════════════════════════════════════════
+
+→ ASSERTIF mais NUANCÉ (pas d'arrogance, mais confiance)
+→ FACTUEL, jamais spéculatif sans signal explicite ("notre hypothèse est...")
+→ VOCABULAIRE BUSINESS PRÉCIS (utiliser les termes techniques corrects)
+→ PHRASES INCISIVES - pas de remplissage, chaque mot compte
+→ STRUCTURE PYRAMIDALE - conclusion first, puis supporting evidence
+
+RETOURNE UNIQUEMENT LE JSON VALIDE, sans texte avant/après.`,
   },
 } as const;
 
@@ -140,7 +190,6 @@ interface ReportInput {
   sectorDetails?: string;
   location: { city: string; country: string };
   targetCustomers: { type: string; persona: string };
-  // Strategic context (Phase 2)
   businessMaturity?: string;
   annualRevenue?: string;
   teamSize?: string;
@@ -148,7 +197,6 @@ interface ReportInput {
   priceRange: { min: number; max: number };
   differentiators: string[];
   acquisitionChannels: string[];
-  // Phase 2 additions
   uniqueValueProposition?: string;
   businessModel?: string;
   grossMargin?: string;
@@ -185,9 +233,168 @@ async function updateProgress(
 }
 
 // ============================================
+// PERPLEXITY SEARCH FUNCTION
+// ============================================
+async function searchWithPerplexity(
+  apiKey: string,
+  query: string,
+  context: string
+): Promise<{ content: string; citations: string[] }> {
+  console.log(`[Perplexity] Searching: "${query.substring(0, 100)}..."`);
+  
+  const response = await fetch('https://api.perplexity.ai/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'sonar-pro', // Best model for comprehensive research
+      messages: [
+        { 
+          role: 'system', 
+          content: `Tu es un analyste de recherche senior. Fournis des données FACTUELLES, QUANTIFIÉES et SOURCÉES.
+Contexte de recherche: ${context}
+IMPORTANT: Inclus des chiffres précis, des URLs, des noms d'entreprises, des dates.` 
+        },
+        { role: 'user', content: query }
+      ],
+      search_recency_filter: 'year', // Focus on recent data
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`[Perplexity] Error ${response.status}:`, errorText);
+    throw new Error(`Perplexity API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return {
+    content: data.choices?.[0]?.message?.content || '',
+    citations: data.citations || []
+  };
+}
+
+// ============================================
+// COMPREHENSIVE RESEARCH FUNCTION
+// ============================================
+async function conductResearch(
+  perplexityKey: string,
+  input: ReportInput,
+  tier: TierType,
+  reportId: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any
+): Promise<string> {
+  const tierConfig = TIER_CONFIG[tier];
+  const searchCount = tierConfig.perplexity_searches;
+  
+  if (searchCount === 0) {
+    console.log(`[${reportId}] Standard tier - no web research`);
+    return "Aucune recherche web pour ce tier.";
+  }
+
+  const allResults: { query: string; content: string; citations: string[] }[] = [];
+  const context = `Analyse stratégique pour ${input.businessName} dans le secteur ${input.sector} à ${input.location.city}, ${input.location.country}`;
+
+  // Define search queries based on tier
+  const queries: string[] = [];
+  
+  // Pro tier: 5 searches
+  if (tier === 'pro' || tier === 'agency') {
+    // 1. Competitor pricing
+    const competitorNames = input.competitors?.map(c => c.name).join(', ') || 'principaux acteurs';
+    queries.push(`Prix et tarifs de ${competitorNames} dans le secteur ${input.sector} en ${input.location.country} 2024 2025`);
+    
+    // 2. Market trends
+    queries.push(`Tendances marché ${input.sector} ${input.location.country} 2025 2026 croissance prévisions`);
+    
+    // 3. Market size
+    queries.push(`Taille marché ${input.sector} ${input.location.country} TAM SAM milliards euros 2024 2025`);
+    
+    // 4. CAC/LTV benchmarks
+    queries.push(`Benchmarks CAC LTV coût acquisition client ${input.sector} SaaS B2B B2C 2024`);
+    
+    // 5. Competitor profiles
+    queries.push(`${competitorNames} levée fonds employees chiffre affaires ${input.sector}`);
+  }
+
+  // Agency tier: 5 additional searches
+  if (tier === 'agency') {
+    // 6. PESTEL analysis
+    queries.push(`Analyse PESTEL ${input.sector} ${input.location.country} réglementation politique économie 2024 2025`);
+    
+    // 7. Porter 5 forces data
+    queries.push(`Analyse Porter 5 forces ${input.sector} barrières entrée pouvoir négociation fournisseurs clients`);
+    
+    // 8. Technology disruption
+    queries.push(`Innovation technologique disruption ${input.sector} IA automatisation 2025 startups`);
+    
+    // 9. Recent news
+    queries.push(`Actualités récentes ${input.sector} ${input.location.country} acquisitions lancements 2024`);
+    
+    // 10. Unit economics benchmarks
+    queries.push(`Unit economics ${input.sector} marge brute gross margin payback period benchmarks`);
+  }
+
+  // Execute searches with progress updates
+  for (let i = 0; i < queries.length && i < searchCount; i++) {
+    const progressPercent = 15 + Math.floor((i / searchCount) * 25);
+    await updateProgress(supabase, reportId, `Recherche web ${i + 1}/${searchCount}...`, progressPercent);
+    
+    try {
+      const result = await searchWithPerplexity(perplexityKey, queries[i], context);
+      allResults.push({
+        query: queries[i],
+        content: result.content,
+        citations: result.citations
+      });
+      console.log(`[${reportId}] Search ${i + 1}/${searchCount} completed`);
+    } catch (error) {
+      console.error(`[${reportId}] Search ${i + 1} failed:`, error);
+      allResults.push({
+        query: queries[i],
+        content: `Recherche échouée: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        citations: []
+      });
+    }
+    
+    // Small delay to avoid rate limiting
+    if (i < queries.length - 1) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+  }
+
+  // Compile research document
+  let researchDoc = `
+═══════════════════════════════════════════════════════════════════════════════
+DONNÉES DE RECHERCHE WEB PERPLEXITY - ${new Date().toISOString().split('T')[0]}
+═══════════════════════════════════════════════════════════════════════════════
+
+`;
+
+  for (const result of allResults) {
+    researchDoc += `
+────────────────────────────────────────────────────────────────────────────────
+RECHERCHE: ${result.query}
+────────────────────────────────────────────────────────────────────────────────
+
+${result.content}
+
+SOURCES:
+${result.citations.map((c, i) => `[${i + 1}] ${c}`).join('\n') || 'Aucune source citée'}
+
+`;
+  }
+
+  return researchDoc;
+}
+
+// ============================================
 // PROMPT BUILDERS
 // ============================================
-function buildUserPrompt(input: ReportInput, plan: TierType): string {
+function buildUserPrompt(input: ReportInput, plan: TierType, researchData: string): string {
   const competitorsList = input.competitors?.length > 0
     ? input.competitors.map((c, i) => {
       let line = `${i + 1}. ${c.name}`;
@@ -195,9 +402,8 @@ function buildUserPrompt(input: ReportInput, plan: TierType): string {
       if (c.type) line += ` [${c.type}]`;
       return line;
     }).join("\n")
-    : "Aucun concurrent spécifié - rechercher les principaux acteurs du marché";
+    : "Aucun concurrent spécifié - identifier les principaux acteurs du marché";
 
-  // Business maturity labels
   const maturityLabels: Record<string, string> = {
     idea: "Idée/Concept (pré-revenue)",
     mvp: "MVP (premiers clients, <10k€/mois)",
@@ -205,7 +411,6 @@ function buildUserPrompt(input: ReportInput, plan: TierType): string {
     scaleup: "Scale-up (>50k€/mois)"
   };
 
-  // Business model labels
   const modelLabels: Record<string, string> = {
     "one-shot": "Vente one-shot",
     "subscription-monthly": "Abonnement mensuel",
@@ -215,7 +420,12 @@ function buildUserPrompt(input: ReportInput, plan: TierType): string {
     "freemium": "Freemium"
   };
 
-  let prompt = `<business_context>
+  let prompt = `
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  BRIEF CLIENT - DEMANDE DE BENCHMARK CONCURRENTIEL                           ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+<business_context>
 ENTREPRISE: ${input.businessName}
 ${input.website ? `Site web: ${input.website}` : "Pas de site web"}
 Secteur: ${input.sector}${input.sectorDetails ? ` (${input.sectorDetails})` : ""}
@@ -258,21 +468,22 @@ Ton souhaité: ${input.tonePreference}
 ${input.notes ? `Notes additionnelles: ${input.notes}` : ""}
 </constraints>`;
 
-  // Add web search instructions for Pro and Agency tiers
+  // Add research data for Pro and Agency
   if (plan === "pro" || plan === "agency") {
     prompt += `
 
-<recherche_web>
-UTILISE IMPÉRATIVEMENT le web search pour:
-1. Trouver les VRAIS PRIX des concurrents: ${input.competitors?.map(c => c.name).join(", ") || "acteurs majeurs du secteur"}
-2. Données marché "${input.sector}" en "${input.location?.country}" - taille, croissance, tendances 2025
-3. Benchmarks financiers du secteur (CAC, LTV, marges moyennes)
-${plan === "agency" ? `4. Analyses PESTEL récentes pour ${input.location?.country}
-5. Porter 5 Forces - données spécifiques au secteur
-6. Articles de presse récents sur le secteur` : ""}
+${researchData}
 
-⚠️ CITE TOUTES TES SOURCES avec titre et URL dans le champ "sources"
-</recherche_web>`;
+═══════════════════════════════════════════════════════════════════════════════
+INSTRUCTIONS CRITIQUES POUR L'UTILISATION DES DONNÉES DE RECHERCHE
+═══════════════════════════════════════════════════════════════════════════════
+
+1. CITE SYSTÉMATIQUEMENT les données trouvées dans le champ "sources" du JSON
+2. Pour les prix concurrents: utilise UNIQUEMENT les données trouvées ou indique "non trouvé"
+3. Pour le sizing marché: cite la source exacte (Statista, étude sectorielle, etc.)
+4. JAMAIS inventer de données - mieux vaut "données non disponibles" que des chiffres faux
+5. Distingue clairement: "confirmé par recherche" vs "estimation basée sur..."
+`;
   }
 
   // Add JSON schema based on tier
@@ -354,120 +565,51 @@ Génère le rapport de benchmark. RETOURNE UNIQUEMENT LE JSON.`;
 }
 
 // ============================================
-// CLAUDE API WITH WEB SEARCH (AGENTIC LOOP)
+// CLAUDE OPUS 4.5 API CALL
 // ============================================
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function callClaudeWithTools(
+async function callClaudeOpus(
   apiKey: string,
-  config: typeof TIER_CONFIG[TierType],
+  systemPrompt: string,
   userPrompt: string,
-  reportId: string,
-  supabase: any
+  maxTokens: number,
+  temperature: number
 ): Promise<string> {
-  console.log(`[${reportId}] Starting Claude API call with ${config.tools.length > 0 ? "web search enabled" : "no tools"}`);
+  console.log(`[Claude] Calling Opus 4.5 (${CLAUDE_MODEL}) with ${maxTokens} max tokens`);
+  
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: CLAUDE_MODEL,
+      max_tokens: maxTokens,
+      temperature: temperature,
+      system: systemPrompt,
+      messages: [{ role: "user", content: userPrompt }],
+    }),
+  });
 
-  let messages: Array<{ role: string; content: unknown }> = [
-    { role: "user", content: userPrompt }
-  ];
-
-  let finalResponse = "";
-  let iterationCount = 0;
-  const maxIterations = 10; // Safety limit
-
-  // Progress tracking steps
-  const progressSteps = [
-    { step: "Analyse du contexte business", progress: 10 },
-    { step: "Recherche des concurrents", progress: 25 },
-    { step: "Analyse du marché", progress: 40 },
-    { step: "Génération des recommandations", progress: 60 },
-    { step: "Création du plan d'action", progress: 80 },
-    { step: "Finalisation du rapport", progress: 95 },
-  ];
-
-  while (iterationCount < maxIterations) {
-    iterationCount++;
-
-    // Update progress based on iteration
-    const progressIndex = Math.min(iterationCount - 1, progressSteps.length - 1);
-    await updateProgress(
-      supabase,
-      reportId,
-      progressSteps[progressIndex].step,
-      progressSteps[progressIndex].progress
-    );
-
-    console.log(`[${reportId}] Claude iteration ${iterationCount} - ${progressSteps[progressIndex].step}`);
-
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: config.model,
-        max_tokens: config.max_tokens,
-        temperature: config.temperature,
-        system: config.system_prompt,
-        tools: config.tools.length > 0 ? config.tools : undefined,
-        messages,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`[${reportId}] Claude API error:`, response.status, errorText);
-      if (response.status === 429) throw new Error("Rate limit exceeded, please try again later");
-      if (response.status === 401) throw new Error("Invalid Claude API key");
-      throw new Error(`Claude API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    console.log(`[${reportId}] Claude stop_reason: ${data.stop_reason}`);
-
-    // Check if Claude wants to use a tool
-    if (data.stop_reason === "tool_use") {
-      const toolUseBlocks = data.content.filter((block: { type: string }) => block.type === "tool_use");
-
-      if (toolUseBlocks.length > 0) {
-        console.log(`[${reportId}] Claude is using ${toolUseBlocks.length} tool(s) - web search`);
-
-        // Update progress for web search
-        await updateProgress(supabase, reportId, "Recherche web en cours...", 30 + (iterationCount * 5));
-
-        messages.push({ role: "assistant", content: data.content });
-
-        const toolResults = toolUseBlocks.map((toolUse: { id: string; name: string }) => ({
-          type: "tool_result",
-          tool_use_id: toolUse.id,
-          content: "Search completed"
-        }));
-
-        messages.push({ role: "user", content: toolResults });
-        continue;
-      }
-    }
-
-    // Extract text content from response
-    for (const block of data.content) {
-      if (block.type === "text") {
-        finalResponse += block.text;
-      }
-    }
-
-    // If stop_reason is "end_turn", we're done
-    if (data.stop_reason === "end_turn") {
-      break;
-    }
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`[Claude] API error ${response.status}:`, errorText);
+    if (response.status === 429) throw new Error("Rate limit exceeded, please try again later");
+    if (response.status === 401) throw new Error("Invalid Claude API key");
+    throw new Error(`Claude API error: ${response.status}`);
   }
 
-  if (iterationCount >= maxIterations) {
-    console.warn(`[${reportId}] Reached max iterations limit`);
+  const data = await response.json();
+  
+  let content = "";
+  for (const block of data.content) {
+    if (block.type === "text") {
+      content += block.text;
+    }
   }
-
-  console.log(`[${reportId}] Claude completed in ${iterationCount} iteration(s)`);
-  return finalResponse;
+  
+  return content;
 }
 
 // ============================================
@@ -504,7 +646,7 @@ serve(async (req) => {
       throw new Error("Report not found");
     }
 
-    // Update status to processing with initial step
+    // Update status to processing
     await supabaseAdmin
       .from("reports")
       .update({
@@ -522,33 +664,61 @@ serve(async (req) => {
       throw new Error(`Invalid plan: ${plan}`);
     }
 
-    // Get API key
+    // Get API keys
     const CLAUDE_API_KEY = Deno.env.get("CLAUDE_API_KEY");
     if (!CLAUDE_API_KEY) {
       throw new Error("CLAUDE_API_KEY is not configured");
     }
 
-    // Get tier config
+    const PERPLEXITY_API_KEY = Deno.env.get("PERPLEXITY_API_KEY");
+    if (!PERPLEXITY_API_KEY && (plan === "pro" || plan === "agency")) {
+      throw new Error("PERPLEXITY_API_KEY is required for Pro and Agency tiers");
+    }
+
     const tierConfig = TIER_CONFIG[plan];
 
-    // Build user prompt
-    const userPrompt = buildUserPrompt(inputData, plan);
+    console.log(`[${reportId}] Starting report generation`);
+    console.log(`[${reportId}] Tier: ${plan} | Model: ${CLAUDE_MODEL} | Perplexity searches: ${tierConfig.perplexity_searches}`);
 
-    console.log(`[${reportId}] Generating report (tier: ${plan}, model: ${tierConfig.model}, web_search: ${tierConfig.tools.length > 0})`);
+    // Step 1: Conduct Perplexity research (for Pro and Agency)
+    await updateProgress(supabaseAdmin, reportId, "Lancement des recherches...", 10);
+    
+    let researchData = "";
+    if (tierConfig.perplexity_searches > 0 && PERPLEXITY_API_KEY) {
+      researchData = await conductResearch(
+        PERPLEXITY_API_KEY,
+        inputData,
+        plan,
+        reportId,
+        supabaseAdmin
+      );
+      console.log(`[${reportId}] Research completed: ${researchData.length} chars`);
+    }
 
-    // Call Claude with agentic loop for web search
-    const content = await callClaudeWithTools(CLAUDE_API_KEY, tierConfig, userPrompt, reportId, supabaseAdmin);
+    // Step 2: Build the prompt with research data
+    await updateProgress(supabaseAdmin, reportId, "Préparation de l'analyse...", 45);
+    const userPrompt = buildUserPrompt(inputData, plan, researchData);
+
+    // Step 3: Call Claude Opus 4.5
+    await updateProgress(supabaseAdmin, reportId, "Génération du rapport (Claude Opus 4.5)...", 55);
+    
+    const content = await callClaudeOpus(
+      CLAUDE_API_KEY,
+      tierConfig.system_prompt,
+      userPrompt,
+      tierConfig.max_tokens,
+      tierConfig.temperature
+    );
 
     if (!content) {
       throw new Error("No content returned from Claude");
     }
 
-    // Update progress
-    await updateProgress(supabaseAdmin, reportId, "Parsing du rapport...", 98);
+    // Step 4: Parse JSON response
+    await updateProgress(supabaseAdmin, reportId, "Parsing du rapport...", 90);
 
     console.log(`[${reportId}] Parsing JSON response...`);
 
-    // Parse JSON response
     let outputData;
     try {
       const cleanContent = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
@@ -558,7 +728,7 @@ serve(async (req) => {
       throw new Error("Failed to parse Claude response as JSON");
     }
 
-    // Update report with output
+    // Step 5: Update report with output
     const { error: updateError } = await supabaseAdmin
       .from("reports")
       .update({
@@ -572,7 +742,8 @@ serve(async (req) => {
 
     if (updateError) throw updateError;
 
-    console.log(`[${reportId}] Report generated successfully (tier: ${plan})`);
+    console.log(`[${reportId}] ✅ Report generated successfully`);
+    console.log(`[${reportId}] Tier: ${plan} | Model: ${CLAUDE_MODEL} | Sources: ${outputData?.sources?.length || 0}`);
 
     return new Response(JSON.stringify({ success: true, reportId }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
