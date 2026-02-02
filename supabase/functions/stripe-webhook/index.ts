@@ -55,9 +55,14 @@ serve(async (req) => {
         });
       }
     } else {
-      // For testing without webhook signature (NOT recommended for production)
-      console.warn("[Webhook] No signature verification - TEST MODE");
-      event = JSON.parse(body);
+      // Webhook signature verification is REQUIRED
+      console.error("[Webhook] Missing webhook signature or secret. Rejecting unsigned request.");
+      return new Response(JSON.stringify({
+        error: "Webhook verification required. Configure STRIPE_WEBHOOK_SECRET in environment."
+      }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     console.log("[Webhook] Received event:", event.type);

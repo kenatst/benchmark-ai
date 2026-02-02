@@ -88,7 +88,7 @@ const PaymentSuccess = () => {
   }, [sessionId, navigate, updateProgress]);
 
   // Trigger report generation
-  const triggerGeneration = async (repId: string) => {
+  const triggerGeneration = useCallback(async (repId: string) => {
     setStatus('generating');
     updateProgress(30);
 
@@ -101,24 +101,30 @@ const PaymentSuccess = () => {
         console.error('Generation trigger error:', fnError);
         // Don't fail - the webhook might have already triggered it
       }
-
-      // Start polling for completion
-      pollForCompletion(repId);
     } catch (err) {
       console.error('Generation error:', err);
-      // Continue polling anyway - generation might have been triggered by webhook
-      pollForCompletion(repId);
+      // Continue with polling anyway - generation might have been triggered by webhook
     }
-  };
+  }, [updateProgress]);
 
-  // Poll for report completion
-  const pollForCompletion = (repId: string) => {
+  // Polling effect - handle cleanup properly
+  useEffect(() => {
+    if (status !== 'generating' || !reportId) {
+      return;
+    }
+
     let pollCount = 0;
+    let isMounted = true;
     const maxPolls = 120; // 6 minutes max (3s intervals)
 
     const interval = setInterval(async () => {
+      if (!isMounted) {
+        clearInterval(interval);
+        return;
+      }
+
       pollCount++;
-      
+
       // Calculate progress based on poll count - never decrease
       // Range from 30 to 95 over the polling period
       const calculatedProgress = Math.min(30 + (pollCount / maxPolls) * 65, 95);
@@ -127,8 +133,8 @@ const PaymentSuccess = () => {
       try {
         const { data, error } = await supabase
           .from('reports')
-          .select('status, output_data')
-          .eq('id', repId)
+          .select('status, output_data, processing_step')
+          .eq('id', reportId)
           .single();
 
         if (error) {
@@ -136,15 +142,17 @@ const PaymentSuccess = () => {
           return;
         }
 
+        if (!isMounted) return;
+
         if (data?.status === 'ready') {
           clearInterval(interval);
           setStatus('ready');
           updateProgress(100);
           toast.success('Votre benchmark est prêt !');
-          
+
           // Redirect after a short delay
           setTimeout(() => {
-            navigate(`/app/reports/${repId}`);
+            if (isMounted) navigate(`/app/reports/${reportId}`);
           }, 2500);
         } else if (data?.status === 'failed') {
           clearInterval(interval);
@@ -155,18 +163,24 @@ const PaymentSuccess = () => {
         if (pollCount >= maxPolls) {
           clearInterval(interval);
           // Don't mark as failed - it might still be processing
-          toast.info('La génération prend plus de temps que prévu...');
+          if (isMounted) toast.info('La génération prend plus de temps que prévu...');
         }
       } catch (err) {
         console.error('Polling error:', err);
       }
     }, 3000);
-  };
+
+    // Cleanup interval when component unmounts or status changes
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [status, reportId, updateProgress, navigate]);
 
   // Handle retry
-  const handleRetry = async () => {
+  const handleRetry = useCallback(async () => {
     if (!reportId) return;
-    
+
     // Reset progress tracking for retry
     maxProgressRef.current = 30;
     setProgress(30);
@@ -186,7 +200,7 @@ const PaymentSuccess = () => {
       }
 
       toast.info('Nouvelle tentative de génération...');
-      pollForCompletion(reportId);
+      // Status changed to 'generating' - polling effect will automatically start
     } catch (err) {
       console.error('Retry error:', err);
       setError('Erreur lors de la relance');
