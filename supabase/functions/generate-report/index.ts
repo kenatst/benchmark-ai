@@ -605,8 +605,8 @@ async function runGenerationAsync(
     await updateProgress(supabaseAdmin, reportId, "Préparation de l'analyse...", 45);
     const userPrompt = buildUserPrompt(inputData, plan, researchData);
 
-    // Step 3: Call Claude Opus 4.5
-    await updateProgress(supabaseAdmin, reportId, "Génération du rapport (Claude Opus 4.5)...", 55);
+    // Step 3: Call analysis engine
+    await updateProgress(supabaseAdmin, reportId, "Analyse stratégique en cours...", 55);
     
     const systemPrompt = tierConfig.system_prompt(reportLang);
     const content = await callClaudeOpus(
@@ -650,7 +650,39 @@ async function runGenerationAsync(
     if (updateError) throw updateError;
 
     console.log(`[${reportId}] ✅ Report generated successfully`);
-    console.log(`[${reportId}] Tier: ${plan} | Model: ${CLAUDE_MODEL} | Sources: ${outputData?.sources?.length || 0}`);
+    console.log(`[${reportId}] Tier: ${plan} | Sources: ${outputData?.sources?.length || 0}`);
+
+    // Step 6: Generate PDF
+    await updateProgress(supabaseAdmin, reportId, "Génération du PDF...", 95);
+    
+    try {
+      const pdfResponse = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/generate-pdf`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+        },
+        body: JSON.stringify({ reportId }),
+      });
+
+      if (!pdfResponse.ok) {
+        console.error(`[${reportId}] PDF generation failed: ${pdfResponse.status}`);
+      } else {
+        console.log(`[${reportId}] ✅ PDF generated successfully`);
+      }
+    } catch (pdfError) {
+      console.error(`[${reportId}] PDF generation error:`, pdfError);
+      // Don't fail the report if PDF fails
+    }
+
+    // Final update
+    await supabaseAdmin
+      .from("reports")
+      .update({
+        processing_step: "Rapport prêt",
+        processing_progress: 100
+      } as Record<string, unknown>)
+      .eq("id", reportId);
 
   } catch (error: unknown) {
     console.error(`[${reportId}] Generation error:`, error);

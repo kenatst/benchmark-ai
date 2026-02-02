@@ -59,9 +59,60 @@ const CONTENT_WIDTH = PAGE.WIDTH - PAGE.MARGIN_LEFT - PAGE.MARGIN_RIGHT;
 // ============================================================================
 // TYPOGRAPHY HELPERS
 // ============================================================================
+
+// Sanitize text for WinAnsi encoding (remove unsupported characters)
+function sanitizeText(text: unknown): string {
+  if (!text) return '';
+  const str = typeof text === 'string' ? text : String(text);
+  return str
+    .replace(/→/g, '->')
+    .replace(/←/g, '<-')
+    .replace(/↑/g, '^')
+    .replace(/↓/g, 'v')
+    .replace(/•/g, '-')
+    .replace(/✓/g, 'V')
+    .replace(/✗/g, 'X')
+    .replace(/═/g, '=')
+    .replace(/║/g, '|')
+    .replace(/╔/g, '+')
+    .replace(/╗/g, '+')
+    .replace(/╚/g, '+')
+    .replace(/╝/g, '+')
+    .replace(/─/g, '-')
+    .replace(/│/g, '|')
+    .replace(/'/g, "'")
+    .replace(/'/g, "'")
+    .replace(/"/g, '"')
+    .replace(/"/g, '"')
+    .replace(/…/g, '...')
+    .replace(/–/g, '-')
+    .replace(/—/g, '-')
+    .replace(/€/g, 'EUR')
+    .replace(/[^\x00-\xFF]/g, ''); // Remove any remaining non-Latin1 characters
+}
+
+// Recursively sanitize all strings in an object
+function sanitizeObject(obj: unknown): unknown {
+  if (typeof obj === 'string') {
+    return sanitizeText(obj);
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(sanitizeObject);
+  }
+  if (obj && typeof obj === 'object') {
+    const result: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(obj)) {
+      result[key] = sanitizeObject(value);
+    }
+    return result;
+  }
+  return obj;
+}
+
 function wrapText(text: string, font: PDFFont, fontSize: number, maxWidth: number): string[] {
   if (!text) return [];
-  const words = text.split(' ');
+  const sanitized = sanitizeText(text);
+  const words = sanitized.split(' ');
   const lines: string[] = [];
   let currentLine = '';
 
@@ -116,6 +167,13 @@ class InstitutionalPDFBuilder {
     this.sectionNumber = 0;
     this.currentPage = this.addNewPage();
     this.cursorY = PAGE.HEIGHT - PAGE.MARGIN_TOP;
+  }
+
+  // Safe text drawing that sanitizes all input
+  private safeDrawText(text: unknown, x: number, y: number, options: { size: number; font: PDFFont; color: RGB }): void {
+    const safeText = sanitizeText(text);
+    if (!safeText) return;
+    this.currentPage.drawText(safeText, { x, y, ...options });
   }
 
   private addNewPage(): PDFPage {
@@ -249,7 +307,7 @@ class InstitutionalPDFBuilder {
     y -= 35;
 
     // Business name
-    const businessName = meta.business_name || '';
+    const businessName = sanitizeText(meta.business_name || '');
     if (businessName) {
       page.drawText(businessName.toUpperCase(), {
         x: PAGE.MARGIN_LEFT,
@@ -262,7 +320,7 @@ class InstitutionalPDFBuilder {
     }
 
     // Sector
-    const sector = meta.sector || '';
+    const sector = sanitizeText(meta.sector || '');
     if (sector) {
       page.drawText(sector, {
         x: PAGE.MARGIN_LEFT,
@@ -275,7 +333,7 @@ class InstitutionalPDFBuilder {
     }
 
     // Location
-    const location = meta.location || '';
+    const location = sanitizeText(meta.location || '');
     if (location) {
       page.drawText(location, {
         x: PAGE.MARGIN_LEFT,
@@ -786,8 +844,8 @@ class InstitutionalPDFBuilder {
   private drawBulletPoint(text: string): void {
     this.ensureSpace(30);
 
-    // Arrow bullet
-    this.currentPage.drawText('→', {
+    // Bullet point (using simple dash for WinAnsi compatibility)
+    this.currentPage.drawText('>', {
       x: PAGE.MARGIN_LEFT,
       y: this.cursorY,
       size: 12,
@@ -1160,7 +1218,7 @@ class InstitutionalPDFBuilder {
     // Recommended position
     if (mapData.recommended_position) {
       this.cursorY -= 10;
-      this.currentPage.drawText('→ Position Recommandée:', {
+      this.currentPage.drawText('> Position Recommandee:', {
         x: PAGE.MARGIN_LEFT,
         y: this.cursorY,
         size: 10,
@@ -1465,7 +1523,7 @@ class InstitutionalPDFBuilder {
 
         // Outcome
         if (item.outcome) {
-          this.currentPage.drawText(`→ ${item.outcome}`, {
+          this.currentPage.drawText(`> ${sanitizeText(item.outcome)}`, {
             x: PAGE.MARGIN_LEFT + 25,
             y: this.cursorY,
             size: 9,
@@ -1596,7 +1654,8 @@ serve(async (req) => {
       throw new Error(`Report not found: ${fetchError?.message}`);
     }
 
-    const outputData = report.output_data;
+    // Sanitize ALL data to ensure WinAnsi compatibility
+    const outputData = sanitizeObject(report.output_data) as any;
     const tier = report.plan || 'standard';
 
     console.log(`[${reportId}] Generating McKinsey-grade PDF for tier: ${tier}`);
