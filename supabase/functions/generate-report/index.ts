@@ -12,14 +12,29 @@ const corsHeaders = {
 const CLAUDE_MODEL = "claude-opus-4-5-20251101";
 
 // ============================================
+// SUPPORTED LANGUAGES FOR REPORT GENERATION
+// ============================================
+const LANGUAGE_CONFIG: Record<string, { name: string; code: string }> = {
+  fr: { name: 'Français', code: 'fr' },
+  en: { name: 'English', code: 'en' },
+  es: { name: 'Español', code: 'es' },
+  it: { name: 'Italiano', code: 'it' },
+  de: { name: 'Deutsch', code: 'de' },
+  ru: { name: 'Русский', code: 'ru' },
+  zh: { name: '中文', code: 'zh' },
+};
+
+// ============================================
 // TIER CONFIGURATION - INSTITUTIONAL GRADE
 // ============================================
 const TIER_CONFIG = {
   standard: {
     max_tokens: 12000,
     temperature: 0.2,
-    perplexity_searches: 0, // No web search for standard
-    system_prompt: `Tu es un DIRECTEUR ASSOCIÉ de cabinet de conseil stratégique (BCG/McKinsey alumni, 15+ ans d'expérience).
+    perplexity_searches: 0,
+    system_prompt: (lang: string) => `Tu es un DIRECTEUR ASSOCIÉ de cabinet de conseil stratégique (BCG/McKinsey alumni, 15+ ans d'expérience).
+
+LANGUE DE RAPPORT: ${LANGUAGE_CONFIG[lang]?.name || 'Français'} - TOUT le rapport doit être rédigé dans cette langue.
 
 ═══════════════════════════════════════════════════════════════════════════════
 MISSION: PRODUIRE UN BENCHMARK CONCURRENTIEL EXÉCUTIF EN 48H
@@ -31,28 +46,18 @@ STANDARDS DE QUALITÉ NON-NÉGOCIABLES:
 1. ORIENTATION ACTION IMMÉDIATE
    → Chaque recommandation = VERBE D'ACTION + CIBLE + MÉTRIQUE DE SUCCÈS
    → Format: "[VERBE] [quoi] pour [atteindre X] d'ici [délai]"
-   → Exemples: "Lancer une campagne LinkedIn Ads ciblant les DRH pour générer 50 leads qualifiés d'ici 30 jours"
 
 2. QUANTIFICATION SYSTÉMATIQUE
    → Chaque insight DOIT inclure un IMPACT CHIFFRÉ (+X%, -Y€, xZ ROI)
    → Pas d'affirmation sans data point de référence
-   → Utilise des benchmarks sectoriels réalistes
 
 3. SPÉCIFICITÉ GÉOGRAPHIQUE & SECTORIELLE
    → ZÉRO généralité - tout doit être contextualisé au marché local
-   → Mentionner des acteurs locaux, réglementations spécifiques, pratiques du marché
    → Prix et budgets en devise locale avec réalisme absolu
 
 4. TON & STYLE
    → DIRECT, INCISIF, SANS BULLSHIT CORPORATE
    → Phrases courtes. Assertions claires. Pas de conditionnel inutile.
-   → "Faites X" au lieu de "Il serait peut-être intéressant de considérer X"
-
-5. STRUCTURE EXÉCUTIVE
-   → Executive Summary: 1 headline (15 mots max) + situation + opportunité clé
-   → Competitor Analysis: Forces/Faiblesses FACTUELLES, pas d'opinions vagues
-   → Pricing: Benchmarks RÉALISTES du marché, pas de chiffres inventés
-   → Action Plan: Tâches CONCRÈTES avec owner, délai, deliverable attendu
 
 LIVRABLES ATTENDUS: JSON structuré prêt pour visualisation.
 RETOURNE UNIQUEMENT LE JSON VALIDE, sans texte avant/après.`,
@@ -61,8 +66,10 @@ RETOURNE UNIQUEMENT LE JSON VALIDE, sans texte avant/après.`,
   pro: {
     max_tokens: 24000,
     temperature: 0.15,
-    perplexity_searches: 5, // 5 web searches for pro
-    system_prompt: `Tu es un PRINCIPAL de cabinet de conseil stratégique tier-1 (ex-McKinsey/BCG/Bain, 10+ ans).
+    perplexity_searches: 5,
+    system_prompt: (lang: string) => `Tu es un PRINCIPAL de cabinet de conseil stratégique tier-1 (ex-McKinsey/BCG/Bain, 10+ ans).
+
+LANGUE DE RAPPORT: ${LANGUAGE_CONFIG[lang]?.name || 'Français'} - TOUT le rapport doit être rédigé dans cette langue.
 
 ═══════════════════════════════════════════════════════════════════════════════
 MISSION: PRODUIRE UN RAPPORT D'INTELLIGENCE COMPÉTITIVE DE CALIBRE PREMIUM
@@ -87,16 +94,6 @@ TU DISPOSES DE DONNÉES DE RECHERCHE WEB - UTILISE-LES INTENSIVEMENT:
    → Sizing du marché (TAM/SAM si trouvé, sinon estimation sourcée)
    → Benchmarks CAC/LTV sectoriels avec comparables
 
-4. RECOMMANDATIONS PREMIUM
-   → Chaque reco = SI [contexte trouvé] → ALORS [action] → POUR [impact quantifié]
-   → Taglines proposées: mémorables, différenciantes, testées mentalement
-   → Quick wins identifiés avec timeline J+7, J+30, J+90
-
-5. STANDARDS DE DOCUMENTATION
-   → TOUTES les sources citées dans le champ "sources" avec URL
-   → Distinction claire: "confirmé par recherche" vs "estimation"
-   → Data points numériques pour tous les graphiques
-
 LIVRABLES: JSON structuré avec sources, données graphiques, et scoring.
 RETOURNE UNIQUEMENT LE JSON VALIDE.`,
   },
@@ -104,9 +101,11 @@ RETOURNE UNIQUEMENT LE JSON VALIDE.`,
   agency: {
     max_tokens: 48000,
     temperature: 0.1,
-    perplexity_searches: 10, // 10 comprehensive searches for agency
-    system_prompt: `Tu es un SENIOR PARTNER d'un cabinet de conseil stratégique de rang mondial.
+    perplexity_searches: 10,
+    system_prompt: (lang: string) => `Tu es un SENIOR PARTNER d'un cabinet de conseil stratégique de rang mondial.
 Expérience: 20+ ans, dont 5+ en tant que Partner. Background: Harvard MBA, ex-McKinsey Director.
+
+LANGUE DE RAPPORT: ${LANGUAGE_CONFIG[lang]?.name || 'Français'} - TOUT le rapport doit être rédigé dans cette langue.
 
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║  MISSION: RAPPORT D'INTELLIGENCE STRATÉGIQUE DE CALIBRE INSTITUTIONNEL      ║
@@ -142,40 +141,6 @@ I. PRINCIPES FONDAMENTAUX D'EXCELLENCE
    ✓ Métriques de succès SMART pour chaque initiative
    ✓ Roadmap exécutable dès J+1
 
-═══════════════════════════════════════════════════════════════════════════════
-II. EXPLOITATION DES DONNÉES PERPLEXITY (TU AS REÇU DES DONNÉES - UTILISE-LES)
-═══════════════════════════════════════════════════════════════════════════════
-
-Les recherches web ont été effectuées pour toi. Tu DOIS:
-→ [MARCHÉ] Citer les données TAM/SAM/SOM trouvées avec sources exactes
-→ [CONCURRENCE] Profils détaillés: pricing RÉEL, CA estimé, headcount, funding rounds
-→ [TRENDS] Tendances 2025-2026 avec citations d'articles/études
-→ [REGULATORY] Évolutions réglementaires récentes (RGPD, sectorielles...)
-→ [TECH] Innovations disruptives identifiées dans le secteur
-→ [BENCHMARKS] KPIs sectoriels comparés (CAC, LTV, NRR, Churn, Gross Margin)
-
-═══════════════════════════════════════════════════════════════════════════════
-III. CRITÈRES DE QUALITÉ DU LIVRABLE (TOUS OBLIGATOIRES)
-═══════════════════════════════════════════════════════════════════════════════
-
-✓ Porter 5 Forces: scores 1-10 avec analyse textuelle pour chaque force
-✓ Matrice de positionnement: coordonnées X/Y pour chaque concurrent + position recommandée
-✓ Projections financières: 3 scenarios avec hypothèses explicites détaillées
-✓ Format recommandations: "SI [contexte] → ALORS [action] → POUR [résultat quantifié] → MESURE [KPI]"
-✓ Sources: TOUTES citées avec titre exact et URL
-✓ Risk Register: probabilité (H/M/L) × impact (H/M/L) × mitigation × contingency
-✓ Implementation Roadmap: 3 phases avec milestones, owners, budgets, success metrics
-
-═══════════════════════════════════════════════════════════════════════════════
-IV. TONE OF VOICE
-═══════════════════════════════════════════════════════════════════════════════
-
-→ ASSERTIF mais NUANCÉ (pas d'arrogance, mais confiance)
-→ FACTUEL, jamais spéculatif sans signal explicite ("notre hypothèse est...")
-→ VOCABULAIRE BUSINESS PRÉCIS (utiliser les termes techniques corrects)
-→ PHRASES INCISIVES - pas de remplissage, chaque mot compte
-→ STRUCTURE PYRAMIDALE - conclusion first, puis supporting evidence
-
 RETOURNE UNIQUEMENT LE JSON VALIDE, sans texte avant/après.`,
   },
 } as const;
@@ -209,6 +174,7 @@ interface ReportInput {
   timeline: string;
   notes?: string;
   tonePreference: string;
+  reportLanguage?: string;
 }
 
 type TierType = keyof typeof TIER_CONFIG;
@@ -249,7 +215,7 @@ async function searchWithPerplexity(
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'sonar-pro', // Best model for comprehensive research
+      model: 'sonar-pro',
       messages: [
         { 
           role: 'system', 
@@ -259,7 +225,7 @@ IMPORTANT: Inclus des chiffres précis, des URLs, des noms d'entreprises, des da
         },
         { role: 'user', content: query }
       ],
-      search_recency_filter: 'year', // Focus on recent data
+      search_recency_filter: 'year',
     }),
   });
 
@@ -298,47 +264,25 @@ async function conductResearch(
   const allResults: { query: string; content: string; citations: string[] }[] = [];
   const context = `Analyse stratégique pour ${input.businessName} dans le secteur ${input.sector} à ${input.location.city}, ${input.location.country}`;
 
-  // Define search queries based on tier
   const queries: string[] = [];
   
-  // Pro tier: 5 searches
   if (tier === 'pro' || tier === 'agency') {
-    // 1. Competitor pricing
     const competitorNames = input.competitors?.map(c => c.name).join(', ') || 'principaux acteurs';
     queries.push(`Prix et tarifs de ${competitorNames} dans le secteur ${input.sector} en ${input.location.country} 2024 2025`);
-    
-    // 2. Market trends
     queries.push(`Tendances marché ${input.sector} ${input.location.country} 2025 2026 croissance prévisions`);
-    
-    // 3. Market size
     queries.push(`Taille marché ${input.sector} ${input.location.country} TAM SAM milliards euros 2024 2025`);
-    
-    // 4. CAC/LTV benchmarks
     queries.push(`Benchmarks CAC LTV coût acquisition client ${input.sector} SaaS B2B B2C 2024`);
-    
-    // 5. Competitor profiles
     queries.push(`${competitorNames} levée fonds employees chiffre affaires ${input.sector}`);
   }
 
-  // Agency tier: 5 additional searches
   if (tier === 'agency') {
-    // 6. PESTEL analysis
     queries.push(`Analyse PESTEL ${input.sector} ${input.location.country} réglementation politique économie 2024 2025`);
-    
-    // 7. Porter 5 forces data
     queries.push(`Analyse Porter 5 forces ${input.sector} barrières entrée pouvoir négociation fournisseurs clients`);
-    
-    // 8. Technology disruption
     queries.push(`Innovation technologique disruption ${input.sector} IA automatisation 2025 startups`);
-    
-    // 9. Recent news
     queries.push(`Actualités récentes ${input.sector} ${input.location.country} acquisitions lancements 2024`);
-    
-    // 10. Unit economics benchmarks
     queries.push(`Unit economics ${input.sector} marge brute gross margin payback period benchmarks`);
   }
 
-  // Execute searches with progress updates
   for (let i = 0; i < queries.length && i < searchCount; i++) {
     const progressPercent = 15 + Math.floor((i / searchCount) * 25);
     await updateProgress(supabase, reportId, `Recherche web ${i + 1}/${searchCount}...`, progressPercent);
@@ -360,13 +304,11 @@ async function conductResearch(
       });
     }
     
-    // Small delay to avoid rate limiting
     if (i < queries.length - 1) {
       await new Promise(resolve => setTimeout(resolve, 500));
     }
   }
 
-  // Compile research document
   let researchDoc = `
 ═══════════════════════════════════════════════════════════════════════════════
 DONNÉES DE RECHERCHE WEB PERPLEXITY - ${new Date().toISOString().split('T')[0]}
@@ -420,10 +362,16 @@ function buildUserPrompt(input: ReportInput, plan: TierType, researchData: strin
     "freemium": "Freemium"
   };
 
+  const reportLang = input.reportLanguage || 'fr';
+  const langName = LANGUAGE_CONFIG[reportLang]?.name || 'Français';
+
   let prompt = `
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║  BRIEF CLIENT - DEMANDE DE BENCHMARK CONCURRENTIEL                           ║
+║  LANGUE DU RAPPORT: ${langName.toUpperCase().padEnd(55)}║
 ╚══════════════════════════════════════════════════════════════════════════════╝
+
+IMPORTANT: Rédige TOUT le rapport en ${langName}.
 
 <business_context>
 ENTREPRISE: ${input.businessName}
@@ -468,7 +416,6 @@ Ton souhaité: ${input.tonePreference}
 ${input.notes ? `Notes additionnelles: ${input.notes}` : ""}
 </constraints>`;
 
-  // Add research data for Pro and Agency
   if (plan === "pro" || plan === "agency") {
     prompt += `
 
@@ -486,7 +433,6 @@ INSTRUCTIONS CRITIQUES POUR L'UTILISATION DES DONNÉES DE RECHERCHE
 `;
   }
 
-  // Add JSON schema based on tier
   prompt += getJsonSchema(plan);
 
   return prompt;
@@ -613,58 +559,17 @@ async function callClaudeOpus(
 }
 
 // ============================================
-// MAIN HANDLER
+// ASYNC GENERATION FUNCTION (runs in background)
 // ============================================
-serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
-
-  const supabaseAdmin = createClient(
-    Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-  );
-
-  let reportId: string | undefined;
-
+async function runGenerationAsync(
+  reportId: string,
+  inputData: ReportInput,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  plan: TierType,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabaseAdmin: any
+) {
   try {
-    const body = await req.json();
-    reportId = body.reportId;
-
-    if (!reportId) {
-      throw new Error("Report ID is required");
-    }
-
-    // Get the report
-    const { data: report, error: fetchError } = await supabaseAdmin
-      .from("reports")
-      .select("*")
-      .eq("id", reportId)
-      .single();
-
-    if (fetchError || !report) {
-      throw new Error("Report not found");
-    }
-
-    // Update status to processing
-    await supabaseAdmin
-      .from("reports")
-      .update({
-        status: "processing",
-        processing_step: "Initialisation...",
-        processing_progress: 5
-      } as Record<string, unknown>)
-      .eq("id", reportId);
-
-    const inputData = report.input_data as ReportInput;
-    const plan = (report.plan || "standard") as TierType;
-
-    // Validate plan
-    if (!TIER_CONFIG[plan]) {
-      throw new Error(`Invalid plan: ${plan}`);
-    }
-
-    // Get API keys
     const CLAUDE_API_KEY = Deno.env.get("CLAUDE_API_KEY");
     if (!CLAUDE_API_KEY) {
       throw new Error("CLAUDE_API_KEY is not configured");
@@ -676,9 +581,10 @@ serve(async (req) => {
     }
 
     const tierConfig = TIER_CONFIG[plan];
+    const reportLang = inputData.reportLanguage || 'fr';
 
     console.log(`[${reportId}] Starting report generation`);
-    console.log(`[${reportId}] Tier: ${plan} | Model: ${CLAUDE_MODEL} | Perplexity searches: ${tierConfig.perplexity_searches}`);
+    console.log(`[${reportId}] Tier: ${plan} | Model: ${CLAUDE_MODEL} | Language: ${reportLang}`);
 
     // Step 1: Conduct Perplexity research (for Pro and Agency)
     await updateProgress(supabaseAdmin, reportId, "Lancement des recherches...", 10);
@@ -702,9 +608,10 @@ serve(async (req) => {
     // Step 3: Call Claude Opus 4.5
     await updateProgress(supabaseAdmin, reportId, "Génération du rapport (Claude Opus 4.5)...", 55);
     
+    const systemPrompt = tierConfig.system_prompt(reportLang);
     const content = await callClaudeOpus(
       CLAUDE_API_KEY,
-      tierConfig.system_prompt,
+      systemPrompt,
       userPrompt,
       tierConfig.max_tokens,
       tierConfig.temperature
@@ -745,23 +652,107 @@ serve(async (req) => {
     console.log(`[${reportId}] ✅ Report generated successfully`);
     console.log(`[${reportId}] Tier: ${plan} | Model: ${CLAUDE_MODEL} | Sources: ${outputData?.sources?.length || 0}`);
 
-    return new Response(JSON.stringify({ success: true, reportId }), {
+  } catch (error: unknown) {
+    console.error(`[${reportId}] Generation error:`, error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+
+    try {
+      await supabaseAdmin.from("reports").update({
+        status: "failed",
+        processing_step: `Erreur: ${errorMessage}`,
+        processing_progress: 0
+      } as Record<string, unknown>).eq("id", reportId);
+    } catch { /* ignore */ }
+  }
+}
+
+// ============================================
+// MAIN HANDLER - Returns immediately, runs generation async
+// ============================================
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  const supabaseAdmin = createClient(
+    Deno.env.get("SUPABASE_URL") ?? "",
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+  );
+
+  try {
+    const body = await req.json();
+    const reportId = body.reportId;
+
+    if (!reportId) {
+      throw new Error("Report ID is required");
+    }
+
+    // Get the report
+    const { data: report, error: fetchError } = await supabaseAdmin
+      .from("reports")
+      .select("*")
+      .eq("id", reportId)
+      .single();
+
+    if (fetchError || !report) {
+      throw new Error("Report not found");
+    }
+
+    // Check if already processing or ready
+    if (report.status === "processing") {
+      return new Response(JSON.stringify({ success: true, message: "Report already processing", reportId }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+
+    if (report.status === "ready") {
+      return new Response(JSON.stringify({ success: true, message: "Report already ready", reportId }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+
+    // Update status to processing immediately
+    await supabaseAdmin
+      .from("reports")
+      .update({
+        status: "processing",
+        processing_step: "Initialisation...",
+        processing_progress: 5
+      } as Record<string, unknown>)
+      .eq("id", reportId);
+
+    const inputData = report.input_data as ReportInput;
+    const plan = (report.plan || "standard") as TierType;
+
+    // Validate plan
+    if (!TIER_CONFIG[plan]) {
+      throw new Error(`Invalid plan: ${plan}`);
+    }
+
+    // Start generation in background (don't await)
+    // Use EdgeRuntime.waitUntil to keep the function running
+    const generationPromise = runGenerationAsync(reportId, inputData, plan, supabaseAdmin);
+    
+    // @ts-ignore - EdgeRuntime is available in Deno Deploy
+    if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
+      // @ts-ignore
+      EdgeRuntime.waitUntil(generationPromise);
+    } else {
+      // Fallback: just don't await, let it run
+      generationPromise.catch(err => console.error("Background generation error:", err));
+    }
+
+    // Return immediately
+    return new Response(JSON.stringify({ success: true, message: "Generation started", reportId }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
+
   } catch (error: unknown) {
     console.error("Generate report error:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
-
-    if (reportId) {
-      try {
-        await supabaseAdmin.from("reports").update({
-          status: "failed",
-          processing_step: "Erreur",
-          processing_progress: 0
-        } as Record<string, unknown>).eq("id", reportId);
-      } catch { /* ignore */ }
-    }
 
     return new Response(JSON.stringify({ error: errorMessage }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
