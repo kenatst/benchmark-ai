@@ -168,8 +168,9 @@ type TierType = keyof typeof TIER_CONFIG;
 // ============================================
 // PROGRESS UPDATE HELPER
 // ============================================
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function updateProgress(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   reportId: string,
   step: string,
   progress: number
@@ -179,7 +180,7 @@ async function updateProgress(
     .update({
       processing_step: step,
       processing_progress: progress
-    })
+    } as Record<string, unknown>)
     .eq('id', reportId);
 }
 
@@ -355,12 +356,13 @@ Génère le rapport de benchmark. RETOURNE UNIQUEMENT LE JSON.`;
 // ============================================
 // CLAUDE API WITH WEB SEARCH (AGENTIC LOOP)
 // ============================================
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function callClaudeWithTools(
   apiKey: string,
   config: typeof TIER_CONFIG[TierType],
   userPrompt: string,
   reportId: string,
-  supabase: ReturnType<typeof createClient>
+  supabase: any
 ): Promise<string> {
   console.log(`[${reportId}] Starting Claude API call with ${config.tools.length > 0 ? "web search enabled" : "no tools"}`);
 
@@ -509,7 +511,7 @@ serve(async (req) => {
         status: "processing",
         processing_step: "Initialisation...",
         processing_progress: 5
-      })
+      } as Record<string, unknown>)
       .eq("id", reportId);
 
     const inputData = report.input_data as ReportInput;
@@ -565,7 +567,7 @@ serve(async (req) => {
         completed_at: new Date().toISOString(),
         processing_step: "Terminé",
         processing_progress: 100
-      })
+      } as Record<string, unknown>)
       .eq("id", reportId);
 
     if (updateError) throw updateError;
@@ -586,7 +588,7 @@ serve(async (req) => {
           status: "failed",
           processing_step: "Erreur",
           processing_progress: 0
-        }).eq("id", reportId);
+        } as Record<string, unknown>).eq("id", reportId);
       } catch { /* ignore */ }
     }
 
