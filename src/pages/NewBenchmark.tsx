@@ -233,15 +233,27 @@ const NewBenchmark = () => {
 
           {/* Step Content */}
           <div className="mb-8 rounded-[2rem] bg-card border border-border p-6 md:p-10">
-            {currentStep === 6 ? (
+            {currentStep === 1 && (
+              <StepBasics formData={formData} setFormData={setFormData} />
+            )}
+            {currentStep === 2 && (
+              <StepOffer formData={formData} setFormData={setFormData} />
+            )}
+            {currentStep === 3 && (
+              <StepGoals formData={formData} setFormData={setFormData} />
+            )}
+            {currentStep === 4 && (
+              <StepCompetitors formData={formData} setFormData={setFormData} />
+            )}
+            {currentStep === 5 && (
+              <StepContext formData={formData} setFormData={setFormData} />
+            )}
+            {currentStep === 6 && (
               <StepReview 
                 data={formData} 
                 onPayment={handlePayment} 
                 isProcessing={isProcessing}
               />
-            ) : (
-              /* @ts-expect-error - StepReview has different props */
-              <CurrentStepComponent data={formData} updateData={updateData} />
             )}
           </div>
 
