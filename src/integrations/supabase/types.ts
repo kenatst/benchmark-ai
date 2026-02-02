@@ -51,6 +51,8 @@ export type Database = {
           output_data: Json | null
           pdf_url: string | null
           plan: string | null
+          processing_progress: number | null
+          processing_step: string | null
           status: string | null
           stripe_payment_id: string | null
           stripe_session_id: string | null
@@ -66,6 +68,8 @@ export type Database = {
           output_data?: Json | null
           pdf_url?: string | null
           plan?: string | null
+          processing_progress?: number | null
+          processing_step?: string | null
           status?: string | null
           stripe_payment_id?: string | null
           stripe_session_id?: string | null
@@ -81,6 +85,8 @@ export type Database = {
           output_data?: Json | null
           pdf_url?: string | null
           plan?: string | null
+          processing_progress?: number | null
+          processing_step?: string | null
           status?: string | null
           stripe_payment_id?: string | null
           stripe_session_id?: string | null
