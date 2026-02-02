@@ -43,7 +43,8 @@ serve(async (req) => {
 
     if (webhookSecret && signature) {
       try {
-        event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+        // Use constructEventAsync for Deno/Edge runtime compatibility
+        event = await stripe.webhooks.constructEventAsync(body, signature, webhookSecret);
         console.log("[Webhook] Signature verified successfully");
       } catch (err: unknown) {
         const errMessage = err instanceof Error ? err.message : "Unknown error";
