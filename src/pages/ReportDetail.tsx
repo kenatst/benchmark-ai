@@ -22,7 +22,15 @@ import {
   PorterForcesChart,
   PositioningMatrixChart,
   RevenueProjectionChart,
-  UnitEconomicsChart
+  UnitEconomicsChart,
+  MethodologySection,
+  MarketOverviewSection,
+  TerritoryAnalysisSection,
+  ScoringMatrixSection,
+  TrendsAnalysisSection,
+  StrategicRecommendationsSection,
+  DetailedRoadmapSection,
+  AppendicesSection
 } from '@/components/report/charts';
 
 // Helper to check report tier
@@ -52,9 +60,18 @@ const getSections = (tier: string) => {
   if (tier === 'agency') {
     return [
       { id: 'executive-summary', title: 'Résumé Exécutif' },
+      { id: 'methodology', title: 'Méthodologie' },
+      { id: 'market-overview', title: 'Panorama Marché' },
+      { id: 'territory', title: 'Analyse Territoriale' },
+      { id: 'competitive-analysis', title: 'Benchmark Concurrentiel' },
+      { id: 'scoring-matrix', title: 'Matrice de Scoring' },
+      { id: 'trends', title: 'Tendances' },
       { id: 'swot', title: 'Analyse SWOT' },
+      { id: 'porter-forces', title: 'Porter 5 Forces' },
+      { id: 'strategic-reco', title: 'Recommandations' },
       { id: 'financial', title: 'Projections Financières' },
-      { id: 'sources', title: 'Sources' },
+      { id: 'roadmap', title: 'Roadmap Détaillée' },
+      { id: 'appendices', title: 'Annexes' },
     ];
   }
 
@@ -385,125 +402,119 @@ const ReportDetail = () => {
           </div>
 
           <div className="grid md:grid-cols-2 gap-4">
-            <DataCard
-              title="Investissement requis"
-              value={data.executive_summary?.investment_required}
-              variant="highlight"
-            />
-            <DataCard
-              title="ROI attendu"
-              value={data.executive_summary?.expected_roi}
-            />
+            <DataCard title="Investissement requis" value={data.executive_summary?.investment_required} variant="highlight" />
+            <DataCard title="ROI attendu" value={data.executive_summary?.expected_roi} />
           </div>
+
+          {data.executive_summary?.strategic_recommendation && (
+            <div className="p-4 bg-primary/5 rounded-lg border border-primary/20">
+              <p className="text-sm font-medium text-primary mb-1">Recommandation principale</p>
+              <p className="text-foreground">{data.executive_summary.strategic_recommendation}</p>
+            </div>
+          )}
         </div>
       </ReportSection>
 
-      {/* Porter Five Forces */}
-      {data.market_analysis?.porter_five_forces && (
-        <ReportSection id="porter-forces" number={2} title="Analyse Porter 5 Forces">
-          <PorterForcesChart data={data.market_analysis.porter_five_forces} />
+      {/* Methodology */}
+      {data.methodology && (
+        <ReportSection id="methodology" number={2} title="Méthodologie">
+          <MethodologySection data={data.methodology} />
         </ReportSection>
       )}
 
-      {/* SWOT Analysis */}
+      {/* Market Overview */}
+      {data.market_overview_detailed && (
+        <ReportSection id="market-overview" number={3} title="Panorama du Marché">
+          <MarketOverviewSection data={data.market_overview_detailed} />
+        </ReportSection>
+      )}
+
+      {/* Territory Analysis */}
+      {data.territory_analysis && (
+        <ReportSection id="territory" number={4} title="Analyse Territoriale">
+          <TerritoryAnalysisSection data={data.territory_analysis} />
+        </ReportSection>
+      )}
+
+      {/* Competitive Intelligence */}
+      <ReportSection id="competitive-analysis" number={5} title="Benchmark Concurrentiel">
+        <CompetitorTable
+          competitors={data.competitive_intelligence?.competitors_deep_dive?.map(c => ({
+            name: c.name, strengths: c.strengths, weaknesses: c.weaknesses, threat_level: c.threat_level,
+            positioning: c.positioning?.value_prop, price_range: c.offering?.pricing_model
+          })) || []}
+          intensity="Élevée"
+          currentPosition={data.competitive_intelligence?.competition_landscape_overview || ''}
+        />
+      </ReportSection>
+
+      {/* Scoring Matrix */}
+      {data.scoring_matrix && (
+        <ReportSection id="scoring-matrix" number={6} title="Matrice Comparative et Scoring">
+          <ScoringMatrixSection data={data.scoring_matrix} />
+        </ReportSection>
+      )}
+
+      {/* Trends */}
+      {data.trends_analysis && (
+        <ReportSection id="trends" number={7} title="Analyse des Tendances">
+          <TrendsAnalysisSection data={data.trends_analysis} />
+        </ReportSection>
+      )}
+
+      {/* SWOT */}
       {data.swot_analysis && (
-        <ReportSection id="swot" number={3} title="Analyse SWOT">
+        <ReportSection id="swot" number={8} title="Analyse SWOT">
           <SWOTGrid data={data.swot_analysis} />
         </ReportSection>
       )}
 
-      {/* Competitive Positioning */}
-      {data.competitive_intelligence?.competitive_positioning_maps?.primary_map && (
-        <ReportSection id="positioning" number={4} title="Positionnement Concurrentiel">
-          <PositioningMatrixChart
-            data={data.competitive_intelligence.competitive_positioning_maps.primary_map}
-            businessName={inputData?.businessName}
-          />
-          {data.competitive_intelligence.competitive_positioning_maps.primary_map.rationale && (
-            <div className="mt-6 p-4 bg-muted/30 rounded-lg border border-border">
-              <p className="text-sm text-muted-foreground">
-                <span className="font-medium text-foreground">Stratégie recommandée: </span>
-                {data.competitive_intelligence.competitive_positioning_maps.primary_map.rationale}
-              </p>
-            </div>
-          )}
+      {/* Porter Five Forces */}
+      {data.market_analysis?.porter_five_forces && (
+        <ReportSection id="porter-forces" number={9} title="Analyse Porter 5 Forces">
+          <PorterForcesChart data={data.market_analysis.porter_five_forces} />
         </ReportSection>
       )}
 
-      {/* Financial Projections with Charts */}
+      {/* Strategic Recommendations */}
+      {data.strategic_recommendations_detailed && (
+        <ReportSection id="strategic-reco" number={10} title="Recommandations Stratégiques">
+          <StrategicRecommendationsSection data={data.strategic_recommendations_detailed} />
+        </ReportSection>
+      )}
+
+      {/* Financial Projections */}
       {data.financial_projections && (
-        <ReportSection id="financial" number={5} title="Projections Financières">
+        <ReportSection id="financial" number={11} title="Projections Financières">
           <div className="space-y-8">
-            {/* Revenue scenarios chart */}
             {data.financial_projections.revenue_scenarios && (
-              <div>
-                <h3 className="text-lg font-semibold text-foreground mb-4">Scénarios de revenus</h3>
-                <RevenueProjectionChart data={data.financial_projections.revenue_scenarios} />
-              </div>
+              <RevenueProjectionChart data={data.financial_projections.revenue_scenarios} />
             )}
-
-            {/* Unit Economics */}
             {data.financial_projections.unit_economics && (
-              <div>
-                <h3 className="text-lg font-semibold text-foreground mb-4">Unit Economics</h3>
-                <UnitEconomicsChart data={data.financial_projections.unit_economics} />
-              </div>
+              <UnitEconomicsChart data={data.financial_projections.unit_economics} />
             )}
           </div>
         </ReportSection>
       )}
 
-      {/* Implementation Roadmap */}
-      {data.implementation_roadmap && (
-        <ReportSection id="roadmap" number={6} title="Roadmap d'implémentation">
-          <ActionPlanGrid
-            now_7_days={data.implementation_roadmap.phase_1_foundation?.key_initiatives?.map(i => ({
-              action: i.initiative,
-              owner: i.owner_role,
-              outcome: i.success_metrics?.[0] || ''
-            })) || []}
-            days_8_30={data.implementation_roadmap.phase_2_growth?.key_initiatives?.map(i => ({
-              action: i.initiative,
-              owner: i.owner_role,
-              outcome: i.success_metrics?.[0] || ''
-            })) || []}
-            days_31_90={data.implementation_roadmap.phase_3_scale?.key_initiatives?.map(i => ({
-              action: i.initiative,
-              owner: i.owner_role,
-              outcome: i.success_metrics?.[0] || ''
-            })) || []}
-          />
+      {/* Detailed Roadmap */}
+      {data.detailed_roadmap && (
+        <ReportSection id="roadmap" number={12} title="Roadmap de Mise en Œuvre">
+          <DetailedRoadmapSection data={data.detailed_roadmap} />
         </ReportSection>
       )}
 
-      {/* Sources */}
-      {data.sources?.length > 0 && (
-        <ReportSection id="sources" number={7} title={`Sources (${data.sources.length})`}>
-          <div className="grid md:grid-cols-2 gap-3">
-            {data.sources.slice(0, 12).map((source, i) => (
-              <a
-                key={i}
-                href={source.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 p-3 bg-card rounded-lg border border-border hover:border-foreground/30 transition-colors text-sm"
-              >
-                <ExternalLink className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                <span className="truncate text-foreground">
-                  {source.title || source.url}
-                </span>
-              </a>
-            ))}
-          </div>
+      {/* Appendices */}
+      {data.appendices && (
+        <ReportSection id="appendices" number={13} title="Annexes">
+          <AppendicesSection data={data.appendices} />
         </ReportSection>
       )}
 
       {/* Download CTA */}
       <div className="text-center py-12 border-t border-border mt-12">
-        <h3 className="text-xl font-bold text-foreground mb-2">Rapport Agency-Grade Complet</h3>
-        <p className="text-muted-foreground mb-6">
-          Incluant PESTEL, analyses détaillées et recommandations stratégiques.
-        </p>
+        <h3 className="text-xl font-bold text-foreground mb-2">Rapport Institutional Complet</h3>
+        <p className="text-muted-foreground mb-6">25+ pages incluant méthodologie, matrices de scoring, analyses détaillées et annexes.</p>
         <Button size="lg" onClick={handleDownload} className="gap-2">
           <Download className="w-5 h-5" />
           Télécharger le rapport complet

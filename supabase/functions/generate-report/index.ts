@@ -99,9 +99,9 @@ RETOURNE UNIQUEMENT LE JSON VALIDE.`,
   },
   
   agency: {
-    max_tokens: 48000,
+    max_tokens: 64000,
     temperature: 0.1,
-    perplexity_searches: 10,
+    perplexity_searches: 12,
     system_prompt: (lang: string) => `Tu es un SENIOR PARTNER d'un cabinet de conseil stratégique de rang mondial.
 Expérience: 20+ ans, dont 5+ en tant que Partner. Background: Harvard MBA, ex-McKinsey Director.
 
@@ -109,37 +109,41 @@ LANGUE DE RAPPORT: ${LANGUAGE_CONFIG[lang]?.name || 'Français'} - TOUT le rappo
 
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║  MISSION: RAPPORT D'INTELLIGENCE STRATÉGIQUE DE CALIBRE INSTITUTIONNEL      ║
-║  Standard: Board of Directors d'une entreprise Fortune 500                   ║
-║  Output: Qualité publication-ready, zéro révision nécessaire                ║
+║  Standard: Benchmark consulting cabinet / organisme public                   ║
+║  Output: Qualité publication-ready 25+ pages, zéro révision nécessaire      ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
 ═══════════════════════════════════════════════════════════════════════════════
-I. PRINCIPES FONDAMENTAUX D'EXCELLENCE
+CONTRAINTES ABSOLUES (MODE INSTITUTIONAL)
 ═══════════════════════════════════════════════════════════════════════════════
 
-1. RIGUEUR MÉTHODOLOGIQUE ABSOLUE
-   ✓ Chaque affirmation = données vérifiables (les données Perplexity sont ton corpus)
-   ✓ Frameworks obligatoires: Porter 5 Forces, PESTEL, SWOT, Value Chain Analysis
-   ✓ Hypothèses EXPLICITES et TESTABLES
+1. SOURCES ET PREUVES
+   ✓ UTILISER les données Perplexity fournies comme corpus de recherche
+   ✓ CITER systématiquement les sources (liens/citations) dans le champ sources
+   ✓ PRIVILÉGIER sources primaires: textes officiels, publications, rapports annuels
+   ✓ SIGNALER clairement hypothèses et limites
+   ✓ Tout chiffre DOIT être sourcé (ou marqué comme estimation)
+   ✓ Dates absolues (ex: "janvier 2026") plutôt que "récemment"
+
+2. RIGUEUR MÉTHODOLOGIQUE
    ✓ Méthodologie reproductible et auditable
+   ✓ Frameworks obligatoires: Porter 5 Forces, PESTEL, SWOT
+   ✓ Hypothèses EXPLICITES et TESTABLES
+   ✓ Grille d'évaluation avec pondérations multiples (conservateur/équilibré/performance)
+   ✓ Matrice comparative avec scoring 0-10 + analyse de sensibilité
 
-2. PROFONDEUR D'ANALYSE STRATÉGIQUE
-   ✓ Au-delà du "quoi" → le "pourquoi" → le "et alors?" → le "maintenant quoi?"
-   ✓ Second-order effects: si X alors Y, mais aussi si Y alors Z
-   ✓ Implications stratégiques à 3 horizons (court/moyen/long terme)
-   ✓ Quantification systématique: sizing, growth, share, margins, unit economics
-
-3. OBJECTIVITÉ & ÉQUILIBRE INTELLECTUEL
-   ✓ Balance risques/opportunités sans biais optimiste
-   ✓ CHALLENGE explicite des hypothèses du client (Devil's Advocate)
+3. PROFONDEUR D'ANALYSE
+   ✓ Panorama marché avec chiffres clés sourcés
+   ✓ Analyse territoriale micro-locale (quartiers, démographie, immobilier commercial)
+   ✓ Benchmark concurrentiel détaillé avec profils complets
+   ✓ Tendances sectorielles catégorisées (produit/service/consommateur/surveillance)
    ✓ 3 scenarios financiers: Conservative (-20%), Baseline, Optimistic (+30%)
-   ✓ Zones d'incertitude reconnues avec confidence levels
 
-4. ORIENTATION RÉSULTAT IMMÉDIATE
-   ✓ Chaque section répond à "So What?" et "Now What?"
-   ✓ Priorisation Impact × Faisabilité (matrice 2x2)
-   ✓ Métriques de succès SMART pour chaque initiative
-   ✓ Roadmap exécutable dès J+1
+4. LIVRABLES STRUCTURÉS
+   ✓ Executive Summary avec indicateurs clés et recommandation principale
+   ✓ Roadmap 30/60/90 jours avec KPIs de validation
+   ✓ Budget prévisionnel détaillé
+   ✓ Annexes: glossaire, sources catégorisées, assumptions log, unknowns avec plan de validation
 
 RETOURNE UNIQUEMENT LE JSON VALIDE, sans texte avant/après.`,
   },
@@ -445,21 +449,138 @@ function getJsonSchema(plan: TierType): string {
 <json_schema>
 {
   "report_metadata": { "title": "string", "generated_date": "YYYY-MM-DD", "business_name": "string", "sector": "string", "location": "string", "tier": "agency", "sources_count": number },
-  "executive_summary": { "one_page_summary": "string (500 mots max, style McKinsey)", "situation_actuelle": "string", "opportunite_principale": "string", "strategic_recommendation": "string", "investment_required": "string (ex: 50-80k€)", "expected_roi": "string (ex: 3-5x en 18 mois)", "critical_success_factors": ["string"], "key_metrics_to_track": ["string"], "urgency_assessment": { "level": "Critique/Élevé/Modéré", "rationale": "string", "window_of_opportunity": "string" } },
-  "market_analysis": { "market_sizing": { "total_addressable_market": "string avec €", "serviceable_addressable_market": "string avec €", "serviceable_obtainable_market": "string avec €", "methodology": "string" }, "market_dynamics": { "growth_rate": "string %", "maturity_stage": "string", "key_drivers": ["string"], "headwinds": ["string"], "inflection_points": ["string"] }, "pestel_analysis": { "political": ["string"], "economic": ["string"], "social": ["string"], "technological": ["string"], "environmental": ["string"], "legal": ["string"] }, "porter_five_forces": { "competitive_rivalry": { "score": 1-10, "analysis": "string" }, "supplier_power": { "score": 1-10, "analysis": "string" }, "buyer_power": { "score": 1-10, "analysis": "string" }, "threat_of_substitution": { "score": 1-10, "analysis": "string" }, "threat_of_new_entry": { "score": 1-10, "analysis": "string" }, "overall_attractiveness": "string", "strategic_implications": "string" } },
-  "competitive_intelligence": { "competition_landscape_overview": "string", "competitors_deep_dive": [{ "name": "string", "profile": { "size": "string", "growth_trajectory": "string" }, "positioning": { "value_prop": "string", "target_segment": "string" }, "offering": { "products_services": ["string"], "pricing_model": "string" }, "strengths": ["string"], "weaknesses": ["string"], "threat_level": "Élevé/Moyen/Faible", "opportunities_vs_them": "string" }], "competitive_positioning_maps": { "primary_map": { "x_axis": "Prix", "y_axis": "Qualité Perçue", "competitors_plotted": [{ "name": "string", "x": 1-10, "y": 1-10 }], "your_current_position": { "x": 1-10, "y": 1-10 }, "recommended_position": { "x": 1-10, "y": 1-10 }, "rationale": "string" } }, "unmet_customer_needs": [{ "need": "string", "evidence": "string", "how_to_address": "string" }] },
-  "swot_analysis": { "strengths": ["string - items actionnables"], "weaknesses": ["string - items actionnables"], "opportunities": ["string - items actionnables"], "threats": ["string - items actionnables"], "strategic_priorities": "string" },
+  
+  "executive_summary": { 
+    "one_page_summary": "string (500 mots max, style consulting institutionnel)", 
+    "situation_actuelle": "string", 
+    "opportunite_principale": "string", 
+    "strategic_recommendation": "string (recommandation principale en 2-3 phrases)", 
+    "investment_required": "string (ex: 300 000 - 400 000 €)", 
+    "expected_roi": "string (ex: 24-36 mois)", 
+    "key_profitability_indicators": [{ "indicator": "string", "value": "string" }],
+    "critical_success_factors": ["string"], 
+    "key_metrics_to_track": ["string"], 
+    "urgency_assessment": { "level": "Critique/Élevé/Modéré", "rationale": "string", "window_of_opportunity": "string" } 
+  },
+  
+  "methodology": {
+    "scope": "Zone géographique et périmètre exact de l'analyse",
+    "period": "Période d'analyse (ex: données 2024-2026)",
+    "segments_analyzed": ["string - segments de marché analysés"],
+    "primary_sources": ["string - sources primaires/officielles (INSEE, études sectorielles, etc.)"],
+    "secondary_sources": ["string - sources secondaires (presse, observatoires, etc.)"],
+    "evaluation_criteria": [{ "dimension": "string", "weight_conservative": "string %", "weight_balanced": "string %", "weight_performance": "string %" }],
+    "limitations": ["string - biais et limites identifiés"]
+  },
+  
+  "market_overview_detailed": {
+    "key_metrics": [{ "indicator": "string", "value": "string avec unité", "source": "string" }],
+    "market_structure": { 
+      "overview": "string - description de la structure concurrentielle", 
+      "leaders": [{ "name": "string", "detail": "string (parts de marché, CA, etc.)" }], 
+      "independents_share": "string" 
+    },
+    "market_segments": [{ "segment": "string", "price_avg": "string", "margin": "string", "examples": "string" }],
+    "sources": "string"
+  },
+  
+  "territory_analysis": {
+    "location_name": "string (ex: Paris 15ème arrondissement)",
+    "demographics": [{ "indicator": "string", "value": "string" }],
+    "real_estate": [{ "indicator": "string", "value": "string" }],
+    "commercial_hubs": [{ "name": "string", "description": "string", "priority": "high/medium/low" }],
+    "local_competitors": [{ "name": "string", "rating": "string", "specialty": "string" }],
+    "opportunities": ["string - niches/opportunités locales"],
+    "sources": "string"
+  },
+  
+  "market_analysis": { 
+    "market_sizing": { "total_addressable_market": "string avec €", "serviceable_addressable_market": "string avec €", "serviceable_obtainable_market": "string avec €", "methodology": "string" }, 
+    "market_dynamics": { "growth_rate": "string %", "maturity_stage": "string", "key_drivers": ["string"], "headwinds": ["string"], "inflection_points": ["string"] }, 
+    "pestel_analysis": { "political": ["string"], "economic": ["string"], "social": ["string"], "technological": ["string"], "environmental": ["string"], "legal": ["string"] }, 
+    "porter_five_forces": { "competitive_rivalry": { "score": 1-10, "analysis": "string" }, "supplier_power": { "score": 1-10, "analysis": "string" }, "buyer_power": { "score": 1-10, "analysis": "string" }, "threat_of_substitution": { "score": 1-10, "analysis": "string" }, "threat_of_new_entry": { "score": 1-10, "analysis": "string" }, "overall_attractiveness": "string", "strategic_implications": "string" } 
+  },
+  
+  "competitive_intelligence": { 
+    "competition_landscape_overview": "string", 
+    "competitors_deep_dive": [{ "name": "string", "profile": { "size": "string", "growth_trajectory": "string" }, "positioning": { "value_prop": "string", "target_segment": "string" }, "offering": { "products_services": ["string"], "pricing_model": "string" }, "strengths": ["string"], "weaknesses": ["string"], "threat_level": "Élevé/Moyen/Faible", "opportunities_vs_them": "string" }], 
+    "competitive_positioning_maps": { "primary_map": { "x_axis": "Prix", "y_axis": "Qualité Perçue", "competitors_plotted": [{ "name": "string", "x": 1-10, "y": 1-10 }], "your_current_position": { "x": 1-10, "y": 1-10 }, "recommended_position": { "x": 1-10, "y": 1-10 }, "rationale": "string" } }, 
+    "unmet_customer_needs": [{ "need": "string", "evidence": "string", "how_to_address": "string" }] 
+  },
+  
+  "scoring_matrix": {
+    "criteria": ["string - critères d'évaluation"],
+    "competitors": [{ "name": "string", "scores": { "critere1": 1-10, "critere2": 1-10 }, "total": number }],
+    "sensitivity_analysis": [{ "model": "Conservateur/Équilibré/Performance", "rankings": ["1er", "2ème", "3ème"] }],
+    "interpretation": "string"
+  },
+  
+  "trends_analysis": {
+    "period": "string (ex: 2025-2026)",
+    "categories": [{ "category": "string", "icon": "product/service/consumer/watch", "trends": ["string"] }],
+    "key_insights": ["string"]
+  },
+  
+  "swot_analysis": { "strengths": ["string"], "weaknesses": ["string"], "opportunities": ["string"], "threats": ["string"], "strategic_priorities": "string" },
+  
   "customer_intelligence": { "segments_analyzed": [{ "segment_name": "string", "size_estimate": "string", "pain_points": ["string"], "decision_criteria": ["string"], "willingness_to_pay": "string", "acquisition_cost_estimate": "string en €", "lifetime_value_estimate": "string en €", "priority": "1/2/3" }], "voice_of_customer": { "common_complaints": ["string"], "desired_features": ["string"], "switching_barriers": ["string"] } },
-  "strategic_recommendations": { "recommended_strategy": { "strategic_archetype": "string", "rationale": "string" }, "positioning_strategy": { "target_segment_primary": "string", "value_proposition": "string", "positioning_statement": "string", "reasons_to_believe": ["string"] }, "brand_strategy": { "brand_essence": "string", "brand_personality": ["string"], "brand_voice_description": "string", "tagline_options": ["string - 3 options mémorables"], "messaging_hierarchy": { "primary_message": "string", "supporting_messages": ["string"] } }, "product_strategy": { "core_offering_recommendation": "string", "tiering_strategy": [{ "tier_name": "string", "target_segment": "string", "key_features": ["string"], "pricing_range": "string en €" }], "product_roadmap_priorities": [{ "feature_initiative": "string", "priority": "P0/P1/P2", "expected_impact": "string" }] }, "pricing_strategy": { "pricing_model_recommendation": "string", "price_optimization_by_tier": [{ "tier": "string", "recommended_price": "string en €", "rationale": "string" }], "upsell_cross_sell_opportunities": ["string"] }, "go_to_market_strategy": { "customer_acquisition": { "primary_channels_detailed": [{ "channel": "string", "rationale": "string", "investment_level": "string en €", "expected_cac": "string en €", "tactics": ["string"] }], "content_marketing_strategy": { "strategic_themes": ["string"], "content_formats_prioritized": ["string"] }, "partnership_opportunities_detailed": [{ "partner_type": "string", "examples": ["string"] }] }, "sales_strategy": { "sales_model": "string", "sales_process_recommendation": "string" } } },
-  "financial_projections": { "investment_required": { "total_12_months": number, "breakdown": [{ "category": "string", "amount": number, "rationale": "string" }] }, "revenue_scenarios": { "conservative": { "year_1": number, "year_2": number, "year_3": number, "assumptions": ["string"] }, "baseline": { "year_1": number, "year_2": number, "year_3": number, "assumptions": ["string"] }, "optimistic": { "year_1": number, "year_2": number, "year_3": number, "assumptions": ["string"] } }, "unit_economics": { "customer_acquisition_cost": number, "lifetime_value": number, "ltv_cac_ratio": number, "payback_period_months": number, "gross_margin_percent": number, "comparison_to_benchmarks": "string" } },
+  
+  "strategic_recommendations_detailed": {
+    "positioning_options": [{ 
+      "id": "option_a/option_b/option_c", 
+      "name": "string", 
+      "type": "conservative/balanced/ambitious", 
+      "description": "string", 
+      "differentiators": ["string"], 
+      "target_ticket": "string en €" 
+    }],
+    "location_recommendations": [{ "priority": 1-3, "name": "string", "rationale": ["string"], "estimated_rent": "string" }],
+    "recommended_surface": "string (ex: 60-100 m²)",
+    "budget_rent": "string (ex: 3 000-5 000€/mois)",
+    "economic_model": [{ "indicator": "string", "target": "string" }],
+    "attention_points": [{ "point": "string", "impact": "string" }]
+  },
+  
+  "strategic_recommendations": { "recommended_strategy": { "strategic_archetype": "string", "rationale": "string" }, "positioning_strategy": { "target_segment_primary": "string", "value_proposition": "string", "positioning_statement": "string", "reasons_to_believe": ["string"] }, "brand_strategy": { "brand_essence": "string", "brand_personality": ["string"], "brand_voice_description": "string", "tagline_options": ["string"], "messaging_hierarchy": { "primary_message": "string", "supporting_messages": ["string"] } }, "product_strategy": { "core_offering_recommendation": "string", "tiering_strategy": [{ "tier_name": "string", "target_segment": "string", "key_features": ["string"], "pricing_range": "string en €" }], "product_roadmap_priorities": [{ "feature_initiative": "string", "priority": "P0/P1/P2", "expected_impact": "string" }] }, "pricing_strategy": { "pricing_model_recommendation": "string", "price_optimization_by_tier": [{ "tier": "string", "recommended_price": "string en €", "rationale": "string" }], "upsell_cross_sell_opportunities": ["string"] }, "go_to_market_strategy": { "customer_acquisition": { "primary_channels_detailed": [{ "channel": "string", "rationale": "string", "investment_level": "string en €", "expected_cac": "string en €", "tactics": ["string"] }], "content_marketing_strategy": { "strategic_themes": ["string"], "content_formats_prioritized": ["string"] }, "partnership_opportunities_detailed": [{ "partner_type": "string", "examples": ["string"] }] }, "sales_strategy": { "sales_model": "string", "sales_process_recommendation": "string" } } },
+  
+  "financial_projections": { 
+    "investment_required": { "total_12_months": number, "breakdown": [{ "category": "string", "amount": number, "rationale": "string" }] }, 
+    "revenue_scenarios": { "conservative": { "year_1": number, "year_2": number, "year_3": number, "assumptions": ["string"] }, "baseline": { "year_1": number, "year_2": number, "year_3": number, "assumptions": ["string"] }, "optimistic": { "year_1": number, "year_2": number, "year_3": number, "assumptions": ["string"] } }, 
+    "unit_economics": { "customer_acquisition_cost": number, "lifetime_value": number, "ltv_cac_ratio": number, "payback_period_months": number, "gross_margin_percent": number, "comparison_to_benchmarks": "string" } 
+  },
+  
+  "detailed_roadmap": {
+    "phases": [{ 
+      "phase": "string (J1-J30/J31-J60/J61-J90)", 
+      "timeline": "string", 
+      "title": "string", 
+      "tasks": ["string"], 
+      "kpis": ["string - KPIs de validation"] 
+    }],
+    "kpi_targets": [{ "indicator": "string", "target_m6": "string", "target_m12": "string" }],
+    "budget_breakdown": [{ "category": "string", "amount": "string" }],
+    "total_budget": "string (ex: 230 000 - 485 000 €)",
+    "recommended_equity": "string (ex: 30% minimum = 70 000-145 000€)"
+  },
+  
   "implementation_roadmap": { "phase_1_foundation": { "timeline": "Mois 1-3", "objectives": ["string"], "key_initiatives": [{ "initiative": "string", "owner_role": "string", "budget_estimate": "string en €", "success_metrics": ["string"], "milestones": ["string"] }] }, "phase_2_growth": { "timeline": "Mois 4-6", "objectives": ["string"], "key_initiatives": ["..."] }, "phase_3_scale": { "timeline": "Mois 7-12", "objectives": ["string"], "key_initiatives": ["..."] } },
+  
   "risk_register": [{ "risk": "string", "impact": "Élevé/Moyen/Faible", "probability": "Élevé/Moyen/Faible", "mitigation": "string", "contingency": "string" }],
+  
+  "appendices": {
+    "glossary": [{ "term": "string", "definition": "string" }],
+    "sources_by_category": [{ "category": "string (Données marché/Données territoriales/Sources sectorielles)", "sources": ["string"] }],
+    "assumptions": [{ "assumption": "string", "validation_plan": "string" }],
+    "unknowns": [{ "item": "string - ce que nous ne savons pas encore", "how_to_find": "string" }],
+    "validation_plan": ["string - actions pour réduire l'incertitude"]
+  },
+  
   "assumptions_and_limitations": ["string"],
   "sources": [{ "title": "string", "url": "string" }]
 }
 </json_schema>
 
-Génère le rapport AGENCY-GRADE complet. RETOURNE UNIQUEMENT LE JSON.`;
+Génère le rapport AGENCY-GRADE INSTITUTIONNEL complet (25+ pages équivalent). RETOURNE UNIQUEMENT LE JSON.`;
   }
 
   if (plan === "pro") {
