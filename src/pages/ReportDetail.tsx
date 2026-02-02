@@ -7,9 +7,10 @@ import { useReports, Report } from '@/hooks/useReports';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { ReportInput, ReportOutput } from '@/types/report';
 import { toast } from 'sonner';
-import { ArrowLeft, FileText, Loader2 } from 'lucide-react';
+import { ArrowLeft, FileText, Loader2, Download } from 'lucide-react';
 import { ReportHero } from '@/components/report/ReportHero';
 import { WebSummary } from '@/components/report/WebSummary';
+import { supabase } from '@/integrations/supabase/client';
 
 const ReportDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -21,6 +22,9 @@ const ReportDetail = () => {
   const [processingProgress, setProcessingProgress] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isRetrying, setIsRetrying] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [isDownloadingExcel, setIsDownloadingExcel] = useState(false);
+  const [isDownloadingSlides, setIsDownloadingSlides] = useState(false);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -100,11 +104,163 @@ const ReportDetail = () => {
     }
   };
 
-  const handleDownload = () => {
-    if (report?.pdf_url) {
-      window.open(report.pdf_url, '_blank');
-    } else {
-      toast.error('Le PDF n\'est pas encore disponible');
+  // Streaming PDF download - generates on-the-fly like Claude
+  const handleDownload = async () => {
+    if (!report) return;
+
+    setIsDownloading(true);
+
+    try {
+      // Try streaming PDF first (new method)
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL || 'https://phmhzbmlszbontpfeddk.supabase.co'}/functions/v1/stream-pdf`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || ''}`,
+          },
+          body: JSON.stringify({ reportId: report.id }),
+        }
+      );
+
+      if (response.ok && response.headers.get('Content-Type')?.includes('application/pdf')) {
+        // Stream successful - trigger browser download
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+
+        // Get filename from Content-Disposition header if available
+        const disposition = response.headers.get('Content-Disposition');
+        let filename = `Benchmark_${report.id.substring(0, 8)}.pdf`;
+        if (disposition) {
+          const match = disposition.match(/filename="([^"]+)"/);
+          if (match) filename = match[1];
+        }
+
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        toast.success('PDF téléchargé !');
+      } else {
+        // Fallback to legacy pdf_url
+        if (report.pdf_url) {
+          window.open(report.pdf_url, '_blank');
+          toast.success('PDF ouvert dans un nouvel onglet');
+        } else {
+          toast.error('Le PDF n\'est pas encore disponible');
+        }
+      }
+    } catch (error) {
+      console.error('PDF download error:', error);
+      // Fallback to legacy pdf_url on error
+      if (report.pdf_url) {
+        window.open(report.pdf_url, '_blank');
+      } else {
+        toast.error('Erreur lors du téléchargement du PDF');
+      }
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  // Excel download for Agency tier
+  const handleDownloadExcel = async () => {
+    if (!report || report.plan !== 'agency') return;
+
+    setIsDownloadingExcel(true);
+
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL || 'https://phmhzbmlszbontpfeddk.supabase.co'}/functions/v1/generate-excel`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || ''}`,
+          },
+          body: JSON.stringify({ reportId: report.id }),
+        }
+      );
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const disposition = response.headers.get('Content-Disposition');
+        let filename = `Benchmark_${report.id.substring(0, 8)}.xlsx`;
+        if (disposition) {
+          const match = disposition.match(/filename="([^"]+)"/);
+          if (match) filename = match[1];
+        }
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast.success('Excel téléchargé !');
+      } else {
+        const errorData = await response.json();
+        toast.error(errorData.error || 'Erreur lors de la génération Excel');
+      }
+    } catch (error) {
+      console.error('Excel download error:', error);
+      toast.error('Erreur lors du téléchargement Excel');
+    } finally {
+      setIsDownloadingExcel(false);
+    }
+  };
+
+  // Slides download for Agency tier
+  const handleDownloadSlides = async () => {
+    if (!report || report.plan !== 'agency') return;
+
+    setIsDownloadingSlides(true);
+
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL || 'https://phmhzbmlszbontpfeddk.supabase.co'}/functions/v1/generate-slides`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || ''}`,
+          },
+          body: JSON.stringify({ reportId: report.id }),
+        }
+      );
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const disposition = response.headers.get('Content-Disposition');
+        let filename = `Benchmark_${report.id.substring(0, 8)}.pptx`;
+        if (disposition) {
+          const match = disposition.match(/filename="([^"]+)"/);
+          if (match) filename = match[1];
+        }
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast.success('Slides téléchargées !');
+      } else {
+        const errorData = await response.json();
+        toast.error(errorData.error || 'Erreur lors de la génération Slides');
+      }
+    } catch (error) {
+      console.error('Slides download error:', error);
+      toast.error('Erreur lors du téléchargement Slides');
+    } finally {
+      setIsDownloadingSlides(false);
     }
   };
 
@@ -169,8 +325,13 @@ const ReportDetail = () => {
             processingProgress={processingProgress}
             processingStep={report.processing_step}
             onDownload={handleDownload}
+            onDownloadExcel={handleDownloadExcel}
+            onDownloadSlides={handleDownloadSlides}
             onRetry={handleRetry}
             isRetrying={isRetrying}
+            isDownloading={isDownloading}
+            isDownloadingExcel={isDownloadingExcel}
+            isDownloadingSlides={isDownloadingSlides}
           />
 
           {/* Web Summary - Only shown when report is ready */}
@@ -180,6 +341,7 @@ const ReportDetail = () => {
               plan={report.plan || 'standard'}
               pdfUrl={report.pdf_url}
               onDownload={handleDownload}
+              isDownloading={isDownloading}
             />
           )}
         </div>

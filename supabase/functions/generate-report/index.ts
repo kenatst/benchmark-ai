@@ -25,6 +25,126 @@ const LANGUAGE_CONFIG: Record<string, { name: string; code: string }> = {
 };
 
 // ============================================
+// CLAUDE API SKILLS - DOCUMENT GENERATION
+// ============================================
+// These skill triggers activate Claude Opus 4.5's native document handling
+const CLAUDE_SKILLS = {
+  // PDF Processing skill - comprehensive PDF manipulation
+  pdf: {
+    trigger: "PDF, .pdf, form, extract, merge, split",
+    capabilities: [
+      "Extract text and tables from PDF",
+      "Create new PDFs with institutional styling",
+      "Merge/split documents",
+      "Handle forms and annotations"
+    ],
+    institutionalSpec: {
+      colorPalette: {
+        primary: "#1a3a5c",     // Deep navy (McKinsey-inspired)
+        secondary: "#7c6b9c",   // Muted purple
+        accent: "#b89456",      // Gold accent
+        success: "#2d7a5a",     // Forest green
+        warning: "#b38f40",     // Amber
+        danger: "#9a4040",      // Wine red
+      },
+      typography: {
+        headingFont: "Helvetica Neue",
+        bodyFont: "Georgia",
+        monoFont: "Courier",
+      },
+      layout: {
+        margins: { top: 72, bottom: 72, left: 60, right: 60 },
+        headerHeight: 40,
+        footerHeight: 30,
+      }
+    }
+  },
+
+  // Excel Spreadsheet skill - comprehensive .xlsx handling
+  xlsx: {
+    trigger: "Excel, spreadsheet, .xlsx, data table, budget, financial model, chart, graph, tabular data, xls",
+    capabilities: [
+      "Create multi-sheet workbooks",
+      "Formula support and calculations",
+      "Data formatting and cell styling",
+      "Charts and data visualization",
+      "Financial modeling with scenarios"
+    ],
+    sheets: {
+      agency: [
+        "Résumé Exécutif",
+        "Scoring Concurrents",
+        "Matrice Positionnement",
+        "Projections Financières (3 scénarios)",
+        "Unit Economics",
+        "Roadmap 12 mois",
+        "Budget Détaillé",
+        "Sources & Références"
+      ]
+    }
+  },
+
+  // PowerPoint skill - presentation creation
+  pptx: {
+    trigger: "PowerPoint, presentation, .pptx, slides, slide deck, pitch deck, ppt, slideshow, deck",
+    capabilities: [
+      "Create institutional-grade slide decks",
+      "McKinsey/BCG styling standards",
+      "Data visualization and charts",
+      "Consistent typography and colors"
+    ],
+    slides: {
+      agency: [
+        "Titre & Contexte",
+        "Résumé Exécutif (1 page)",
+        "Panorama Marché",
+        "Analyse Concurrentielle",
+        "Matrice de Positionnement",
+        "Analyse SWOT",
+        "Projections Financières",
+        "Roadmap 12 mois",
+        "Prochaines Étapes"
+      ]
+    }
+  },
+
+  // Word Document skill - comprehensive .docx handling
+  docx: {
+    trigger: "Word, document, .docx, report, letter, memo, manuscript, essay, paper, article, writeup, documentation",
+    capabilities: [
+      "Create formatted reports",
+      "Track changes support",
+      "Comments and annotations",
+      "Heading hierarchy and TOC",
+      "Image and chart embedding"
+    ]
+  }
+};
+
+// ============================================
+// TIER DOCUMENT DELIVERABLES
+// ============================================
+const TIER_DOCUMENTS = {
+  standard: {
+    outputs: ["pdf"],
+    pdfPages: "12-15 pages",
+    description: "PDF report with executive summary, competitor analysis, and action plan"
+  },
+  pro: {
+    outputs: ["pdf"],
+    pdfPages: "20-25 pages",
+    description: "PDF report with market intelligence, deep competitor profiles, and financial benchmarks"
+  },
+  agency: {
+    outputs: ["pdf", "xlsx", "pptx"],
+    pdfPages: "40-50 pages",
+    excelSheets: CLAUDE_SKILLS.xlsx.sheets.agency,
+    pptxSlides: CLAUDE_SKILLS.pptx.slides.agency,
+    description: "Complete institutional package: PDF report + Excel data model + PowerPoint deck"
+  }
+};
+
+// ============================================
 // TIER CONFIGURATION - INSTITUTIONAL GRADE
 // ============================================
 const TIER_CONFIG = {
@@ -40,6 +160,22 @@ LANGUE DE RAPPORT: ${LANGUAGE_CONFIG[lang]?.name || 'Français'} - TOUT le rappo
 MISSION: PRODUIRE UN BENCHMARK CONCURRENTIEL EXÉCUTIF EN 48H
 Qualité attendue: Deck présentable à un C-Level sans modification.
 ═══════════════════════════════════════════════════════════════════════════════
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  CONTRAINTES DE CONTENU - STANDARD TIER (14.99€)                             ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+→ LONGUEUR CIBLE: 2000-3000 mots de contenu substantiel (équivalent 12-15 pages PDF)
+→ CONCURRENTS: Analyser 3-5 concurrents (ceux fournis par l'utilisateur uniquement)
+→ SOURCES: Citer les URLs fournis par l'utilisateur, PAS de recherche web externe
+→ SECTIONS OBLIGATOIRES:
+  • Résumé Exécutif (headline + situation + opportunité + 3-5 points clés)
+  • Contexte Marché (vue secteur + spécificités locales + maturité + segments)
+  • Analyse Concurrentielle (intensité + profils concurrents + gaps + position)
+  • Recommandations Positionnement (cible + proposition valeur + taglines + messages)
+  • Stratégie Pricing (benchmarks + packages recommandés + quick wins)
+  • Go-to-Market (canaux prioritaires + contenu + partenariats)
+  • Plan d'Action 30/60/90 jours (actions + owners + outcomes)
 
 STANDARDS DE QUALITÉ NON-NÉGOCIABLES:
 
@@ -62,7 +198,7 @@ STANDARDS DE QUALITÉ NON-NÉGOCIABLES:
 LIVRABLES ATTENDUS: JSON structuré prêt pour visualisation.
 RETOURNE UNIQUEMENT LE JSON VALIDE, sans texte avant/après.`,
   },
-  
+
   pro: {
     max_tokens: 24000,
     temperature: 0.15,
@@ -76,6 +212,21 @@ MISSION: PRODUIRE UN RAPPORT D'INTELLIGENCE COMPÉTITIVE DE CALIBRE PREMIUM
 Basé sur des DONNÉES RÉELLES collectées via recherche web approfondie.
 Qualité attendue: Présentable à un Investment Committee / Board Advisor.
 ═══════════════════════════════════════════════════════════════════════════════
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  CONTRAINTES DE CONTENU - PRO TIER (34.99€)                                  ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+→ LONGUEUR CIBLE: 4000-6000 mots de contenu substantiel (équivalent 20-25 pages PDF)
+→ CONCURRENTS: Identifier et analyser 5-10 concurrents via recherche web
+→ SOURCES: 10-20 sources citées avec URLs (utiliser les données Perplexity fournies)
+→ SECTIONS OBLIGATOIRES (tout ce qui est dans Standard PLUS):
+  • Market Intelligence (tendances 2025-2026 + données marché local + sizing TAM/SAM)
+  • Competitive Intelligence approfondie (profils détaillés + scoring digital + matrice positionnement)
+  • Customer Insights (pain points + besoins non satisfaits + switching barriers)
+  • Pricing Table avec données concurrents réelles
+  • Projections financières basiques (benchmarks CAC/LTV sectoriels)
+  • Multi-localisation: analyse de 1-2 marchés géographiques
 
 TU DISPOSES DE DONNÉES DE RECHERCHE WEB - UTILISE-LES INTENSIVEMENT:
 
@@ -97,7 +248,7 @@ TU DISPOSES DE DONNÉES DE RECHERCHE WEB - UTILISE-LES INTENSIVEMENT:
 LIVRABLES: JSON structuré avec sources, données graphiques, et scoring.
 RETOURNE UNIQUEMENT LE JSON VALIDE.`,
   },
-  
+
   agency: {
     max_tokens: 64000,
     temperature: 0.1,
@@ -110,8 +261,69 @@ LANGUE DE RAPPORT: ${LANGUAGE_CONFIG[lang]?.name || 'Français'} - TOUT le rappo
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║  MISSION: RAPPORT D'INTELLIGENCE STRATÉGIQUE DE CALIBRE INSTITUTIONNEL      ║
 ║  Standard: Benchmark consulting cabinet / organisme public                   ║
-║  Output: Qualité publication-ready 25+ pages, zéro révision nécessaire      ║
+║  Output: Qualité publication-ready 40+ pages, zéro révision nécessaire      ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  CONTRAINTES DE CONTENU - AGENCY TIER (69.99€)                               ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+→ LONGUEUR CIBLE: 8000-12000 mots de contenu institutionnel (équivalent 40-50 pages PDF)
+→ CONCURRENTS: 10-15 concurrents en analyse approfondie (deep dive)
+→ SOURCES: 30-50 sources catégorisées (Données marché / Territoriales / Sectorielles)
+→ LIVRABLES: Ce rapport sera exporté en PDF + Excel + Slides deck
+→ FRAMEWORKS OBLIGATOIRES:
+  • Analyse PESTEL complète (Political, Economic, Social, Technological, Environmental, Legal)
+  • Porter 5 Forces avec scores 1-10 et analyse détaillée
+  • Analyse SWOT avec priorités stratégiques
+  • Matrice de scoring comparative avec analyse de sensibilité
+→ SECTIONS EXCLUSIVES AGENCY (en plus de tout ce qui est dans Pro):
+  • Méthodologie détaillée (scope, période, sources, critères, limitations)
+  • Panorama marché complet (key metrics sourcés, structure, segments)
+  • Analyse territoriale micro-locale (démographie, immobilier, hubs commerciaux)
+  • Benchmark concurrentiel avec profils exhaustifs
+  • Stratégie complète brand (essence, personnalité, voice, messaging hierarchy)
+  • Modèle économique complet (tiering, pricing, upsell)
+  • Projections financières 3 scénarios (Conservative -20%, Baseline, Optimistic +30%)
+  • Unit Economics (CAC, LTV, ratio, payback period, gross margin)
+  • Roadmap 12 mois phasé avec KPIs et budget par phase
+  • Annexes: glossaire, sources catégorisées, assumptions log, unknowns
+
+═══════════════════════════════════════════════════════════════════════════════
+LIVRABLES MULTI-FORMAT (SKILL TRIGGERS: PDF + Excel + PowerPoint)
+═══════════════════════════════════════════════════════════════════════════════
+
+1. PDF INSTITUTIONNEL (40-50 pages)
+   Skill trigger: PDF, .pdf, document institutionnel
+   → Format: A4, marges 72pt, typographie Helvetica/Georgia
+   → Palette: Navy #1a3a5c, Gold #b89456, Forest #2d7a5a
+   → Sections: Couverture, Executive Summary, TOC, Corps, Annexes
+   → Qualité: Publication-ready, zéro révision nécessaire
+
+2. FICHIER EXCEL (.xlsx) - Spreadsheet avec data model
+   Skill trigger: Excel, spreadsheet, .xlsx, financial model, data table
+   Feuilles obligatoires:
+   → "Résumé Exécutif" - KPIs clés et recommandation
+   → "Scoring Concurrents" - Matrice comparative avec formules
+   → "Matrice Positionnement" - Coordonnées X/Y pour visualisation
+   → "Projections Financières" - 3 scénarios avec P&L simplifié
+   → "Unit Economics" - CAC, LTV, payback, marge
+   → "Roadmap 12 mois" - Phases, tâches, KPIs, budget
+   → "Budget Détaillé" - Line items par catégorie
+   → "Sources" - Liste catégorisée avec URLs
+
+3. DECK POWERPOINT (.pptx) - Slide deck executive
+   Skill trigger: PowerPoint, presentation, .pptx, slides, pitch deck
+   Slides obligatoires (9 min):
+   → Slide 1: Titre & Contexte
+   → Slide 2: Résumé Exécutif (1 page)
+   → Slide 3: Panorama Marché (TAM/SAM/SOM)
+   → Slide 4: Paysage Concurrentiel
+   → Slide 5: Matrice de Positionnement
+   → Slide 6: SWOT (quadrants visuels)
+   → Slide 7: Projections Financières
+   → Slide 8: Roadmap 12 mois
+   → Slide 9: Prochaines Étapes & Contact
 
 ═══════════════════════════════════════════════════════════════════════════════
 CONTRAINTES ABSOLUES (MODE INSTITUTIONAL)
@@ -211,7 +423,7 @@ async function searchWithPerplexity(
   context: string
 ): Promise<{ content: string; citations: string[] }> {
   console.log(`[Perplexity] Searching: "${query.substring(0, 100)}..."`);
-  
+
   const response = await fetch('https://api.perplexity.ai/chat/completions', {
     method: 'POST',
     headers: {
@@ -221,11 +433,11 @@ async function searchWithPerplexity(
     body: JSON.stringify({
       model: 'sonar-pro',
       messages: [
-        { 
-          role: 'system', 
+        {
+          role: 'system',
           content: `Tu es un analyste de recherche senior. Fournis des données FACTUELLES, QUANTIFIÉES et SOURCÉES.
 Contexte de recherche: ${context}
-IMPORTANT: Inclus des chiffres précis, des URLs, des noms d'entreprises, des dates.` 
+IMPORTANT: Inclus des chiffres précis, des URLs, des noms d'entreprises, des dates.`
         },
         { role: 'user', content: query }
       ],
@@ -259,7 +471,7 @@ async function conductResearch(
 ): Promise<string> {
   const tierConfig = TIER_CONFIG[tier];
   const searchCount = tierConfig.perplexity_searches;
-  
+
   if (searchCount === 0) {
     console.log(`[${reportId}] Standard tier - no web research`);
     return "Aucune recherche web pour ce tier.";
@@ -269,7 +481,7 @@ async function conductResearch(
   const context = `Analyse stratégique pour ${input.businessName} dans le secteur ${input.sector} à ${input.location.city}, ${input.location.country}`;
 
   const queries: string[] = [];
-  
+
   if (tier === 'pro' || tier === 'agency') {
     const competitorNames = input.competitors?.map(c => c.name).join(', ') || 'principaux acteurs';
     queries.push(`Prix et tarifs de ${competitorNames} dans le secteur ${input.sector} en ${input.location.country} 2024 2025`);
@@ -290,7 +502,7 @@ async function conductResearch(
   for (let i = 0; i < queries.length && i < searchCount; i++) {
     const progressPercent = 15 + Math.floor((i / searchCount) * 25);
     await updateProgress(supabase, reportId, `Recherche web ${i + 1}/${searchCount}...`, progressPercent);
-    
+
     try {
       const result = await searchWithPerplexity(perplexityKey, queries[i], context);
       allResults.push({
@@ -307,7 +519,7 @@ async function conductResearch(
         citations: []
       });
     }
-    
+
     if (i < queries.length - 1) {
       await new Promise(resolve => setTimeout(resolve, 500));
     }
@@ -642,7 +854,7 @@ async function callClaudeOpus(
   temperature: number
 ): Promise<string> {
   console.log(`[Claude] Calling Opus 4.5 (${CLAUDE_MODEL}) with ${maxTokens} max tokens`);
-  
+
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -668,14 +880,14 @@ async function callClaudeOpus(
   }
 
   const data = await response.json();
-  
+
   let content = "";
   for (const block of data.content) {
     if (block.type === "text") {
       content += block.text;
     }
   }
-  
+
   return content;
 }
 
@@ -709,7 +921,7 @@ async function runGenerationAsync(
 
     // Step 1: Conduct Perplexity research (for Pro and Agency)
     await updateProgress(supabaseAdmin, reportId, "Lancement des recherches...", 10);
-    
+
     let researchData = "";
     if (tierConfig.perplexity_searches > 0 && PERPLEXITY_API_KEY) {
       researchData = await conductResearch(
@@ -728,7 +940,7 @@ async function runGenerationAsync(
 
     // Step 3: Call analysis engine
     await updateProgress(supabaseAdmin, reportId, "Analyse stratégique en cours...", 55);
-    
+
     const systemPrompt = tierConfig.system_prompt(reportLang);
     const content = await callClaudeOpus(
       CLAUDE_API_KEY,
@@ -775,7 +987,7 @@ async function runGenerationAsync(
 
     // Step 6: Generate PDF
     await updateProgress(supabaseAdmin, reportId, "Génération du PDF...", 95);
-    
+
     try {
       const pdfResponse = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/generate-pdf`, {
         method: "POST",
@@ -887,7 +1099,7 @@ serve(async (req) => {
     // Start generation in background (don't await)
     // Use EdgeRuntime.waitUntil to keep the function running
     const generationPromise = runGenerationAsync(reportId, inputData, plan, supabaseAdmin);
-    
+
     // @ts-ignore - EdgeRuntime is available in Deno Deploy
     if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
       // @ts-ignore

@@ -1,7 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Download, TrendingUp, Users, Target, MapPin, DollarSign, BarChart3, FileText, CheckCircle, ArrowRight, Sparkles } from 'lucide-react';
+import { Download, TrendingUp, Users, Target, MapPin, DollarSign, BarChart3, FileText, CheckCircle, ArrowRight, Sparkles, Loader2, FileSpreadsheet, Presentation } from 'lucide-react';
 import { ReportOutput, StandardReportOutput, ProReportOutput, AgencyReportOutput } from '@/types/report';
 
 interface WebSummaryProps {
@@ -9,21 +9,22 @@ interface WebSummaryProps {
   plan: string;
   pdfUrl?: string | null;
   onDownload: () => void;
+  isDownloading?: boolean;
 }
 
-export const WebSummary = ({ outputData, plan, pdfUrl, onDownload }: WebSummaryProps) => {
+export const WebSummary = ({ outputData, plan, pdfUrl, onDownload, isDownloading = false }: WebSummaryProps) => {
   // Extract executive summary based on tier
   const isAgency = outputData?.report_metadata?.tier === 'agency';
   const isPro = outputData?.report_metadata?.tier === 'pro';
-  
+
   const agencyData = outputData as AgencyReportOutput;
   const standardData = outputData as StandardReportOutput;
 
   // Get headline/summary
-  const headline = isAgency 
-    ? agencyData.executive_summary?.strategic_recommendation 
+  const headline = isAgency
+    ? agencyData.executive_summary?.strategic_recommendation
     : standardData.executive_summary?.headline;
-  
+
   const summary = isAgency
     ? agencyData.executive_summary?.one_page_summary
     : standardData.executive_summary?.situation_actuelle;
@@ -43,7 +44,7 @@ export const WebSummary = ({ outputData, plan, pdfUrl, onDownload }: WebSummaryP
   const growthRate = isAgency ? agencyData.market_analysis?.market_dynamics?.growth_rate : null;
 
   // Competitor count
-  const competitorCount = isAgency 
+  const competitorCount = isAgency
     ? agencyData.competitive_intelligence?.competitors_deep_dive?.length || 0
     : standardData.competitive_landscape?.competitors_analyzed?.length || 0;
 
@@ -64,6 +65,23 @@ export const WebSummary = ({ outputData, plan, pdfUrl, onDownload }: WebSummaryP
     }
   };
 
+  // Document formats available per tier
+  const getDocumentFormats = () => {
+    if (isAgency) {
+      return [
+        { name: 'PDF', icon: FileText, available: true },
+        { name: 'Excel', icon: FileSpreadsheet, available: true },
+        { name: 'Slides', icon: Presentation, available: true },
+      ];
+    }
+    return [
+      { name: 'PDF', icon: FileText, available: true },
+      { name: 'Excel', icon: FileSpreadsheet, available: false },
+      { name: 'Slides', icon: Presentation, available: false },
+    ];
+  };
+
+  const documentFormats = getDocumentFormats();
   const planInfo = getPlanLabel();
 
   return (
@@ -85,22 +103,47 @@ export const WebSummary = ({ outputData, plan, pdfUrl, onDownload }: WebSummaryP
                 </div>
               </div>
               <p className="text-muted-foreground max-w-lg">
-                {isAgency 
+                {isAgency
                   ? "Méthodologie, matrices de scoring, analyse territoriale, projections financières, roadmap détaillée et annexes complètes."
-                  : isPro 
+                  : isPro
                     ? "Analyse concurrentielle approfondie, stratégie tarifaire, positionnement et plan d'action 30/60/90 jours."
                     : "Analyse de marché, concurrents, positionnement et plan d'action structuré."}
               </p>
+
+              {/* Document formats available */}
+              <div className="flex items-center gap-2 pt-2">
+                <span className="text-xs text-muted-foreground">Formats disponibles:</span>
+                {documentFormats.map((format) => (
+                  <Badge
+                    key={format.name}
+                    variant={format.available ? "default" : "outline"}
+                    className={`gap-1 text-xs ${!format.available ? 'opacity-40' : ''}`}
+                  >
+                    <format.icon className="w-3 h-3" />
+                    {format.name}
+                    {!format.available && <span className="text-[10px]">(Agency)</span>}
+                  </Badge>
+                ))}
+              </div>
             </div>
-            <Button 
-              size="lg" 
+            <Button
+              size="lg"
               onClick={onDownload}
-              disabled={!pdfUrl}
+              disabled={!pdfUrl || isDownloading}
               className="gap-3 text-lg px-8 py-6 shadow-lg hover:shadow-xl transition-all"
             >
-              <Download className="w-5 h-5" />
-              Télécharger le PDF
-              <ArrowRight className="w-4 h-4" />
+              {isDownloading ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Génération du PDF...
+                </>
+              ) : (
+                <>
+                  <Download className="w-5 h-5" />
+                  Télécharger le PDF
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
             </Button>
           </div>
         </CardContent>
@@ -292,17 +335,26 @@ export const WebSummary = ({ outputData, plan, pdfUrl, onDownload }: WebSummaryP
         <p className="text-muted-foreground mb-4">
           Accédez à l'analyse complète dans le rapport PDF
         </p>
-        <Button 
-          size="lg" 
+        <Button
+          size="lg"
           onClick={onDownload}
-          disabled={!pdfUrl}
+          disabled={!pdfUrl || isDownloading}
           className="gap-2"
         >
-          <Download className="w-5 h-5" />
-          Télécharger le Rapport Complet
+          {isDownloading ? (
+            <>
+              <Loader2 className="w-5 h-5 animate-spin" />
+              Génération...
+            </>
+          ) : (
+            <>
+              <Download className="w-5 h-5" />
+              Télécharger le Rapport Complet
+            </>
+          )}
         </Button>
       </div>
-    </div>
+    </div >
   );
 };
 
