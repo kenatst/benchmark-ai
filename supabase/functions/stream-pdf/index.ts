@@ -500,7 +500,7 @@ class StreamingPDFBuilder {
       }));
 
       // Only draw if valid data
-      if (chartData.length > 0 && chartData.reduce((a, b) => a + b.value, 0) > 0) {
+      if (chartData.length > 0 && chartData.reduce((a: number, b: { label: string; value: number }) => a + b.value, 0) > 0) {
         this.drawDonutChart(chartData, segments[0].share ? 'Parts de Marche' : 'Segmentation Marche');
         this.cursorY -= 20;
       }
@@ -1702,7 +1702,7 @@ serve(async (req) => {
     const fileName = `Benchmark_${businessName}_${reportId.substring(0, 8)}.pdf`;
 
     // Return PDF as streaming response
-    return new Response(pdfBytes, {
+    return new Response(pdfBytes as unknown as BodyInit, {
       headers: {
         ...corsHeaders,
         "Content-Type": "application/pdf",
