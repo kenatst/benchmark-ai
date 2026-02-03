@@ -261,17 +261,17 @@ const PaymentSuccess = () => {
   const getStatusMessage = () => {
     switch (status) {
       case 'verifying':
-        return { title: 'Vérification du paiement...', subtitle: 'Confirmation avec Stripe en cours' };
+        return { title: 'Vérification du paiement', subtitle: 'Confirmation avec Stripe en cours. Cela peut prendre 10-20 secondes.' };
       case 'verified':
-        return { title: 'Paiement confirmé !', subtitle: 'Lancement de la génération...' };
+        return { title: '✅ Paiement confirmé !', subtitle: 'Lancement de la génération AI de votre rapport stratégique...' };
       case 'generating':
-        return { title: 'Génération en cours...', subtitle: serverStep || getGenerationPhase() };
+        return { title: '🚀 Génération en cours', subtitle: serverStep || getGenerationPhase() };
       case 'ready':
-        return { title: 'Votre benchmark est prêt !', subtitle: 'Redirection vers votre rapport...' };
+        return { title: '✅ Votre benchmark est prêt !', subtitle: 'Accès à votre rapport dans quelques secondes...' };
       case 'failed':
-        return { title: 'Échec de la génération', subtitle: 'Vous pouvez réessayer gratuitement' };
+        return { title: '❌ Génération échouée', subtitle: 'Le rapport n\'a pas pu être généré. Vous pouvez réessayer gratuitement.' };
       case 'error':
-        return { title: 'Erreur de vérification', subtitle: error || 'Une erreur est survenue' };
+        return { title: '⚠️ Erreur', subtitle: error || 'Une erreur est survenue lors de la vérification' };
       default:
         return { title: 'Chargement...', subtitle: '' };
     }
@@ -338,8 +338,11 @@ const PaymentSuccess = () => {
           {/* Warning message - don't close page */}
           {(status === 'generating' || status === 'verifying' || status === 'verified') && (
             <div className="bg-chart-4/10 rounded-lg p-4 border border-chart-4/20">
-              <p className="text-sm text-chart-4 font-medium">
-                ⚠️ La génération peut prendre plusieurs minutes. Ne fermez pas cette page.
+              <p className="text-sm text-chart-4 font-medium mb-2">
+                ⚠️ La génération peut prendre plusieurs minutes
+              </p>
+              <p className="text-xs text-chart-4">
+                Ne fermez pas cette page. Votre rapport est généré en arrière-plan et vous serez redirigé automatiquement une fois prêt.
               </p>
             </div>
           )}

@@ -9,11 +9,11 @@ const corsHeaders = {
 };
 
 // ============================================
-// CLAUDE MODELS - USE HAIKU FOR TESTING (FASTER + CHEAPER)
-// Switch to Opus for production when everything works
+// CLAUDE MODELS - USE OPUS 4.5 FOR PRODUCTION STABILITY
+// Haiku doesn't reliably handle complex report JSON generation
 // ============================================
-// Set to true to use fast/cheap Haiku 4.5, false for Opus 4.5
-const USE_HAIKU_FOR_TESTING = true;
+// Set to true to use Opus 4.5, false will be removed
+const USE_HAIKU_FOR_TESTING = false;
 
 const CLAUDE_MODEL_OPUS = "claude-opus-4-5-20251101";
 const CLAUDE_MODEL_HAIKU = "claude-3-5-haiku-20241022";
@@ -405,6 +405,39 @@ interface ReportInput {
 type TierType = keyof typeof TIER_CONFIG;
 
 // ============================================
+// STRUCTURED LOGGING HELPER
+// ============================================
+interface LogEntry {
+  timestamp: string;
+  reportId: string;
+  level: 'INFO' | 'SUCCESS' | 'WARN' | 'ERROR';
+  step: string;
+  message: string;
+  duration?: number;
+}
+
+function formatLog(entry: LogEntry): string {
+  const timestamp = entry.timestamp;
+  const level = entry.level.padEnd(7);
+  const step = entry.step.padEnd(30);
+  const duration = entry.duration ? ` [${entry.duration}ms]` : '';
+  return `[${timestamp}] ${level} [${step}] ${entry.message}${duration}`;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function reportLog(reportId: string, level: 'INFO' | 'SUCCESS' | 'WARN' | 'ERROR', step: string, message: string, duration?: number) {
+  const entry: LogEntry = {
+    timestamp: new Date().toISOString(),
+    reportId,
+    level,
+    step,
+    message,
+    duration
+  };
+  console.log(formatLog(entry));
+}
+
+// ============================================
 // PROGRESS UPDATE HELPER
 // ============================================
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -418,7 +451,8 @@ async function updateProgress(
     .from('reports')
     .update({
       processing_step: step,
-      processing_progress: progress
+      processing_progress: progress,
+      updated_at: new Date().toISOString()
     } as Record<string, unknown>)
     .eq('id', reportId);
 }
@@ -863,19 +897,18 @@ async function callClaudeOpus(
   temperature: number,
   maxRetries: number = 3
 ): Promise<string> {
-  const modelName = USE_HAIKU_FOR_TESTING ? "Haiku 4.5 (TEST MODE)" : "Opus 4.5";
-  console.log(`[Claude] Calling ${modelName} (${CLAUDE_MODEL}) with ${maxTokens} max tokens`);
+  console.log(`[Claude] Calling Opus 4.5 (${CLAUDE_MODEL}) with ${maxTokens} max tokens`);
   console.log(`[Claude] Prompt length: ${userPrompt.length} chars`);
 
-  // Reduce max_tokens for Haiku to speed up response
-  const effectiveMaxTokens = USE_HAIKU_FOR_TESTING ? Math.min(maxTokens, 8000) : maxTokens;
+  // Use full token limit for Opus - it handles complex reports better
+  const effectiveMaxTokens = maxTokens;
 
   let lastError: Error | null = null;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     // Create an AbortController for timeout
-    // Haiku is much faster, use shorter timeout
-    const timeoutMs = USE_HAIKU_FOR_TESTING ? 120000 : 300000; // 2 min for Haiku, 5 min for Opus
+    // Opus needs more time for complex analysis, allow up to 10 minutes
+    const timeoutMs = 600000; // 10 minutes for full Opus generation
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
       console.error(`[Claude] Request timeout after ${timeoutMs/1000}s (attempt ${attempt})`);
@@ -908,9 +941,9 @@ async function callClaudeOpus(
         
         // Rate limit - retry with exponential backoff
         if (response.status === 429) {
-          const waitTime = Math.pow(2, attempt) * 30000; // 30s, 60s, 120s
+          const waitTime = Math.pow(2, attempt - 1) * 60000; // 60s, 120s, 240s
           console.log(`[Claude] Rate limited. Waiting ${waitTime / 1000}s before retry ${attempt}/${maxRetries}...`);
-          
+
           if (attempt < maxRetries) {
             await new Promise(resolve => setTimeout(resolve, waitTime));
             continue;
@@ -918,17 +951,30 @@ async function callClaudeOpus(
           lastError = new Error("Rate limit exceeded after all retries. Please try again in a few minutes.");
           break;
         }
-        
+
         // Overloaded - retry with backoff
         if (response.status === 529) {
-          const waitTime = Math.pow(2, attempt) * 15000; // 15s, 30s, 60s
-          console.log(`[Claude] API overloaded. Waiting ${waitTime / 1000}s before retry ${attempt}/${maxRetries}...`);
-          
+          const waitTime = Math.pow(2, attempt - 1) * 30000; // 30s, 60s, 120s
+          console.log(`[Claude] API overloaded (${response.status}). Waiting ${waitTime / 1000}s before retry ${attempt}/${maxRetries}...`);
+
           if (attempt < maxRetries) {
             await new Promise(resolve => setTimeout(resolve, waitTime));
             continue;
           }
           lastError = new Error("Claude API overloaded after all retries. Please retry later.");
+          break;
+        }
+
+        // 5xx errors - transient, retry with backoff
+        if (response.status >= 500) {
+          const waitTime = Math.pow(2, attempt - 1) * 30000; // 30s, 60s, 120s
+          console.log(`[Claude] Server error ${response.status}. Waiting ${waitTime / 1000}s before retry ${attempt}/${maxRetries}...`);
+
+          if (attempt < maxRetries) {
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+            continue;
+          }
+          lastError = new Error(`Claude API server error (${response.status}) after all retries`);
           break;
         }
         
@@ -952,7 +998,7 @@ async function callClaudeOpus(
       clearTimeout(timeoutId);
       
       if (error instanceof Error && error.name === 'AbortError') {
-        lastError = new Error("Claude API request timed out after 5 minutes");
+        lastError = new Error("Claude API request timed out after 10 minutes");
         if (attempt < maxRetries) {
           console.log(`[Claude] Timeout. Retrying ${attempt}/${maxRetries}...`);
           continue;
@@ -1014,29 +1060,6 @@ async function runGenerationAsync(
     // Step 2: Build the prompt with research data
     await updateProgress(supabaseAdmin, reportId, "Préparation de l'analyse...", 45);
     let userPrompt = buildUserPrompt(inputData, plan, researchData);
-    
-    // Add strict JSON enforcement for Haiku model (it tends to ask clarifying questions)
-    if (USE_HAIKU_FOR_TESTING) {
-      userPrompt += `
-
-═══════════════════════════════════════════════════════════════════════════════
-⚠️ INSTRUCTION ABSOLUE - À SUIVRE IMMÉDIATEMENT ⚠️
-═══════════════════════════════════════════════════════════════════════════════
-
-TU DOIS GÉNÉRER LE JSON MAINTENANT. NE POSE AUCUNE QUESTION.
-TU AS TOUTES LES INFORMATIONS NÉCESSAIRES CI-DESSUS.
-
-RÈGLES STRICTES:
-1. RETOURNE UNIQUEMENT UN OBJET JSON VALIDE
-2. NE COMMENCE PAS PAR "Je comprends" ou "Avant de générer" ou toute autre phrase
-3. COMMENCE DIRECTEMENT PAR L'ACCOLADE OUVRANTE: {
-4. TERMINE PAR L'ACCOLADE FERMANTE: }
-5. PAS DE COMMENTAIRES, PAS DE QUESTIONS, PAS DE TEXTE EXPLICATIF
-
-SI TU NE GÉNÈRES PAS DE JSON IMMÉDIATEMENT, L'UTILISATEUR PERD SON ARGENT.
-
-GÉNÈRE LE JSON MAINTENANT:`;
-    }
 
     // Step 3: Call analysis engine
     await updateProgress(supabaseAdmin, reportId, "Analyse stratégique en cours...", 55);
@@ -1054,18 +1077,56 @@ GÉNÈRE LE JSON MAINTENANT:`;
       throw new Error("No content returned from Claude");
     }
 
-    // Step 4: Parse JSON response
+    // Step 4: Parse JSON response with robust error handling
     await updateProgress(supabaseAdmin, reportId, "Parsing du rapport...", 90);
 
     console.log(`[${reportId}] Parsing JSON response...`);
 
     let outputData;
     try {
-      const cleanContent = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+      // Step 4a: First attempt - clean markdown code blocks
+      let cleanContent = content
+        .replace(/```json\n?/g, "")
+        .replace(/```\n?/g, "")
+        .trim();
+
+      // Step 4b: If starts with non-JSON, try to extract JSON object
+      if (!cleanContent.startsWith('{')) {
+        console.log(`[${reportId}] Content doesn't start with {, attempting to extract JSON...`);
+        const jsonMatch = cleanContent.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          cleanContent = jsonMatch[0];
+          console.log(`[${reportId}] Extracted JSON, length: ${cleanContent.length}`);
+        }
+      }
+
       outputData = JSON.parse(cleanContent);
+      console.log(`[${reportId}] ✅ JSON parsed successfully, keys: ${Object.keys(outputData).join(', ')}`);
     } catch (parseError) {
-      console.error(`[${reportId}] Failed to parse Claude response:`, content.substring(0, 500));
-      throw new Error("Failed to parse Claude response as JSON");
+      console.error(`[${reportId}] Failed to parse Claude response:`, {
+        error: parseError instanceof Error ? parseError.message : 'Unknown error',
+        preview: content.substring(0, 300),
+        length: content.length
+      });
+
+      // Last resort: return a minimal valid report structure
+      console.log(`[${reportId}] Creating minimal fallback report structure...`);
+      outputData = {
+        report_metadata: {
+          title: `Rapport ${plan} - ${inputData.businessName}`,
+          generated_date: new Date().toISOString().split('T')[0],
+          business_name: inputData.businessName,
+          sector: inputData.sector,
+          location: `${inputData.location?.city}, ${inputData.location?.country}`,
+          tier: plan,
+          error: "JSON parsing failed - partial report"
+        },
+        executive_summary: {
+          headline: "Rapport généré avec limitation de parsing",
+          situation_actuelle: "La génération a réussi mais le parsing JSON a échoué",
+          opportunite_principale: "Veuillez contacter le support pour assistance"
+        }
+      };
     }
 
     // Step 5: Update report with output
