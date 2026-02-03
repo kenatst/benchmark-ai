@@ -63,22 +63,33 @@ function buildCompetitorScoringSheet(data: any): any[][] {
 
     const rows: any[][] = [
         ["MATRICE DE SCORING CONCURRENTIEL"],
-        [],
+        [""],
+        ["Ce sheet contient les données pour créer un graphique radar/araignée dans Excel"],
+        [""],
     ];
 
-    // Header row
+    // Header row with scores (1-10 scale)
     const headerRow = ["Concurrent", ...criteria, "TOTAL"];
     rows.push(headerRow);
 
-    // Competitor rows
+    // Competitor rows with normalized scores
+    const competitorRows: any[] = [];
     competitors.forEach((comp: any) => {
         const row = [comp.name];
         criteria.forEach((criterion: string) => {
-            row.push(comp.scores?.[criterion] || comp.scores?.[criterion.toLowerCase()] || 0);
+            const score = comp.scores?.[criterion] || comp.scores?.[criterion.toLowerCase()] || 0;
+            row.push(Math.min(10, Math.max(0, score))); // Normalize to 0-10
         });
         row.push(comp.total || 0);
         rows.push(row);
+        competitorRows.push(row);
     });
+
+    rows.push([]);
+    rows.push(["INSTRUCTIONS CHARTES:"]);
+    rows.push(["1. Sélectionnez les données ci-dessus (incluant les en-têtes)"]);
+    rows.push(["2. Insérez > Graphique > Sélectionnez 'Radar' pour une matrice comparative"]);
+    rows.push(["3. Ou utilisez 'Graphique en barres' pour comparer les scores"]);
 
     rows.push([]);
     rows.push(["ANALYSE DE SENSIBILITÉ"]);
@@ -105,40 +116,50 @@ function buildFinancialProjectionsSheet(data: any): any[][] {
         [],
         ["INVESTISSEMENT REQUIS (12 mois)", financial?.investment_required?.total_12_months || ""],
         [],
-        ["RÉPARTITION DU BUDGET"],
-        ["Catégorie", "Montant", "Justification"],
+        ["RÉPARTITION DU BUDGET (données pour pie chart)"],
+        ["Catégorie", "Montant (EUR)", "%"],
     ];
 
     const breakdown = financial?.investment_required?.breakdown || [];
+    const totalBudget = breakdown.reduce((sum: number, item: any) => sum + (parseFloat(item.amount) || 0), 0);
+
     breakdown.forEach((item: any) => {
-        rows.push([item.category, item.amount, item.rationale]);
+        const amount = parseFloat(item.amount) || 0;
+        const percentage = totalBudget > 0 ? ((amount / totalBudget) * 100).toFixed(1) : 0;
+        rows.push([item.category, amount, percentage]);
     });
 
     rows.push([]);
-    rows.push(["SCÉNARIOS DE REVENUS"]);
-    rows.push(["Scénario", "Année 1", "Année 2", "Année 3"]);
+    rows.push(["INSTRUCTIONS: Sélectionnez les données ci-dessus et insérez un graphique en secteurs (Pie Chart)"]);
+
+    rows.push([]);
+    rows.push(["SCÉNARIOS DE REVENUS (données pour graphique en ligne/colonne)"]);
+    rows.push(["Scénario", "Année 1 (EUR)", "Année 2 (EUR)", "Année 3 (EUR)"]);
 
     if (scenarios?.conservative) {
-        rows.push(["Conservateur", scenarios.conservative.year_1, scenarios.conservative.year_2, scenarios.conservative.year_3]);
+        rows.push(["Conservateur", scenarios.conservative.year_1 || 0, scenarios.conservative.year_2 || 0, scenarios.conservative.year_3 || 0]);
     }
     if (scenarios?.baseline) {
-        rows.push(["Base", scenarios.baseline.year_1, scenarios.baseline.year_2, scenarios.baseline.year_3]);
+        rows.push(["Base", scenarios.baseline.year_1 || 0, scenarios.baseline.year_2 || 0, scenarios.baseline.year_3 || 0]);
     }
     if (scenarios?.optimistic) {
-        rows.push(["Optimiste", scenarios.optimistic.year_1, scenarios.optimistic.year_2, scenarios.optimistic.year_3]);
+        rows.push(["Optimiste", scenarios.optimistic.year_1 || 0, scenarios.optimistic.year_2 || 0, scenarios.optimistic.year_3 || 0]);
     }
 
     rows.push([]);
-    rows.push(["UNIT ECONOMICS"]);
-    rows.push(["Métrique", "Valeur"]);
+    rows.push(["INSTRUCTIONS: Sélectionnez les données ci-dessus et insérez un graphique en colones/courbes"]);
+
+    rows.push([]);
+    rows.push(["UNIT ECONOMICS - KPIs CLÉS"]);
+    rows.push(["Métrique", "Valeur", "Benchmark Secteur"]);
 
     if (unitEcon) {
-        rows.push(["CAC (Coût d'Acquisition Client)", unitEcon.customer_acquisition_cost]);
-        rows.push(["LTV (Valeur Vie Client)", unitEcon.lifetime_value]);
-        rows.push(["Ratio LTV/CAC", unitEcon.ltv_cac_ratio]);
-        rows.push(["Période de Payback (mois)", unitEcon.payback_period_months]);
-        rows.push(["Marge Brute (%)", unitEcon.gross_margin_percent]);
-        rows.push(["vs Benchmarks", unitEcon.comparison_to_benchmarks]);
+        rows.push(["CAC (Coût d'Acquisition Client)", unitEcon.customer_acquisition_cost || 0, "Variable par secteur"]);
+        rows.push(["LTV (Valeur Vie Client)", unitEcon.lifetime_value || 0, "3-5x CAC idéal"]);
+        rows.push(["Ratio LTV/CAC", unitEcon.ltv_cac_ratio || 0, "> 3 = Healthy"]);
+        rows.push(["Période de Payback (mois)", unitEcon.payback_period_months || 0, "< 12 mois"]);
+        rows.push(["Marge Brute (%)", unitEcon.gross_margin_percent || 0, "40-60%"]);
+        rows.push(["vs Benchmarks", unitEcon.comparison_to_benchmarks || "", ""]);
     }
 
     return rows;

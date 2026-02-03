@@ -7,16 +7,9 @@ import { z } from "https://esm.sh/zod@3.23.8";
 import { corsHeaders, getJsonHeaders } from "../_shared.ts";
 
 // ============================================
-// CLAUDE MODELS - USE OPUS 4.5 FOR PRODUCTION STABILITY
-// Haiku doesn't reliably handle complex report JSON generation
+// CLAUDE MODELS - PRODUCTION ONLY OPUS 4.5
 // ============================================
-// Set to true to use Opus 4.5, false will be removed
-const USE_HAIKU_FOR_TESTING = false;
-
-const CLAUDE_MODEL_OPUS = "claude-opus-4-5-20251101";
-const CLAUDE_MODEL_HAIKU = "claude-3-5-haiku-20241022";
-
-const CLAUDE_MODEL = USE_HAIKU_FOR_TESTING ? CLAUDE_MODEL_HAIKU : CLAUDE_MODEL_OPUS;
+const CLAUDE_MODEL = "claude-opus-4-5-20251101"; // ✅ C'EST TOUT !
 
 // ============================================
 // SUPPORTED LANGUAGES FOR REPORT GENERATION
