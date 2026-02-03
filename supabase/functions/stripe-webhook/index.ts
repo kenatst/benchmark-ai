@@ -167,25 +167,37 @@ serve(async (req) => {
             }
           }
 
-          // Trigger report generation (long-running task)
-          console.log("[Webhook BG] Triggering report generation...");
-          const generateResponse = await fetch(
-            `${Deno.env.get("SUPABASE_URL")}/functions/v1/generate-report`,
-            {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({ reportId }),
-            }
-          );
+          // IDEMPOTENCY CHECK: Fetch current status before triggering
+          // Prevents duplicate generations if webhook fires multiple times
+          const { data: currentReport } = await supabaseAdmin
+            .from("reports")
+            .select("status")
+            .eq("id", reportId)
+            .single();
 
-          if (!generateResponse.ok) {
-            console.error("[Webhook BG] Generation trigger failed:", generateResponse.status);
-            // Generation function handles its own retries
+          if (currentReport?.status === "processing" || currentReport?.status === "ready") {
+            console.log(`[Webhook BG] Report already in ${currentReport.status} state - skipping generation`);
           } else {
-            console.log("[Webhook BG] Generation triggered successfully");
+            // Trigger report generation (long-running task)
+            console.log("[Webhook BG] Triggering report generation...");
+            const generateResponse = await fetch(
+              `${Deno.env.get("SUPABASE_URL")}/functions/v1/generate-report`,
+              {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ reportId }),
+              }
+            );
+
+            if (!generateResponse.ok) {
+              console.error("[Webhook BG] Generation trigger failed:", generateResponse.status);
+              // Generation function handles its own retries
+            } else {
+              console.log("[Webhook BG] Generation triggered successfully");
+            }
           }
         } catch (bgError) {
           console.error("[Webhook BG] Background task error:", bgError);

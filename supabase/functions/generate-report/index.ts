@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+import { z } from "https://esm.sh/zod@3.23.8";
 
 // Import shared constants (eliminates CORS header duplication across 10+ functions)
 // @ts-ignore - Deno import
@@ -28,6 +29,56 @@ const LANGUAGE_CONFIG: Record<string, { name: string; code: string }> = {
   de: { name: 'Deutsch', code: 'de' },
   ru: { name: 'Русский', code: 'ru' },
   zh: { name: '中文', code: 'zh' },
+};
+
+// ============================================
+// ZOD SCHEMAS FOR CLAUDE OUTPUT VALIDATION
+// Ensures generated reports conform to expected structure before DB save
+// ============================================
+const ReportMetadataSchema = z.object({
+  title: z.string(),
+  generated_date: z.string(),
+  business_name: z.string(),
+  sector: z.string(),
+  location: z.string(),
+  tier: z.enum(['standard', 'pro', 'agency']),
+});
+
+// Shared fields across all tiers
+const BaseReportSchema = z.object({
+  report_metadata: ReportMetadataSchema,
+  executive_summary: z.object({
+    headline: z.string(),
+    situation_actuelle: z.string(),
+    opportunite_principale: z.string(),
+  }).passthrough(),
+  sources: z.array(z.string()).optional(),
+});
+
+// Standard tier schema - basic report structure
+const StandardReportSchema = BaseReportSchema.extend({
+  competitive_landscape: z.object({}).passthrough().optional(),
+  positioning_strategy: z.object({}).passthrough().optional(),
+});
+
+// Pro tier schema - adds strategic analysis
+const ProReportSchema = StandardReportSchema.extend({
+  market_opportunities: z.object({}).passthrough().optional(),
+  go_to_market: z.object({}).passthrough().optional(),
+});
+
+// Agency tier schema - most comprehensive
+const AgencyReportSchema = ProReportSchema.extend({
+  financial_projections: z.object({}).passthrough().optional(),
+  risk_analysis: z.object({}).passthrough().optional(),
+  implementation_roadmap: z.object({}).passthrough().optional(),
+});
+
+// Map tiers to their schemas
+const REPORT_SCHEMAS: Record<string, z.ZodSchema> = {
+  standard: StandardReportSchema,
+  pro: ProReportSchema,
+  agency: AgencyReportSchema,
 };
 
 // ============================================
@@ -1084,6 +1135,12 @@ async function runGenerationAsync(
     const tierConfig = TIER_CONFIG[plan];
     const reportLang = inputData.reportLanguage || 'fr';
 
+    // VALIDATION: Ensure language is supported
+    if (!LANGUAGE_CONFIG[reportLang]) {
+      console.warn(`[${reportId}] Unsupported language: ${reportLang}, defaulting to French`);
+      inputData.reportLanguage = 'fr';
+    }
+
     console.log(`[${reportId}] Starting report generation`);
     console.log(`[${reportId}] Tier: ${plan} | Model: ${CLAUDE_MODEL} | Language: ${reportLang}`);
 
@@ -1147,6 +1204,19 @@ async function runGenerationAsync(
 
       outputData = JSON.parse(cleanContent);
       console.log(`[${reportId}] ✅ JSON parsed successfully, keys: ${Object.keys(outputData).join(', ')}`);
+
+      // VALIDATION: Validate against tier-specific schema
+      const schema = REPORT_SCHEMAS[plan];
+      const validationResult = schema.safeParse(outputData);
+
+      if (!validationResult.success) {
+        console.warn(`[${reportId}] Schema validation failed for ${plan} tier:`, validationResult.error.errors);
+        console.log(`[${reportId}] Proceeding with unvalidated data (will be logged for monitoring)`);
+        // Continue with data even if validation fails - partial reports are better than no reports
+      } else {
+        console.log(`[${reportId}] ✅ Schema validation passed for ${plan} tier`);
+        outputData = validationResult.data;
+      }
     } catch (parseError) {
       console.error(`[${reportId}] Failed to parse Claude response:`, {
         error: parseError instanceof Error ? parseError.message : 'Unknown error',
@@ -1296,6 +1366,11 @@ serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
   );
 
+  const supabaseClient = createClient(
+    Deno.env.get("SUPABASE_URL") ?? "",
+    Deno.env.get("SUPABASE_ANON_KEY") ?? ""
+  );
+
   try {
     const body = await req.json();
     const reportId = body.reportId;
@@ -1304,15 +1379,33 @@ serve(async (req) => {
       throw new Error("Report ID is required");
     }
 
+    // SECURITY: Verify user is authenticated
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      throw new Error("Not authenticated");
+    }
+
+    const token = authHeader.replace("Bearer ", "");
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
+
+    if (authError || !user?.id) {
+      console.error("[Generate] Auth error:", authError);
+      throw new Error("Not authenticated");
+    }
+
+    console.log(`[${reportId}] User verified: ${user.id}`);
+
     // Get the report
     const { data: report, error: fetchError } = await supabaseAdmin
       .from("reports")
       .select("*")
       .eq("id", reportId)
+      .eq("user_id", user.id) // ← Ownership check: only allow if user owns report
       .single();
 
     if (fetchError || !report) {
-      throw new Error("Report not found");
+      console.error(`[${reportId}] Report not found or unauthorized:`, fetchError);
+      throw new Error("Report not found or access denied");
     }
 
     // Check if already processing or ready

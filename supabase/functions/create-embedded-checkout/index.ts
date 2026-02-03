@@ -2,11 +2,9 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+// Import shared CORS headers (eliminates duplication)
+// @ts-ignore - Deno import
+import { corsHeaders } from "../_shared.ts";
 
 // Price IDs for the 3 plans - TEST MODE
 const PRICE_IDS = {
@@ -21,10 +19,15 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Create Supabase client
+  // Create Supabase clients
   const supabaseClient = createClient(
     Deno.env.get("SUPABASE_URL") ?? "",
     Deno.env.get("SUPABASE_ANON_KEY") ?? ""
+  );
+
+  const supabaseAdmin = createClient(
+    Deno.env.get("SUPABASE_URL") ?? "",
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
   );
 
   try {
@@ -33,25 +36,66 @@ serve(async (req) => {
 
     console.log(`[EmbeddedCheckout] Plan: ${plan}, ReportId: ${reportId}`);
 
-    if (!plan || !PRICE_IDS[plan as keyof typeof PRICE_IDS]) {
-      throw new Error(`Invalid plan selected: ${plan}`);
-    }
-
-    // Retrieve authenticated user
+    // SECURITY: Authenticate user FIRST (before any validation)
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      throw new Error("No authorization header");
+      return new Response(
+        JSON.stringify({ error: "Not authenticated" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const token = authHeader.replace("Bearer ", "");
     const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
-    
-    if (authError || !user?.email) {
+
+    if (authError || !user?.id || !user?.email) {
       console.error("[EmbeddedCheckout] Auth error:", authError);
-      throw new Error("User not authenticated or email not available");
+      return new Response(
+        JSON.stringify({ error: "Not authenticated" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    console.log(`[EmbeddedCheckout] User: ${user.email}, ID: ${user.id}`);
+    console.log(`[EmbeddedCheckout] User verified: ${user.email}, ID: ${user.id}`);
+
+    // VALIDATION: Validate plan
+    if (!plan || !PRICE_IDS[plan as keyof typeof PRICE_IDS]) {
+      return new Response(
+        JSON.stringify({ error: `Invalid plan selected: ${plan}` }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // VALIDATION: Verify reportId exists and belongs to user
+    if (!reportId) {
+      return new Response(
+        JSON.stringify({ error: "Report ID is required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const { data: report, error: reportError } = await supabaseAdmin
+      .from("reports")
+      .select("id, user_id, status")
+      .eq("id", reportId)
+      .eq("user_id", user.id) // ← Ownership check
+      .single();
+
+    if (reportError || !report) {
+      console.error("[EmbeddedCheckout] Report not found or unauthorized:", reportError);
+      return new Response(
+        JSON.stringify({ error: "Report not found or access denied" }),
+        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Only allow checkout if report is in draft state (hasn't been paid yet)
+    if (report.status !== "draft") {
+      return new Response(
+        JSON.stringify({ error: `Report has already been paid for (status: ${report.status})` }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     // Use STRIPE_TEST_KEY for test mode
     const stripeKey = Deno.env.get("STRIPE_TEST_KEY");
@@ -112,12 +156,7 @@ serve(async (req) => {
 
     console.log(`[EmbeddedCheckout] Session created: ${session.id}, clientSecret available: ${!!session.client_secret}`);
 
-    // Update the report with the Stripe session ID using service role for reliability
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-    );
-
+    // Update the report with the Stripe session ID
     const { error: updateError } = await supabaseAdmin
       .from("reports")
       .update({ 
