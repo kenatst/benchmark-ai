@@ -6,7 +6,7 @@ import { ReportInput, ReportOutput } from '@/types/report';
 export interface Report {
   id: string;
   user_id: string;
-  status: 'draft' | 'paid' | 'processing' | 'ready' | 'failed';
+  status: 'draft' | 'paid' | 'processing' | 'ready' | 'failed' | 'abandoned';
   plan: 'standard' | 'pro' | 'agency';
   input_data: ReportInput;
   output_data: ReportOutput | null;
@@ -35,10 +35,12 @@ export const useReports = () => {
 
     setIsLoading(true);
 
+    // Exclude abandoned reports from the list
     const { data, error } = await supabase
       .from('reports')
       .select('*')
       .eq('user_id', user.id)
+      .neq('status', 'abandoned')
       .order('created_at', { ascending: false });
 
     if (error) {
