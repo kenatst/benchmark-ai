@@ -1676,36 +1676,15 @@ serve(async (req) => {
 
     console.log(`[${reportId}] PDF generated, size: ${pdfBytes.length} bytes`);
 
-    // Upload to storage
-    const fileName = `report-${reportId}.pdf`;
-    const { error: uploadError } = await supabase.storage
-      .from("reports")
-      .upload(fileName, pdfBytes, {
-        contentType: "application/pdf",
-        upsert: true,
-      });
-
-    if (uploadError) {
-      throw new Error(`Upload failed: ${uploadError.message}`);
-    }
-
-    const { data: urlData } = supabase.storage
-      .from("reports")
-      .getPublicUrl(fileName);
-
-    const pdfUrl = urlData.publicUrl;
-    console.log(`[${reportId}] PDF uploaded: ${pdfUrl}`);
-
-    // Update report
-    await supabase
-      .from("reports")
-      .update({ pdf_url: pdfUrl })
-      .eq("id", reportId);
-
-    return new Response(
-      JSON.stringify({ success: true, pdf_url: pdfUrl }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    // Return PDF bytes directly to browser
+    return new Response(pdfBytes, {
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="Benchmark_${(outputData?.report_metadata?.business_name || 'report').replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30)}_${reportId.substring(0, 8)}.pdf"`,
+        "Content-Length": String(pdfBytes.length),
+      },
+    });
 
   } catch (error: unknown) {
     console.error("PDF generation error:", error);
