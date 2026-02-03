@@ -193,6 +193,16 @@ function buildMarketAnalysisSlide(pptx: any, data: SlideData): void {
     const slide = pptx.addSlide();
     const market = data.market_analysis || {};
 
+    // Accent bar at top
+    slide.addShape(pptx.ShapeType.rect, {
+        x: 0,
+        y: 0,
+        w: 0.05,
+        h: 7.5,
+        fill: { color: COLORS.ACCENT },
+        line: { type: "none" }
+    });
+
     slide.addText("ANALYSE DU MARCHE", {
         x: 0.5,
         y: 0.3,
