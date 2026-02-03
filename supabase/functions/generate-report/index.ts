@@ -1240,13 +1240,11 @@ async function repairSectionJson(
   section: SectionPlanItem,
   brokenJson: string
 ): Promise<unknown> {
-  const responseFormat = {
+  const textFormat = {
     type: "json_schema",
-    json_schema: {
-      name: `${section.key}_repair`,
-      schema: getSectionSchema(section.key, section.valueType),
-      strict: true,
-    },
+    name: `${section.key}_repair`,
+    schema: getSectionSchema(section.key, section.valueType),
+    strict: true,
   } as const;
 
   const systemPrompt = `Tu es un assistant de correction JSON. Retourne un JSON valide correspondant strictement au schéma demandé.`;
@@ -1258,7 +1256,7 @@ async function repairSectionJson(
     userPrompt,
     1200,
     0.1,
-    responseFormat
+    textFormat
   );
 
   return safeJsonParse(content);
@@ -1272,13 +1270,11 @@ async function generateSection(
   section: SectionPlanItem,
   existingSection?: unknown
 ): Promise<unknown> {
-  const responseFormat = {
+  const textFormat = {
     type: "json_schema",
-    json_schema: {
-      name: `${section.key}_schema`,
-      schema: getSectionSchema(section.key, section.valueType),
-      strict: true,
-    },
+    name: `${section.key}_schema`,
+    schema: getSectionSchema(section.key, section.valueType),
+    strict: true,
   } as const;
 
   const userPrompt = buildSectionPrompt(reportBrief, section, existingSection);
@@ -1290,7 +1286,7 @@ async function generateSection(
     userPrompt,
     maxTokens,
     tierConfig.temperature,
-    responseFormat
+    textFormat
   );
 
   try {
@@ -1361,7 +1357,14 @@ async function callGPT52(
   userPrompt: string,
   maxTokens: number,
   temperature: number,
-  responseFormat?: { type: "json_schema"; json_schema: { name: string; schema: Record<string, unknown>; strict: boolean } },
+  // Responses API: structured output format is configured via `text.format` (NOT `response_format`).
+  // https://platform.openai.com/docs/guides/structured-outputs
+  textFormat?: {
+    type: "json_schema";
+    name: string;
+    schema: Record<string, unknown>;
+    strict: boolean;
+  },
   maxRetries: number = 3
 ): Promise<string> {
   console.log(`[Analysis] Processing with ${maxTokens} max tokens (GPT-5.2)`);
@@ -1401,7 +1404,18 @@ async function callGPT52(
           ],
           temperature: temperature,
           max_output_tokens: effectiveMaxTokens,
-          ...(responseFormat ? { response_format: responseFormat } : {}),
+          ...(textFormat
+            ? {
+              text: {
+                format: {
+                  type: "json_schema",
+                  name: textFormat.name,
+                  strict: textFormat.strict,
+                  schema: textFormat.schema,
+                },
+              },
+            }
+            : {}),
         }),
         signal: controller.signal,
       });
