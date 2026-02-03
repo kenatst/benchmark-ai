@@ -846,73 +846,113 @@ Génère le rapport de benchmark. RETOURNE UNIQUEMENT LE JSON.`;
 }
 
 // ============================================
-// CLAUDE OPUS 4.5 API CALL
+// CLAUDE OPUS 4.5 API CALL WITH RETRY LOGIC
 // ============================================
 async function callClaudeOpus(
   apiKey: string,
   systemPrompt: string,
   userPrompt: string,
   maxTokens: number,
-  temperature: number
+  temperature: number,
+  maxRetries: number = 3
 ): Promise<string> {
   console.log(`[Claude] Calling Opus 4.5 (${CLAUDE_MODEL}) with ${maxTokens} max tokens`);
   console.log(`[Claude] Prompt length: ${userPrompt.length} chars`);
 
-  // Create an AbortController for timeout (5 minutes for large reports)
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => {
-    console.error(`[Claude] Request timeout after 300s`);
-    controller.abort();
-  }, 300000); // 5 minutes timeout
+  let lastError: Error | null = null;
 
-  try {
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: CLAUDE_MODEL,
-        max_tokens: maxTokens,
-        temperature: temperature,
-        system: systemPrompt,
-        messages: [{ role: "user", content: userPrompt }],
-      }),
-      signal: controller.signal,
-    });
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    // Create an AbortController for timeout (5 minutes for large reports)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      console.error(`[Claude] Request timeout after 300s (attempt ${attempt})`);
+      controller.abort();
+    }, 300000); // 5 minutes timeout
 
-    clearTimeout(timeoutId);
+    try {
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: CLAUDE_MODEL,
+          max_tokens: maxTokens,
+          temperature: temperature,
+          system: systemPrompt,
+          messages: [{ role: "user", content: userPrompt }],
+        }),
+        signal: controller.signal,
+      });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`[Claude] API error ${response.status}:`, errorText);
-      if (response.status === 429) throw new Error("Rate limit exceeded, please try again later");
-      if (response.status === 401) throw new Error("Invalid Claude API key");
-      if (response.status === 529) throw new Error("Claude API overloaded, please retry");
-      throw new Error(`Claude API error: ${response.status}`);
-    }
+      clearTimeout(timeoutId);
 
-    const data = await response.json();
-    console.log(`[Claude] Response received, stop_reason: ${data.stop_reason}`);
-
-    let content = "";
-    for (const block of data.content) {
-      if (block.type === "text") {
-        content += block.text;
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[Claude] API error ${response.status} (attempt ${attempt}):`, errorText);
+        
+        // Rate limit - retry with exponential backoff
+        if (response.status === 429) {
+          const waitTime = Math.pow(2, attempt) * 30000; // 30s, 60s, 120s
+          console.log(`[Claude] Rate limited. Waiting ${waitTime / 1000}s before retry ${attempt}/${maxRetries}...`);
+          
+          if (attempt < maxRetries) {
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+            continue;
+          }
+          lastError = new Error("Rate limit exceeded after all retries. Please try again in a few minutes.");
+          break;
+        }
+        
+        // Overloaded - retry with backoff
+        if (response.status === 529) {
+          const waitTime = Math.pow(2, attempt) * 15000; // 15s, 30s, 60s
+          console.log(`[Claude] API overloaded. Waiting ${waitTime / 1000}s before retry ${attempt}/${maxRetries}...`);
+          
+          if (attempt < maxRetries) {
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+            continue;
+          }
+          lastError = new Error("Claude API overloaded after all retries. Please retry later.");
+          break;
+        }
+        
+        if (response.status === 401) throw new Error("Invalid Claude API key");
+        throw new Error(`Claude API error: ${response.status}`);
       }
-    }
 
-    console.log(`[Claude] Content length: ${content.length} chars`);
-    return content;
-  } catch (error) {
-    clearTimeout(timeoutId);
-    if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error("Claude API request timed out after 5 minutes");
+      const data = await response.json();
+      console.log(`[Claude] Response received, stop_reason: ${data.stop_reason}`);
+
+      let content = "";
+      for (const block of data.content) {
+        if (block.type === "text") {
+          content += block.text;
+        }
+      }
+
+      console.log(`[Claude] Content length: ${content.length} chars`);
+      return content;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      
+      if (error instanceof Error && error.name === 'AbortError') {
+        lastError = new Error("Claude API request timed out after 5 minutes");
+        if (attempt < maxRetries) {
+          console.log(`[Claude] Timeout. Retrying ${attempt}/${maxRetries}...`);
+          continue;
+        }
+        break;
+      }
+      
+      lastError = error as Error;
+      break;
     }
-    throw error;
   }
+
+  throw lastError || new Error("Claude API call failed after all retries");
 }
 
 // ============================================
