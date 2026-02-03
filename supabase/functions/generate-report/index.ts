@@ -622,9 +622,61 @@ function extractTextFromResponse(data: unknown): string {
 
 function extractJsonString(content: string): string {
   const trimmed = content.trim();
-  if (trimmed.startsWith('{') || trimmed.startsWith('[')) return trimmed;
-  const jsonMatch = trimmed.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
-  return jsonMatch ? jsonMatch[0] : trimmed;
+  if (!trimmed) return trimmed;
+
+  // Find the first JSON-looking start char.
+  // We prefer the earliest occurrence of either '{' or '['.
+  const objIdx = trimmed.indexOf('{');
+  const arrIdx = trimmed.indexOf('[');
+
+  let start = -1;
+  if (objIdx === -1) start = arrIdx;
+  else if (arrIdx === -1) start = objIdx;
+  else start = Math.min(objIdx, arrIdx);
+
+  if (start === -1) return trimmed;
+
+  const openChar = trimmed[start];
+  const closeChar = openChar === '{' ? '}' : ']';
+
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+
+  for (let i = start; i < trimmed.length; i++) {
+    const ch = trimmed[i];
+
+    if (inString) {
+      if (escape) {
+        escape = false;
+        continue;
+      }
+      if (ch === '\\') {
+        escape = true;
+        continue;
+      }
+      if (ch === '"') {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (ch === '"') {
+      inString = true;
+      continue;
+    }
+
+    if (ch === openChar) depth++;
+    else if (ch === closeChar) depth--;
+
+    if (depth === 0 && i >= start) {
+      // Return the first complete JSON block.
+      return trimmed.slice(start, i + 1);
+    }
+  }
+
+  // No balanced close found; return from start (likely truncated output).
+  return trimmed.slice(start);
 }
 
 function safeJsonParse(content: string): unknown {
@@ -1202,8 +1254,10 @@ Génère le rapport de benchmark. RETOURNE UNIQUEMENT LE JSON.`;
 // SECTION GENERATION (multi-pass)
 // ============================================
 function estimateMaxTokens(wordTarget: number, tierMaxTokens: number): number {
-  const estimate = Math.ceil(wordTarget * 2);
-  return Math.min(tierMaxTokens, Math.max(600, estimate));
+  // Conservative: JSON outputs + sources often need more tokens than plain text.
+  // This reduces truncation (unterminated strings / cut-off arrays) which is a major failure mode.
+  const estimate = Math.ceil(wordTarget * 3);
+  return Math.min(tierMaxTokens, Math.max(900, estimate));
 }
 
 function buildSectionPrompt(
@@ -1647,7 +1701,12 @@ async function runGenerationAsync(
 
       await updateProgress(supabaseAdmin, reportId, "Extension des sections...", 88);
 
-      for (const section of sectionsToExpand) {
+      for (let i = 0; i < sectionsToExpand.length; i++) {
+        const section = sectionsToExpand[i];
+        // Heartbeat to prevent "stuck" UX and to make stale-processing detection accurate.
+        const p = 88 + Math.min(6, Math.floor((i / Math.max(1, sectionsToExpand.length)) * 6));
+        await updateProgress(supabaseAdmin, reportId, `Extension: ${section.label}...`, p);
+
         try {
           const expanded = await generateSection(
             GPT52_API_KEY,
@@ -1867,16 +1926,32 @@ serve(async (req: Request) => {
       throw new Error("Report not eligible for generation");
     }
 
-    // Check if already processing or ready
-    if (report.status === "processing") {
-      const canForceStart = authContext.authType === 'service_role' && (report.processing_progress ?? 0) <= 5;
-      if (!canForceStart) {
-        return new Response(JSON.stringify({ success: true, message: "Report already processing", reportId }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 200,
-        });
-      }
-    }
+     // Check if already processing or ready
+     if (report.status === "processing") {
+       const canForceStart = authContext.authType === 'service_role' && (report.processing_progress ?? 0) <= 5;
+
+       // If a run is "stuck" (no updates for a while), allow a user-triggered restart.
+       // This prevents permanent lockout when the background task gets killed (shutdown/timeouts).
+       const updatedAtMs = (() => {
+         const raw = (report as any)?.updated_at;
+         const d = raw ? new Date(raw) : null;
+         const t = d && !Number.isNaN(d.getTime()) ? d.getTime() : 0;
+         return t;
+       })();
+       const STALE_MS = 12 * 60 * 1000; // 12 minutes
+       const isStale = updatedAtMs > 0 ? (Date.now() - updatedAtMs) > STALE_MS : false;
+
+       if (!canForceStart && !isStale) {
+         return new Response(JSON.stringify({ success: true, message: "Report already processing", reportId }), {
+           headers: { ...corsHeaders, "Content-Type": "application/json" },
+           status: 200,
+         });
+       }
+
+       if (isStale) {
+         console.warn(`[${reportId}] Processing appears stale (updated_at too old). Allowing restart.`);
+       }
+     }
 
     if (report.status === "ready") {
       return new Response(JSON.stringify({ success: true, message: "Report already ready", reportId }), {
