@@ -19,6 +19,8 @@ interface Request {
 interface Response {
     body: any;
     status: number;
+    statusText: string;
+    ok: boolean;
     headers: Headers;
     json(): Promise<any>;
     text(): Promise<string>;
@@ -52,15 +54,30 @@ declare var URL: {
     new(url: string, base?: string | URL): URL;
 };
 
+interface AbortSignal {
+    readonly aborted: boolean;
+    addEventListener(type: string, listener: EventListener): void;
+    removeEventListener(type: string, listener: EventListener): void;
+}
+
 type BodyInit = string | Blob | ArrayBuffer | FormData | URLSearchParams;
 
 interface RequestInit {
     method?: string;
     headers?: any;
     body?: BodyInit | null;
+    signal?: AbortSignal | null;
 }
 interface ResponseInit {
     status?: number;
     statusText?: string;
     headers?: any;
+}
+
+interface EventListener {
+    (evt: Event): void;
+}
+
+interface Event {
+    type: string;
 }
