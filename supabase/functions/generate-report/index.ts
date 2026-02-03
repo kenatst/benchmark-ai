@@ -1280,14 +1280,36 @@ async function generateSection(
   const userPrompt = buildSectionPrompt(reportBrief, section, existingSection);
   const maxTokens = estimateMaxTokens(section.wordTarget, tierConfig.max_tokens);
 
-  const content = await callGPT52(
-    apiKey,
-    systemPrompt,
-    userPrompt,
-    maxTokens,
-    tierConfig.temperature,
-    textFormat
-  );
+  let content: string;
+  try {
+    console.log(`[Section] Calling GPT-5.2 for section: ${section.key} (${maxTokens} max tokens)...`);
+    content = await callGPT52(
+      apiKey,
+      systemPrompt,
+      userPrompt,
+      maxTokens,
+      tierConfig.temperature,
+      textFormat
+    );
+    console.log(`[Section] GPT-5.2 responded for ${section.key}: ${content.length} chars`);
+  } catch (apiError) {
+    console.error(`[Section] GPT-5.2 API call FAILED for ${section.key}:`, apiError instanceof Error ? apiError.message : apiError);
+    // Fallback: try WITHOUT structured output format (text.format) in case that's the issue
+    try {
+      console.log(`[Section] Retrying ${section.key} WITHOUT text.format...`);
+      content = await callGPT52(
+        apiKey,
+        systemPrompt,
+        userPrompt,
+        maxTokens,
+        tierConfig.temperature
+      );
+      console.log(`[Section] Retry succeeded for ${section.key}: ${content.length} chars`);
+    } catch (retryError) {
+      console.error(`[Section] Retry also FAILED for ${section.key}:`, retryError instanceof Error ? retryError.message : retryError);
+      return { [section.key]: section.valueType === 'array' ? [] : {} };
+    }
+  }
 
   try {
     return safeJsonParse(content);
@@ -1384,6 +1406,7 @@ async function callGPT52(
     }, timeoutMs);
 
     try {
+      console.log(`[Analysis] >>> Calling OpenAI /v1/responses (attempt ${attempt}/${maxRetries}, textFormat: ${textFormat ? 'yes' : 'no'})...`);
       const response = await fetch("https://api.openai.com/v1/responses", {
         method: "POST",
         headers: {
@@ -1563,33 +1586,53 @@ async function runGenerationAsync(
     const reportBrief = buildReportBrief(inputData, plan, researchData);
     const systemPrompt = tierConfig.system_prompt(reportLang);
 
+    console.log(`[${reportId}] Brief length: ${reportBrief.length} chars, System prompt length: ${systemPrompt.length} chars`);
+    console.log(`[${reportId}] GPT-5.2 API key present: ${!!GPT52_API_KEY} (length: ${GPT52_API_KEY.length})`);
+
     // Step 3: Generate sections (multi-pass)
     await updateProgress(supabaseAdmin, reportId, "Génération des sections...", 45);
     const sections = tierConfig.section_plan as SectionPlanItem[];
     const outputSections: Record<string, unknown> = {};
+    let sectionFailures = 0;
 
     const startProgress = 45;
     const endProgress = 85;
     const progressStep = Math.max(1, Math.floor((endProgress - startProgress) / Math.max(sections.length, 1)));
+
+    console.log(`[${reportId}] Starting ${sections.length} section generation...`);
 
     for (let i = 0; i < sections.length; i++) {
       const section = sections[i];
       const stepProgress = startProgress + (i * progressStep);
       await updateProgress(supabaseAdmin, reportId, `Section: ${section.label}...`, Math.min(stepProgress, endProgress));
 
-      const sectionResult = await generateSection(
-        GPT52_API_KEY,
-        systemPrompt,
-        tierConfig,
-        reportBrief,
-        section
-      );
+      try {
+        const sectionResult = await generateSection(
+          GPT52_API_KEY,
+          systemPrompt,
+          tierConfig,
+          reportBrief,
+          section
+        );
 
-      if (sectionResult && typeof sectionResult === 'object' && (section.key in (sectionResult as Record<string, unknown>))) {
-        outputSections[section.key] = (sectionResult as Record<string, unknown>)[section.key];
-      } else {
+        if (sectionResult && typeof sectionResult === 'object' && (section.key in (sectionResult as Record<string, unknown>))) {
+          outputSections[section.key] = (sectionResult as Record<string, unknown>)[section.key];
+        } else {
+          outputSections[section.key] = section.valueType === 'array' ? [] : {};
+          sectionFailures++;
+        }
+      } catch (sectionError) {
+        console.error(`[${reportId}] Section ${section.key} crashed:`, sectionError instanceof Error ? sectionError.message : sectionError);
         outputSections[section.key] = section.valueType === 'array' ? [] : {};
+        sectionFailures++;
       }
+    }
+
+    console.log(`[${reportId}] Section generation done. Failures: ${sectionFailures}/${sections.length}`);
+
+    // If ALL sections failed, the API is completely unreachable - abort
+    if (sectionFailures >= sections.length) {
+      throw new Error(`All ${sections.length} sections failed to generate. GPT-5.2 API may be unreachable or misconfigured.`);
     }
 
     // Step 4: Expansion pass if under minimum word count
@@ -1610,16 +1653,20 @@ async function runGenerationAsync(
       await updateProgress(supabaseAdmin, reportId, "Extension des sections...", 88);
 
       for (const section of sectionsToExpand) {
-        const expanded = await generateSection(
-          GPT52_API_KEY,
-          systemPrompt,
-          tierConfig,
-          reportBrief,
-          section,
-          outputSections[section.key]
-        );
-        if (expanded && typeof expanded === 'object' && (section.key in (expanded as Record<string, unknown>))) {
-          outputSections[section.key] = (expanded as Record<string, unknown>)[section.key];
+        try {
+          const expanded = await generateSection(
+            GPT52_API_KEY,
+            systemPrompt,
+            tierConfig,
+            reportBrief,
+            section,
+            outputSections[section.key]
+          );
+          if (expanded && typeof expanded === 'object' && (section.key in (expanded as Record<string, unknown>))) {
+            outputSections[section.key] = (expanded as Record<string, unknown>)[section.key];
+          }
+        } catch (expandError) {
+          console.warn(`[${reportId}] Expansion failed for ${section.key}:`, expandError instanceof Error ? expandError.message : expandError);
         }
       }
 
