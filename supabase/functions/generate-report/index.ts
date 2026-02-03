@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { z } from "https://esm.sh/zod@3.23.8";
 
+// FORCE REDEPLOY: 2026-02-03 14:15 UTC - Token limit fix
 // Import shared constants (eliminates CORS header duplication across 10+ functions)
 // @ts-ignore - Deno import
 import { corsHeaders, getJsonHeaders } from "../_shared.ts";
