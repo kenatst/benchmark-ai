@@ -7,9 +7,10 @@ import { useReports, Report } from '@/hooks/useReports';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { ReportInput, ReportOutput } from '@/types/report';
 import { toast } from 'sonner';
-import { ArrowLeft, FileText, Loader2, Download } from 'lucide-react';
+import { ArrowLeft, FileText, Loader2, Download, FileSpreadsheet, Presentation } from 'lucide-react';
 import { ReportHero } from '@/components/report/ReportHero';
 import { WebSummary } from '@/components/report/WebSummary';
+import { downloadDocument } from '@/lib/download';
 import { supabase } from '@/integrations/supabase/client';
 
 const ReportDetail = () => {
@@ -22,9 +23,7 @@ const ReportDetail = () => {
   const [processingProgress, setProcessingProgress] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isRetrying, setIsRetrying] = useState(false);
-  const [isDownloading, setIsDownloading] = useState(false);
-  const [isDownloadingExcel, setIsDownloadingExcel] = useState(false);
-  const [isDownloadingSlides, setIsDownloadingSlides] = useState(false);
+  const [downloadingFormat, setDownloadingFormat] = useState<string | null>(null);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -131,165 +130,51 @@ const ReportDetail = () => {
     }
   };
 
-  // Streaming PDF download - generates on-the-fly like Claude
-  const handleDownload = async () => {
+  // Computed states for backward compatibility with ReportHero
+  const isDownloading = downloadingFormat === 'pdf';
+  const isDownloadingExcel = downloadingFormat === 'excel';
+  const isDownloadingSlides = downloadingFormat === 'powerpoint';
+
+  // Unified download handler - supports all formats (PDF, Excel, PowerPoint)
+  const downloadFile = async (format: 'pdf' | 'excel' | 'powerpoint') => {
     if (!report) return;
 
-    setIsDownloading(true);
+    setDownloadingFormat(format);
 
     try {
-      // Try streaming PDF first (new method)
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stream-pdf`,
+      const getToken = async () => {
+        const session = await supabase.auth.getSession();
+        return session.data.session?.access_token || null;
+      };
+
+      const result = await downloadDocument(
         {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || ''}`,
-          },
-          body: JSON.stringify({ reportId: report.id }),
-        }
+          format,
+          reportId: report.id,
+          businessName: report.input_data?.businessName,
+        },
+        getToken
       );
 
-      if (response.ok && response.headers.get('Content-Type')?.includes('application/pdf')) {
-        // Stream successful - trigger browser download
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-
-        // Get filename from Content-Disposition header if available
-        const disposition = response.headers.get('Content-Disposition');
-        let filename = `Benchmark_${report.id.substring(0, 8)}.pdf`;
-        if (disposition) {
-          const match = disposition.match(/filename="([^"]+)"/);
-          if (match) filename = match[1];
-        }
-
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-
-        toast.success('PDF téléchargé !');
+      if (result.success) {
+        const formatLabel = { pdf: 'PDF', excel: 'Excel', powerpoint: 'PowerPoint' }[format];
+        toast.success(`${formatLabel} téléchargé !`);
       } else {
-        // Fallback to legacy pdf_url
-        if (report.pdf_url) {
-          window.open(report.pdf_url, '_blank');
-          toast.success('PDF ouvert dans un nouvel onglet');
-        } else {
-          toast.error('Le PDF n\'est pas encore disponible');
-        }
+        toast.error(`Erreur: ${result.error}`);
       }
     } catch (error) {
-      console.error('PDF download error:', error);
-      // Fallback to legacy pdf_url on error
-      if (report.pdf_url) {
-        window.open(report.pdf_url, '_blank');
-      } else {
-        toast.error('Erreur lors du téléchargement du PDF');
-      }
+      console.error(`Download error (${format}):`, error);
+      const formatLabel = { pdf: 'PDF', excel: 'Excel', powerpoint: 'PowerPoint' }[format];
+      toast.error(`Erreur lors du téléchargement du ${formatLabel}`);
     } finally {
-      setIsDownloading(false);
+      setDownloadingFormat(null);
     }
   };
 
-  // Excel download for Agency tier
-  const handleDownloadExcel = async () => {
-    if (!report || report.plan !== 'agency') return;
-
-    setIsDownloadingExcel(true);
-
-    try {
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-excel`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || ''}`,
-          },
-          body: JSON.stringify({ reportId: report.id }),
-        }
-      );
-
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-        const disposition = response.headers.get('Content-Disposition');
-        let filename = `Benchmark_${report.id.substring(0, 8)}.xlsx`;
-        if (disposition) {
-          const match = disposition.match(/filename="([^"]+)"/);
-          if (match) filename = match[1];
-        }
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        toast.success('Excel téléchargé !');
-      } else {
-        const errorData = await response.json();
-        toast.error(errorData.error || 'Erreur lors de la génération Excel');
-      }
-    } catch (error) {
-      console.error('Excel download error:', error);
-      toast.error('Erreur lors du téléchargement Excel');
-    } finally {
-      setIsDownloadingExcel(false);
-    }
-  };
-
-  // Slides download for Agency tier
-  const handleDownloadSlides = async () => {
-    if (!report || report.plan !== 'agency') return;
-
-    setIsDownloadingSlides(true);
-
-    try {
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-slides`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || ''}`,
-          },
-          body: JSON.stringify({ reportId: report.id }),
-        }
-      );
-
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-        const disposition = response.headers.get('Content-Disposition');
-        let filename = `Benchmark_${report.id.substring(0, 8)}.pptx`;
-        if (disposition) {
-          const match = disposition.match(/filename="([^"]+)"/);
-          if (match) filename = match[1];
-        }
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        toast.success('Slides téléchargées !');
-      } else {
-        const errorData = await response.json();
-        toast.error(errorData.error || 'Erreur lors de la génération Slides');
-      }
-    } catch (error) {
-      console.error('Slides download error:', error);
-      toast.error('Erreur lors du téléchargement Slides');
-    } finally {
-      setIsDownloadingSlides(false);
-    }
-  };
+  // Wrapper functions for backward compatibility with existing UI
+  const handleDownload = () => downloadFile('pdf');
+  const handleDownloadExcel = () => report?.plan === 'agency' && downloadFile('excel');
+  const handleDownloadSlides = () => report?.plan === 'agency' && downloadFile('powerpoint');
 
   if (authLoading || isLoading) {
     return (

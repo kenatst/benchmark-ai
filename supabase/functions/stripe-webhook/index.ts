@@ -1,12 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, stripe-signature, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { corsHeaders } from "../_shared.ts";
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -16,7 +11,7 @@ serve(async (req) => {
 
   // Use STRIPE_TEST_KEY for testing, fallback to STRIPE_SECRET_KEY for production
   const stripeKey = Deno.env.get("STRIPE_TEST_KEY") || Deno.env.get("STRIPE_SECRET_KEY");
-  
+
   if (!stripeKey) {
     console.error("[Webhook] No Stripe API key configured");
     return new Response(JSON.stringify({ error: "Stripe not configured" }), {
@@ -70,7 +65,7 @@ serve(async (req) => {
 
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
-      
+
       console.log("[Webhook] Checkout session completed:", session.id);
       console.log("[Webhook] Payment status:", session.payment_status);
       console.log("[Webhook] Metadata:", JSON.stringify(session.metadata));
@@ -87,7 +82,12 @@ serve(async (req) => {
         });
       }
 
-      // Update report status to 'paid'
+      // ============================================
+      // CRITICAL: ALL DATABASE OPERATIONS FIRST
+      // Webhook must return 200 within 1 second
+      // ============================================
+
+      // 1. Update report status to 'paid' (ATOMIC)
       const { error: updateError } = await supabaseAdmin
         .from("reports")
         .update({
@@ -104,9 +104,9 @@ serve(async (req) => {
         throw updateError;
       }
 
-      console.log(`[Webhook] Report ${reportId} updated to paid status`);
+      console.log(`[Webhook] Report ${reportId} updated to paid status - RETURNING 200 NOW`);
 
-      // Get user email for confirmation
+      // 2. Get user email (needed for background tasks)
       const { data: profile } = await supabaseAdmin
         .from("profiles")
         .select("email")
@@ -114,51 +114,61 @@ serve(async (req) => {
         .single();
 
       const userEmail = profile?.email;
-      console.log("[Webhook] User email:", userEmail);
 
-      // Send payment confirmation email
-      if (userEmail) {
-        try {
-          const emailResponse = await fetch(
-            `${Deno.env.get("SUPABASE_URL")}/functions/v1/send-email`,
-            {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                to: userEmail,
-                type: "payment_confirmation",
-                data: {
-                  plan: plan,
-                  amount: session.amount_total,
-                },
-              }),
-            }
-          );
-          console.log("[Webhook] Payment confirmation email sent:", await emailResponse.text());
-        } catch (emailError) {
-          console.error("[Webhook] Failed to send payment confirmation email:", emailError);
+      // ============================================
+      // RETURN 200 IMMEDIATELY - Stripe is happy
+      // ============================================
+      const response = new Response(
+        JSON.stringify({ received: true, reportId, timestamp: new Date().toISOString() }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
-      }
+      );
 
-      // Update status to processing before generation
-      await supabaseAdmin
-        .from("reports")
-        .update({ status: "processing" })
-        .eq("id", reportId);
-
-      // Trigger report generation with retry logic
-      console.log("[Webhook] Triggering report generation for:", reportId);
-      
-      const generateWithRetry = async (attempt = 1): Promise<boolean> => {
-        const maxAttempts = 3;
-        const backoffMs = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
-        
+      // ============================================
+      // BACKGROUND TASKS - Run asynchronously
+      // Use EdgeRuntime.waitUntil() to keep function alive
+      // Even if this fails, webhook already returned 200
+      // ============================================
+      const backgroundTasks = async () => {
         try {
-          console.log(`[Webhook] Generation attempt ${attempt}/${maxAttempts}`);
-          
+          // Update to processing status AFTER returning 200
+          await supabaseAdmin
+            .from("reports")
+            .update({ status: "processing", processing_step: "Initialisation...", processing_progress: 5 })
+            .eq("id", reportId);
+
+          // Send payment confirmation email (non-blocking)
+          if (userEmail) {
+            try {
+              await fetch(
+                `${Deno.env.get("SUPABASE_URL")}/functions/v1/send-email`,
+                {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    to: userEmail,
+                    type: "payment_confirmation",
+                    data: {
+                      plan: plan,
+                      amount: session.amount_total,
+                    },
+                  }),
+                }
+              );
+              console.log("[Webhook BG] Payment confirmation email sent");
+            } catch (emailError) {
+              console.error("[Webhook BG] Failed to send payment email:", emailError);
+              // Don't fail if email fails - queue for retry later
+            }
+          }
+
+          // Trigger report generation (long-running task)
+          console.log("[Webhook BG] Triggering report generation...");
           const generateResponse = await fetch(
             `${Deno.env.get("SUPABASE_URL")}/functions/v1/generate-report`,
             {
@@ -170,123 +180,49 @@ serve(async (req) => {
               body: JSON.stringify({ reportId }),
             }
           );
-          
-          const generateResult = await generateResponse.json();
-          console.log(`[Webhook] Generation attempt ${attempt} result:`, JSON.stringify(generateResult));
-          
-          if (generateResult.success) {
-            return true;
+
+          if (!generateResponse.ok) {
+            console.error("[Webhook BG] Generation trigger failed:", generateResponse.status);
+            // Generation function handles its own retries
+          } else {
+            console.log("[Webhook BG] Generation triggered successfully");
           }
-          
-          if (attempt < maxAttempts) {
-            console.log(`[Webhook] Retrying in ${backoffMs}ms...`);
-            await new Promise(resolve => setTimeout(resolve, backoffMs));
-            return generateWithRetry(attempt + 1);
+        } catch (bgError) {
+          console.error("[Webhook BG] Background task error:", bgError);
+          // Log for monitoring, but don't fail the webhook
+          try {
+            await supabaseAdmin
+              .from("reports")
+              .update({
+                status: "failed",
+                processing_step: "Erreur en arrière-plan du webhook"
+              })
+              .eq("id", reportId);
+          } catch {
+            // Already failed, can't update further
           }
-          
-          return false;
-        } catch (error) {
-          console.error(`[Webhook] Generation attempt ${attempt} error:`, error);
-          if (attempt < maxAttempts) {
-            await new Promise(resolve => setTimeout(resolve, backoffMs));
-            return generateWithRetry(attempt + 1);
-          }
-          return false;
         }
       };
-      
-      const generationSuccess = await generateWithRetry();
-      console.log("[Webhook] Generation success:", generationSuccess);
-      
-      if (generationSuccess) {
-        // Generate PDF
-        try {
-          console.log("[Webhook] Generating PDF...");
-          const pdfResponse = await fetch(
-            `${Deno.env.get("SUPABASE_URL")}/functions/v1/generate-pdf`,
-            {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({ reportId }),
-            }
-          );
-          const pdfResult = await pdfResponse.json();
-          console.log("[Webhook] PDF generation result:", JSON.stringify(pdfResult));
-        } catch (pdfError) {
-          console.error("[Webhook] PDF generation failed:", pdfError);
-        }
-        
-        // Send report ready email
-        if (userEmail) {
-          try {
-            await fetch(
-              `${Deno.env.get("SUPABASE_URL")}/functions/v1/send-email`,
-              {
-                method: "POST",
-                headers: {
-                  Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  to: userEmail,
-                  type: "report_ready",
-                  data: {
-                    reportId: reportId,
-                    reportTitle: `Rapport ${plan?.toUpperCase() || 'STANDARD'}`,
-                    downloadUrl: `https://benchmarkai.app/app/reports/${reportId}`,
-                  },
-                }),
-              }
-            );
-            console.log("[Webhook] Report ready email sent");
-          } catch (emailError) {
-            console.error("[Webhook] Failed to send report ready email:", emailError);
-          }
-        }
-      } else {
-        // Update report status to failed after all retries
-        console.log("[Webhook] Marking report as failed");
-        await supabaseAdmin
-          .from("reports")
-          .update({ status: "failed" })
-          .eq("id", reportId);
-        
-        // Send failure notification email
-        if (userEmail) {
-          try {
-            await fetch(
-              `${Deno.env.get("SUPABASE_URL")}/functions/v1/send-email`,
-              {
-                method: "POST",
-                headers: {
-                  Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  to: userEmail,
-                  type: "generation_failed",
-                  data: {
-                    reportId: reportId,
-                    retryUrl: `https://benchmarkai.app/app/reports/${reportId}`,
-                  },
-                }),
-              }
-            );
-            console.log("[Webhook] Failure email sent");
-          } catch (emailError) {
-            console.error("[Webhook] Failed to send failure email:", emailError);
-          }
-        }
-      }
-    }
 
-    return new Response(JSON.stringify({ received: true }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+      // Use EdgeRuntime.waitUntil if available, otherwise just log
+      // @ts-ignore - EdgeRuntime is available in Deno Deploy / Supabase Edge Functions
+      if (typeof EdgeRuntime !== "undefined" && EdgeRuntime.waitUntil) {
+        // @ts-ignore
+        EdgeRuntime.waitUntil(backgroundTasks());
+      } else {
+        // Fallback for local development
+        backgroundTasks().catch(err => console.error("[Webhook] Background task failed:", err));
+      }
+
+      return response;
+    } else {
+      // Not a checkout.session.completed event - ignore
+      console.log("[Webhook] Ignoring event type:", event.type);
+      return new Response(JSON.stringify({ received: true }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
   } catch (error: unknown) {
     console.error("[Webhook] Error:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";

@@ -75,9 +75,12 @@ const CheckoutPage = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center space-y-4">
+        <div className="text-center space-y-4 max-w-md px-4">
           <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto" />
-          <p className="text-muted-foreground">Préparation du paiement sécurisé...</p>
+          <div>
+            <p className="text-lg font-semibold text-foreground mb-2">Initialisation du paiement...</p>
+            <p className="text-muted-foreground text-sm">Connexion à Stripe en cours. Cela prend quelques secondes.</p>
+          </div>
         </div>
       </div>
     );
@@ -89,9 +92,12 @@ const CheckoutPage = () => {
         <Card className="max-w-md w-full">
           <CardContent className="p-6 text-center space-y-4">
             <AlertCircle className="w-12 h-12 text-destructive mx-auto" />
-            <h2 className="text-xl font-bold text-foreground">Erreur de paiement</h2>
-            <p className="text-muted-foreground">{error}</p>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <div>
+              <h2 className="text-xl font-bold text-foreground mb-2">Erreur de paiement</h2>
+              <p className="text-muted-foreground text-sm mb-4">{error}</p>
+              <p className="text-xs text-muted-foreground">Vous pouvez réessayer ou retourner à votre benchmark.</p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center pt-4">
               <Button variant="outline" onClick={() => navigate('/app/new')}>
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Retour
@@ -137,7 +143,8 @@ const CheckoutPage = () => {
           <div className="lg:col-span-2 space-y-6">
             <div>
               <h1 className="text-2xl font-bold text-foreground mb-2">Finaliser votre commande</h1>
-              <p className="text-muted-foreground">Formule {plan && planNames[plan]}</p>
+              <p className="text-muted-foreground">Formule <span className="font-semibold text-foreground">{plan && planNames[plan]}</span></p>
+              <p className="text-xs text-muted-foreground mt-3">Après le paiement, votre rapport sera généré automatiquement et prêt en quelques minutes.</p>
             </div>
 
             <Card>
