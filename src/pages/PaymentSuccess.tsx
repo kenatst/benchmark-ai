@@ -119,7 +119,9 @@ const PaymentSuccess = () => {
 
     let pollCount = 0;
     let isMounted = true;
-    const maxPolls = 120; // 6 minutes (3s intervals) before we warn, but we keep polling.
+    const maxPolls = 120; // 6 minutes (3s intervals) before we warn
+    const MAX_TOTAL_TIME_MS = 15 * 60 * 1000; // 15 minutes hard limit
+    const pollStartTime = Date.now();
 
     const interval = setInterval(async () => {
       if (!isMounted) {
@@ -128,10 +130,20 @@ const PaymentSuccess = () => {
       }
 
       pollCount++;
+      const elapsedMs = Date.now() - pollStartTime;
 
       // Smooth-ish client progress as a fallback; server progress will override (never decreases).
       const calculatedProgress = Math.min(30 + (pollCount / maxPolls) * 65, 95);
       updateProgress(calculatedProgress);
+
+      // TIMEOUT: If exceeded max time, fail the generation
+      if (elapsedMs > MAX_TOTAL_TIME_MS) {
+        clearInterval(interval);
+        setStatus('failed');
+        setError('La génération a pris trop de temps. Veuillez réessayer.');
+        toast.error('Délai d\'attente dépassé. Cliquez sur "Réessayer" pour relancer la génération.');
+        return;
+      }
 
       try {
         const { data, error } = await supabase

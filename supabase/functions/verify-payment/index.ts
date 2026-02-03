@@ -24,6 +24,33 @@ serve(async (req) => {
 
     console.log(`[VerifyPayment] Verifying session: ${sessionId}`);
 
+    // SECURITY: Verify user is authenticated FIRST
+    const supabaseClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? ""
+    );
+
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: "Not authenticated" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const token = authHeader.replace("Bearer ", "");
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
+
+    if (authError || !user?.id) {
+      console.error("[VerifyPayment] Auth error:", authError);
+      return new Response(
+        JSON.stringify({ error: "Not authenticated" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log(`[VerifyPayment] User verified: ${user.id}`);
+
     // Initialize Stripe
     const stripeKey = Deno.env.get("STRIPE_TEST_KEY") || Deno.env.get("STRIPE_SECRET_KEY");
     if (!stripeKey) {
@@ -36,17 +63,27 @@ serve(async (req) => {
 
     // Retrieve the checkout session from Stripe
     const session = await stripe.checkout.sessions.retrieve(sessionId);
-    
+
     console.log(`[VerifyPayment] Session status: ${session.status}, payment_status: ${session.payment_status}`);
     console.log(`[VerifyPayment] Metadata:`, session.metadata);
 
     const reportId = session.metadata?.report_id;
+    const sessionUserId = session.metadata?.user_id;
     const plan = session.metadata?.plan;
 
     if (!reportId) {
       return new Response(
         JSON.stringify({ error: "No report ID in session metadata" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // SECURITY: Verify that session belongs to authenticated user
+    if (sessionUserId !== user.id) {
+      console.error(`[VerifyPayment] Session user mismatch: ${sessionUserId} !== ${user.id}`);
+      return new Response(
+        JSON.stringify({ error: "Session does not belong to user" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -58,17 +95,18 @@ serve(async (req) => {
 
     // Check if payment was successful
     if (session.payment_status === "paid" || session.status === "complete") {
-      // Get current report status
+      // SECURITY: Get report and verify user owns it
       const { data: report, error: reportError } = await supabaseAdmin
         .from("reports")
-        .select("status, plan")
+        .select("status, plan, user_id")
         .eq("id", reportId)
+        .eq("user_id", user.id) // ← Ownership check
         .single();
 
-      if (reportError) {
-        console.error(`[VerifyPayment] Error fetching report:`, reportError);
+      if (reportError || !report) {
+        console.error(`[VerifyPayment] Error fetching report or unauthorized access:`, reportError);
         return new Response(
-          JSON.stringify({ error: "Report not found" }),
+          JSON.stringify({ error: "Report not found or access denied" }),
           { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }

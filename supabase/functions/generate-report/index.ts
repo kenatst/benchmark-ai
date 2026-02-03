@@ -1135,6 +1135,12 @@ async function runGenerationAsync(
     const tierConfig = TIER_CONFIG[plan];
     const reportLang = inputData.reportLanguage || 'fr';
 
+    // VALIDATION: Ensure language is supported
+    if (!LANGUAGE_CONFIG[reportLang]) {
+      console.warn(`[${reportId}] Unsupported language: ${reportLang}, defaulting to French`);
+      inputData.reportLanguage = 'fr';
+    }
+
     console.log(`[${reportId}] Starting report generation`);
     console.log(`[${reportId}] Tier: ${plan} | Model: ${CLAUDE_MODEL} | Language: ${reportLang}`);
 
@@ -1360,6 +1366,11 @@ serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
   );
 
+  const supabaseClient = createClient(
+    Deno.env.get("SUPABASE_URL") ?? "",
+    Deno.env.get("SUPABASE_ANON_KEY") ?? ""
+  );
+
   try {
     const body = await req.json();
     const reportId = body.reportId;
@@ -1368,15 +1379,33 @@ serve(async (req) => {
       throw new Error("Report ID is required");
     }
 
+    // SECURITY: Verify user is authenticated
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      throw new Error("Not authenticated");
+    }
+
+    const token = authHeader.replace("Bearer ", "");
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
+
+    if (authError || !user?.id) {
+      console.error("[Generate] Auth error:", authError);
+      throw new Error("Not authenticated");
+    }
+
+    console.log(`[${reportId}] User verified: ${user.id}`);
+
     // Get the report
     const { data: report, error: fetchError } = await supabaseAdmin
       .from("reports")
       .select("*")
       .eq("id", reportId)
+      .eq("user_id", user.id) // ← Ownership check: only allow if user owns report
       .single();
 
     if (fetchError || !report) {
-      throw new Error("Report not found");
+      console.error(`[${reportId}] Report not found or unauthorized:`, fetchError);
+      throw new Error("Report not found or access denied");
     }
 
     // Check if already processing or ready

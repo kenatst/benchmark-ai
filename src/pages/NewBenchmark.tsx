@@ -75,9 +75,11 @@ const NewBenchmark = () => {
       case 3:
         return formData.goals.length > 0;
       case 4:
-        return true;
+        // VALIDATION: At least one competitor required for meaningful analysis
+        return !!(formData.competitors && formData.competitors.length > 0);
       case 5:
-        return true;
+        // VALIDATION: Timeline and/or budget level required for context
+        return !!(formData.timeline || formData.budgetLevel);
       case 6:
         return true;
       default:
