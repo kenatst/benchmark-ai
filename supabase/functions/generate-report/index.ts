@@ -1500,9 +1500,13 @@ async function runGenerationAsync(
 ) {
   try {
     // @ts-ignore - Deno runtime
-    const GPT52_API_KEY = Deno.env.get("OPENAI_API_KEY");
+    // Support both secret names to avoid breakage across environments.
+    // Preferred: OPEN_AI_API_KEY (already configured in Lovable Cloud secrets)
+    // Legacy/Docs: OPENAI_API_KEY
+    // @ts-ignore - Deno runtime
+    const GPT52_API_KEY = Deno.env.get("OPEN_AI_API_KEY") ?? Deno.env.get("OPENAI_API_KEY");
     if (!GPT52_API_KEY) {
-      throw new Error("OPENAI_API_KEY is not configured (required for GPT-5.2)");
+      throw new Error("OPEN_AI_API_KEY (or OPENAI_API_KEY) is not configured (required for GPT-5.2)");
     }
 
     // @ts-ignore - Deno runtime
