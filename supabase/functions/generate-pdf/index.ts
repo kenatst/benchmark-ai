@@ -1674,15 +1674,19 @@ serve(async (req) => {
     const builder = new InstitutionalPDFBuilder(pdfDoc, fonts, tier, outputData);
     const pdfBytes = await builder.build();
 
-    console.log(`[${reportId}] PDF generated, size: ${pdfBytes.length} bytes`);
+    // Deno's Response BodyInit typing can be strict with newer TS typed-array generics.
+    // Runtime accepts Uint8Array just fine, so we cast to avoid TS2345.
+    const bytes = pdfBytes as unknown as Uint8Array;
+
+    console.log(`[${reportId}] PDF generated, size: ${bytes.byteLength} bytes`);
 
     // Return PDF bytes directly to browser
-    return new Response(pdfBytes, {
+    return new Response(bytes as unknown as BodyInit, {
       headers: {
         ...corsHeaders,
         "Content-Type": "application/pdf",
         "Content-Disposition": `attachment; filename="Benchmark_${(outputData?.report_metadata?.business_name || 'report').replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30)}_${reportId.substring(0, 8)}.pdf"`,
-        "Content-Length": String(pdfBytes.length),
+        "Content-Length": String(bytes.byteLength),
       },
     });
 
