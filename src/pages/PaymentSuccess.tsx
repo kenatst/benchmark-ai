@@ -20,9 +20,13 @@ const PaymentSuccess = () => {
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [reportId, setReportId] = useState<string | null>(null);
+  const [serverStep, setServerStep] = useState<string | null>(null);
+  const [serverProgress, setServerProgress] = useState<number | null>(null);
   
   // Use ref to track the highest progress value (never decrease)
   const maxProgressRef = useRef(0);
+  const warnedLongRef = useRef(false);
+  const autoRetriedRef = useRef(false);
 
   const sessionId = searchParams.get('session_id');
 
@@ -115,7 +119,7 @@ const PaymentSuccess = () => {
 
     let pollCount = 0;
     let isMounted = true;
-    const maxPolls = 120; // 6 minutes max (3s intervals)
+    const maxPolls = 120; // 6 minutes (3s intervals) before we warn, but we keep polling.
 
     const interval = setInterval(async () => {
       if (!isMounted) {
@@ -125,15 +129,14 @@ const PaymentSuccess = () => {
 
       pollCount++;
 
-      // Calculate progress based on poll count - never decrease
-      // Range from 30 to 95 over the polling period
+      // Smooth-ish client progress as a fallback; server progress will override (never decreases).
       const calculatedProgress = Math.min(30 + (pollCount / maxPolls) * 65, 95);
       updateProgress(calculatedProgress);
 
       try {
         const { data, error } = await supabase
           .from('reports')
-          .select('status, output_data, processing_step')
+          .select('status, output_data, processing_step, processing_progress, updated_at')
           .eq('id', reportId)
           .single();
 
@@ -143,6 +146,15 @@ const PaymentSuccess = () => {
         }
 
         if (!isMounted) return;
+
+        // Prefer server-side progress/step when available (this is the source of truth).
+        if (typeof data?.processing_step === 'string') {
+          setServerStep(data.processing_step);
+        }
+        if (typeof data?.processing_progress === 'number') {
+          setServerProgress(data.processing_progress);
+          updateProgress(data.processing_progress);
+        }
 
         if (data?.status === 'ready') {
           clearInterval(interval);
@@ -160,10 +172,26 @@ const PaymentSuccess = () => {
           toast.error('La génération a échoué');
         }
 
-        if (pollCount >= maxPolls) {
-          clearInterval(interval);
-          // Don't mark as failed - it might still be processing
-          if (isMounted) toast.info('La génération prend plus de temps que prévu...');
+        // After ~6 minutes, we warn once but we keep polling (Agency can legitimately take longer).
+        if (pollCount >= maxPolls && !warnedLongRef.current) {
+          warnedLongRef.current = true;
+          toast.info('La génération prend plus de temps que prévu… je continue de surveiller.');
+        }
+
+        // Auto-retry if the backend looks stalled (no DB update for a while).
+        // This fixes the “I waited 30 minutes but nothing changes” case when the generator was killed mid-run.
+        if (
+          data?.status === 'processing' &&
+          typeof data?.updated_at === 'string' &&
+          !autoRetriedRef.current
+        ) {
+          const ageMs = Date.now() - new Date(data.updated_at).getTime();
+          const stallThresholdMs = 8 * 60 * 1000;
+          if (ageMs > stallThresholdMs) {
+            autoRetriedRef.current = true;
+            toast.info('La génération semble bloquée, relance automatique…');
+            await supabase.functions.invoke('generate-report', { body: { reportId } });
+          }
         }
       } catch (err) {
         console.error('Polling error:', err);
@@ -219,7 +247,7 @@ const PaymentSuccess = () => {
 
   // Smooth progress animation for generating state (only increment, never decrease)
   useEffect(() => {
-    if (status === 'generating') {
+    if (status === 'generating' && serverProgress === null) {
       const interval = setInterval(() => {
         // Small random increment, never exceeding current max + small amount
         const increment = Math.random() * 2;
@@ -228,7 +256,7 @@ const PaymentSuccess = () => {
       }, 2000);
       return () => clearInterval(interval);
     }
-  }, [status, updateProgress]);
+  }, [status, updateProgress, serverProgress]);
 
   const getStatusMessage = () => {
     switch (status) {
@@ -237,7 +265,7 @@ const PaymentSuccess = () => {
       case 'verified':
         return { title: 'Paiement confirmé !', subtitle: 'Lancement de la génération...' };
       case 'generating':
-        return { title: 'Génération en cours...', subtitle: getGenerationPhase() };
+        return { title: 'Génération en cours...', subtitle: serverStep || getGenerationPhase() };
       case 'ready':
         return { title: 'Votre benchmark est prêt !', subtitle: 'Redirection vers votre rapport...' };
       case 'failed':
@@ -250,6 +278,7 @@ const PaymentSuccess = () => {
   };
 
   const getGenerationPhase = () => {
+    if (serverStep) return serverStep;
     if (progress < 40) return 'Analyse de vos données...';
     if (progress < 60) return 'Recherche concurrentielle...';
     if (progress < 80) return 'Génération des recommandations...';
