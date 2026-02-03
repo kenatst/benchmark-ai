@@ -91,6 +91,9 @@ serve(async (req) => {
       ],
       mode: "payment",
       ui_mode: "embedded",
+      // Stripe Embedded Checkout does NOT always redirect automatically after payment.
+      // Force redirect so users land on the generation/progress page.
+      redirect_on_completion: "always",
       return_url: `${origin}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
       metadata: {
         user_id: user.id,
