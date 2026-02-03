@@ -27,31 +27,47 @@ const COLORS = {
 // ============================================================================
 
 function buildExecutiveSummarySheet(data: any): any[][] {
+  const exec = data?.executive_summary || {};
+  const meta = data?.report_metadata || {};
+
   const rows: any[][] = [
-    ["RAPPORT BENCHMARK IQ", "", "", "RÉSUMÉ EXÉCUTIF"],
+    ["RAPPORT BENCHMARK IQ - RÉSUMÉ EXÉCUTIF"],
     [],
-    ["Entreprise", data?.report_metadata?.business_name || "", "", "Secteur", data?.report_metadata?.sector || ""],
-    ["Localisation", data?.report_metadata?.location || "", "", "Date", data?.report_metadata?.generated_date || ""],
+    ["Entreprise", meta.business_name || "N/A"],
+    ["Secteur", meta.sector || "N/A"],
+    ["Localisation", meta.location || "N/A"],
+    ["Date", meta.generated_date || "N/A"],
     [],
-    ["RECOMMANDATION PRINCIPALE"],
-    [data?.executive_summary?.strategic_recommendation || ""],
+    ["RECOMMANDATION STRATÉGIQUE PRINCIPALE"],
+    [exec.strategic_recommendation || exec.headline || "N/A"],
     [],
-    ["INVESTISSEMENT REQUIS", data?.executive_summary?.investment_required || "EUR", "ROI ATTENDU", data?.executive_summary?.expected_roi || "Mois"],
+    ["INVESTISSEMENT REQUIS", exec.investment_required || "À définir"],
+    ["ROI ATTENDU", exec.expected_roi || "À définir"],
     [],
     ["FACTEURS CRITIQUES DE SUCCÈS"],
   ];
 
-  const csf = data?.executive_summary?.critical_success_factors || [];
-  csf.slice(0, 5).forEach((factor: string, i: number) => {
-    rows.push([`${i + 1}. ${factor}`]);
-  });
+  const csf = (exec.critical_success_factors || exec.key_success_factors || []).slice(0, 5);
+  if (csf.length > 0) {
+    csf.forEach((factor: any, i: number) => {
+      const text = typeof factor === 'string' ? factor : String(factor);
+      rows.push([`${i + 1}. ${text}`]);
+    });
+  } else {
+    rows.push(["À définir"]);
+  }
 
-  rows.push([], ["MÉTRIQUES À SUIVRE"]);
+  rows.push([], ["MÉTRIQUES CLÉS À SUIVRE"]);
 
-  const metrics = data?.executive_summary?.key_metrics_to_track || [];
-  metrics.slice(0, 5).forEach((metric: string, i: number) => {
-    rows.push([`${i + 1}. ${metric}`]);
-  });
+  const metrics = (exec.key_metrics_to_track || exec.metrics_to_track || []).slice(0, 5);
+  if (metrics.length > 0) {
+    metrics.forEach((metric: any, i: number) => {
+      const text = typeof metric === 'string' ? metric : String(metric);
+      rows.push([`${i + 1}. ${text}`]);
+    });
+  } else {
+    rows.push(["À définir"]);
+  }
 
   return rows;
 }
