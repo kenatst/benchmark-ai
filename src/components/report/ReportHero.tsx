@@ -1,6 +1,6 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Download, ExternalLink, CheckCircle, AlertCircle, RefreshCw, Loader2, FileSpreadsheet, Presentation } from 'lucide-react';
+import { Download, CheckCircle, AlertCircle, RefreshCw, Loader2, FileSpreadsheet, Presentation } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 
 interface ReportHeroProps {
@@ -9,7 +9,6 @@ interface ReportHeroProps {
   businessName: string;
   sector: string;
   location: string;
-  pdfUrl?: string | null;
   processingProgress: number;
   processingStep?: string;
   onDownload: () => void;
@@ -28,7 +27,6 @@ export const ReportHero = ({
   businessName,
   sector,
   location,
-  pdfUrl,
   processingProgress,
   processingStep,
   onDownload,
@@ -89,17 +87,6 @@ export const ReportHero = ({
                   </>
                 )}
               </Button>
-              {pdfUrl && (
-                <Button
-                  size="lg"
-                  variant="outline"
-                  onClick={() => window.open(pdfUrl, '_blank')}
-                  className="gap-2"
-                >
-                  <ExternalLink className="w-4 h-4" />
-                  Ouvrir
-                </Button>
-              )}
             </div>
 
             {/* Agency tier multi-format exports */}

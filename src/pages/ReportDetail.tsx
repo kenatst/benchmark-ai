@@ -233,7 +233,6 @@ const ReportDetail = () => {
             businessName={inputData?.businessName || 'Rapport'}
             sector={inputData?.sector || ''}
             location={`${inputData?.location?.city || ''}, ${inputData?.location?.country || ''}`}
-            pdfUrl={report.pdf_url}
             processingProgress={processingProgress}
             processingStep={report.processing_step}
             onDownload={handleDownload}

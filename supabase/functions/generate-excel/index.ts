@@ -330,7 +330,7 @@ serve(async (req) => {
 
       // Set column widths for better readability
       wsSheet["!cols"] = [
-        { wch: 25 },
+        { wch: 30 },
         { wch: 25 },
         { wch: 20 },
         { wch: 20 },
@@ -338,7 +338,7 @@ serve(async (req) => {
       ];
 
       // Set default row heights
-      wsSheet["!rows"] = sheet.data.map((_, i) => ({ hpx: i === 0 ? 24 : 18 }));
+      wsSheet["!rows"] = sheet.data.map((_, i) => ({ hpx: i === 0 ? 26 : 20 }));
 
       XLSX.utils.book_append_sheet(workbook, wsSheet, sheet.name);
     }
@@ -346,8 +346,7 @@ serve(async (req) => {
     // Generate Excel with proper formatting
     const excelBuffer = XLSX.write(workbook, {
       type: "buffer",
-      bookType: "xlsx",
-      cellStyles: true
+      bookType: "xlsx"
     });
 
     console.log(`[${reportId}] INSTITUTIONAL Excel generated, size: ${excelBuffer.length} bytes`);
@@ -357,6 +356,7 @@ serve(async (req) => {
       .substring(0, 30);
     const fileName = `Benchmark_${businessName}_${reportId.substring(0, 8)}.xlsx`;
 
+    // Return Excel bytes directly
     return new Response(excelBuffer, {
       headers: {
         ...corsHeaders,
