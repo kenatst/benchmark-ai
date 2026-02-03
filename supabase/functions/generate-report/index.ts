@@ -1,12 +1,9 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
-// CORS headers - allow all origins for development/preview compatibility
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+// Import shared constants (eliminates CORS header duplication across 10+ functions)
+// @ts-ignore - Deno import
+import { corsHeaders, getJsonHeaders } from "../_shared.ts";
 
 // ============================================
 // CLAUDE MODELS - USE OPUS 4.5 FOR PRODUCTION STABILITY
@@ -1146,37 +1143,83 @@ async function runGenerationAsync(
     console.log(`[${reportId}] ✅ Report generated successfully`);
     console.log(`[${reportId}] Tier: ${plan} | Sources: ${outputData?.sources?.length || 0}`);
 
-    // Step 6: Generate PDF
-    await updateProgress(supabaseAdmin, reportId, "Génération du PDF...", 95);
+    // Step 6: Generate all documents in PARALLEL (PDF + Excel + PowerPoint)
+    await updateProgress(supabaseAdmin, reportId, "Génération des documents...", 95);
 
-    try {
-      const pdfResponse = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/generate-pdf`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-        },
-        body: JSON.stringify({ reportId }),
-      });
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    const headers = {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${serviceRoleKey}`,
+    };
 
-      if (!pdfResponse.ok) {
-        console.error(`[${reportId}] PDF generation failed: ${pdfResponse.status}`);
-      } else {
-        console.log(`[${reportId}] ✅ PDF generated successfully`);
-      }
-    } catch (pdfError) {
-      console.error(`[${reportId}] PDF generation error:`, pdfError);
-      // Don't fail the report if PDF fails
+    // Launch all document generation in parallel
+    const generatePdf = fetch(`${supabaseUrl}/functions/v1/generate-pdf`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ reportId }),
+    }).catch(err => {
+      console.error(`[${reportId}] PDF generation failed:`, err);
+      return null;
+    });
+
+    const generateExcel = plan === 'agency' ? fetch(`${supabaseUrl}/functions/v1/generate-excel`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ reportId }),
+    }).catch(err => {
+      console.error(`[${reportId}] Excel generation failed:`, err);
+      return null;
+    }) : Promise.resolve(null);
+
+    const generatePowerpoint = plan === 'agency' ? fetch(`${supabaseUrl}/functions/v1/generate-slides`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ reportId }),
+    }).catch(err => {
+      console.error(`[${reportId}] PowerPoint generation failed:`, err);
+      return null;
+    }) : Promise.resolve(null);
+
+    // Wait for all documents to generate
+    const [pdfResponse, excelResponse, ppptResponse] = await Promise.all([
+      generatePdf,
+      generateExcel,
+      generatePowerpoint,
+    ]);
+
+    // Log document generation results
+    if (pdfResponse?.ok) {
+      reportLog(reportId, 'SUCCESS', 'Document Generation', 'PDF generated successfully');
+    } else if (pdfResponse) {
+      reportLog(reportId, 'WARN', 'Document Generation', `PDF generation failed: ${pdfResponse.status}`);
     }
 
-    // Final update
+    if (plan === 'agency') {
+      if (excelResponse?.ok) {
+        reportLog(reportId, 'SUCCESS', 'Document Generation', 'Excel generated successfully');
+      } else if (excelResponse) {
+        reportLog(reportId, 'WARN', 'Document Generation', `Excel generation failed: ${excelResponse.status}`);
+      }
+
+      if (ppptResponse?.ok) {
+        reportLog(reportId, 'SUCCESS', 'Document Generation', 'PowerPoint generated successfully');
+      } else if (ppptResponse) {
+        reportLog(reportId, 'WARN', 'Document Generation', `PowerPoint generation failed: ${ppptResponse.status}`);
+      }
+    }
+
+    // Final update - mark as ready
     await supabaseAdmin
       .from("reports")
       .update({
         processing_step: "Rapport prêt",
-        processing_progress: 100
+        processing_progress: 100,
+        updated_at: new Date().toISOString()
       } as Record<string, unknown>)
       .eq("id", reportId);
+
+    reportLog(reportId, 'SUCCESS', 'Report Generation', `All documents generated for ${plan} tier`);
 
   } catch (error: unknown) {
     console.error(`[${reportId}] Generation error:`, error);
