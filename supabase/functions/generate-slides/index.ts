@@ -1,6 +1,10 @@
+// @ts-ignore - Deno import
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+// @ts-ignore - Deno import
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+// @ts-ignore - Deno import
 import PptxGenJS from "https://esm.sh/pptxgenjs@3.12.0";
+// @ts-ignore - Deno import
 import { getAuthContext } from "../_shared.ts";
 
 const corsHeaders = {
@@ -494,12 +498,18 @@ serve(async (req: Request) => {
 
         console.log(`[${reportId}] Starting Slides generation`);
 
+        // @ts-ignore - Deno runtime
         const supabase = createClient(
+            // @ts-ignore - Deno runtime
             Deno.env.get("SUPABASE_URL") || "",
+            // @ts-ignore - Deno runtime
             Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || ""
         );
+        // @ts-ignore - Deno runtime
         const supabaseClient = createClient(
+            // @ts-ignore - Deno runtime
             Deno.env.get("SUPABASE_URL") || "",
+            // @ts-ignore - Deno runtime
             Deno.env.get("SUPABASE_ANON_KEY") || ""
         );
 

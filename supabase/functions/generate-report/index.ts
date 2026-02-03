@@ -1,5 +1,8 @@
+// @ts-ignore - Deno import
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+// @ts-ignore - Deno import
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+// @ts-ignore - Deno import
 import { z } from "https://esm.sh/zod@3.23.8";
 
 // FORCE REDEPLOY: 2026-02-03 14:15 UTC - Token limit fix
@@ -1496,11 +1499,13 @@ async function runGenerationAsync(
   supabaseAdmin: any
 ) {
   try {
+    // @ts-ignore - Deno runtime
     const GPT52_API_KEY = Deno.env.get("OPENAI_API_KEY");
     if (!GPT52_API_KEY) {
       throw new Error("OPENAI_API_KEY is not configured (required for GPT-5.2)");
     }
 
+    // @ts-ignore - Deno runtime
     const PERPLEXITY_API_KEY = Deno.env.get("PERPLEXITY_API_KEY");
 
     const tierConfig = TIER_CONFIG[plan];
@@ -1654,7 +1659,9 @@ async function runGenerationAsync(
     // Step 6: Generate all documents in PARALLEL (PDF + Excel + PowerPoint)
     await updateProgress(supabaseAdmin, reportId, "Génération des documents...", 95);
 
+    // @ts-ignore - Deno runtime
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+    // @ts-ignore - Deno runtime
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
     const headers = {
       "Content-Type": "application/json",
@@ -1751,8 +1758,11 @@ serve(async (req: Request) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // @ts-ignore - Deno runtime
   const supabaseAdmin = createClient(
+    // @ts-ignore - Deno runtime
     Deno.env.get("SUPABASE_URL") ?? "",
+    // @ts-ignore - Deno runtime
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
   );
 
