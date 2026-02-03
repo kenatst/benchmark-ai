@@ -156,7 +156,7 @@ const TIER_DOCUMENTS = {
 const TIER_CONFIG = {
   standard: {
     max_tokens: 12000,
-    temperature: 0.2,
+    temperature: 0.3, // Allow creativity for recommendations
     perplexity_searches: 0,
     system_prompt: (lang: string) => `Tu es un DIRECTEUR ASSOCIÉ de cabinet de conseil stratégique (BCG/McKinsey alumni, 15+ ans d'expérience).
 
@@ -207,7 +207,7 @@ RETOURNE UNIQUEMENT LE JSON VALIDE, sans texte avant/après.`,
 
   pro: {
     max_tokens: 24000,
-    temperature: 0.15,
+    temperature: 0.25, // Strategic thinking for Pro tier
     perplexity_searches: 5,
     system_prompt: (lang: string) => `Tu es un PRINCIPAL de cabinet de conseil stratégique tier-1 (ex-McKinsey/BCG/Bain, 10+ ans).
 
@@ -257,7 +257,7 @@ RETOURNE UNIQUEMENT LE JSON VALIDE.`,
 
   agency: {
     max_tokens: 64000,
-    temperature: 0.1,
+    temperature: 0.2, // Analytical but allows creative recommendations
     perplexity_searches: 12,
     system_prompt: (lang: string) => `Tu es un SENIOR PARTNER d'un cabinet de conseil stratégique de rang mondial.
 Expérience: 20+ ans, dont 5+ en tant que Partner. Background: Harvard MBA, ex-McKinsey Director.
@@ -457,45 +457,86 @@ async function updateProgress(
 // ============================================
 // PERPLEXITY SEARCH FUNCTION
 // ============================================
+// Helper: retry logic for Perplexity searches
 async function searchWithPerplexity(
   apiKey: string,
   query: string,
-  context: string
+  context: string,
+  attempt = 1
 ): Promise<{ content: string; citations: string[] }> {
-  console.log(`[Perplexity] Searching: "${query.substring(0, 100)}..."`);
+  const maxAttempts = 3;
 
-  const response = await fetch('https://api.perplexity.ai/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'sonar-pro',
-      messages: [
-        {
-          role: 'system',
-          content: `Tu es un analyste de recherche senior. Fournis des données FACTUELLES, QUANTIFIÉES et SOURCÉES.
-Contexte de recherche: ${context}
-IMPORTANT: Inclus des chiffres précis, des URLs, des noms d'entreprises, des dates.`
-        },
-        { role: 'user', content: query }
-      ],
-      search_recency_filter: 'year',
-    }),
-  });
+  try {
+    console.log(`[Perplexity] Search attempt ${attempt}/${maxAttempts}: "${query.substring(0, 60)}..."`);
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error(`[Perplexity] Error ${response.status}:`, errorText);
-    throw new Error(`Perplexity API error: ${response.status}`);
+    // 30-second timeout per search
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+    const response = await fetch('https://api.perplexity.ai/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'sonar-pro',
+        messages: [
+          {
+            role: 'system',
+            content: `Tu es un analyste de recherche senior. Fournis des données FACTUELLES, QUANTIFIÉES et SOURCÉES.
+Contexte: ${context}
+IMPORTANT: Inclus des chiffres, URLs, noms, dates.`
+          },
+          { role: 'user', content: query }
+        ],
+        search_recency_filter: 'year',
+      }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      // Retry on transient errors (rate limit, server error)
+      if (response.status === 429 || response.status >= 500) {
+        if (attempt < maxAttempts) {
+          const waitTime = Math.pow(2, attempt - 1) * 5000; // 5s, 10s, 20s
+          console.log(`[Perplexity] Transient error ${response.status}, retry in ${waitTime}ms...`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+          return searchWithPerplexity(apiKey, query, context, attempt + 1);
+        }
+      }
+
+      const errorText = await response.text();
+      console.error(`[Perplexity] Error ${response.status}:`, errorText);
+      throw new Error(`Perplexity API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log(`[Perplexity] ✅ Search success: ${data.choices?.[0]?.message?.content?.length || 0} chars`);
+    return {
+      content: data.choices?.[0]?.message?.content || '',
+      citations: data.citations || []
+    };
+  } catch (error) {
+    console.error(`[Perplexity] Attempt ${attempt} failed:`, error);
+
+    // Retry on timeout
+    if (error instanceof Error && error.name === 'AbortError') {
+      if (attempt < maxAttempts) {
+        console.log(`[Perplexity] Timeout, retry...`);
+        await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 3000));
+        return searchWithPerplexity(apiKey, query, context, attempt + 1);
+      }
+    }
+
+    // Fallback: return empty result
+    return {
+      content: `Recherche échouée: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      citations: []
+    };
   }
-
-  const data = await response.json();
-  return {
-    content: data.choices?.[0]?.message?.content || '',
-    citations: data.citations || []
-  };
 }
 
 // ============================================
@@ -539,30 +580,37 @@ async function conductResearch(
     queries.push(`Unit economics ${input.sector} marge brute gross margin payback period benchmarks`);
   }
 
-  for (let i = 0; i < queries.length && i < searchCount; i++) {
-    const progressPercent = 15 + Math.floor((i / searchCount) * 25);
-    await updateProgress(supabase, reportId, `Recherche web ${i + 1}/${searchCount}...`, progressPercent);
+  // ============================================
+  // PARALLEL PERPLEXITY SEARCHES (5-12x faster!)
+  // ============================================
+  const queriesToSearch = queries.slice(0, searchCount);
 
-    try {
-      const result = await searchWithPerplexity(perplexityKey, queries[i], context);
-      allResults.push({
-        query: queries[i],
-        content: result.content,
-        citations: result.citations
-      });
-      console.log(`[${reportId}] Search ${i + 1}/${searchCount} completed`);
-    } catch (error) {
-      console.error(`[${reportId}] Search ${i + 1} failed:`, error);
-      allResults.push({
-        query: queries[i],
-        content: `Recherche échouée: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        citations: []
-      });
-    }
+  try {
+    console.log(`[${reportId}] Starting ${queriesToSearch.length} searches in PARALLEL...`);
 
-    if (i < queries.length - 1) {
-      await new Promise(resolve => setTimeout(resolve, 500));
-    }
+    // Run all searches concurrently
+    const searchPromises = queriesToSearch.map((query, i) => {
+      // Update progress every 3 searches
+      if (i % 3 === 0) {
+        updateProgress(supabase, reportId, `Recherches web (${i + 1}/${searchCount})...`, 15 + Math.floor((i / searchCount) * 20)).catch(() => {});
+      }
+
+      return searchWithPerplexity(perplexityKey, query, context)
+        .then(result => ({ query, ...result }))
+        .catch(error => ({
+          query,
+          content: `Recherche échouée: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          citations: []
+        }));
+    });
+
+    // Wait for ALL searches to complete
+    const results = await Promise.all(searchPromises);
+    allResults.push(...results);
+
+    console.log(`[${reportId}] ✅ All ${queriesToSearch.length} searches completed in parallel`);
+  } catch (error) {
+    console.error(`[${reportId}] Parallel search batch failed:`, error);
   }
 
   let researchDoc = `
