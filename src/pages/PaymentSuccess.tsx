@@ -217,6 +217,40 @@ const PaymentSuccess = () => {
     };
   }, [status, reportId, updateProgress, navigate]);
 
+  // Mark report as abandoned when user leaves the page during generation
+  useEffect(() => {
+    const handleBeforeUnload = async () => {
+      // If generating and not ready/failed, mark as abandoned
+      if (reportId && (status === 'generating' || status === 'verified' || status === 'verifying')) {
+        // Use sendBeacon for reliable delivery on page unload
+        const payload = JSON.stringify({ reportId, status: 'abandoned' });
+        navigator.sendBeacon(
+          `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/reports?id=eq.${reportId}`,
+          payload
+        );
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [reportId, status]);
+
+  // Cleanup abandoned reports when component unmounts (user navigates away)
+  useEffect(() => {
+    return () => {
+      if (reportId && (status === 'generating' || status === 'verified' || status === 'verifying')) {
+        // Mark report as abandoned in the database
+        supabase
+          .from('reports')
+          .update({ status: 'abandoned' })
+          .eq('id', reportId)
+          .then(({ error }) => {
+            if (error) console.error('Failed to mark report as abandoned:', error);
+          });
+      }
+    };
+  }, [reportId, status]);
+
   // Handle retry
   const handleRetry = useCallback(async () => {
     if (!reportId) return;
