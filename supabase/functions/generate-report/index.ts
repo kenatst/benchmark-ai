@@ -1244,7 +1244,7 @@ async function repairSectionJson(
     type: "json_schema",
     name: `${section.key}_repair`,
     schema: getSectionSchema(section.key, section.valueType),
-    strict: true,
+    strict: false,
   } as const;
 
   const systemPrompt = `Tu es un assistant de correction JSON. Retourne un JSON valide correspondant strictement au schéma demandé.`;
@@ -1274,7 +1274,7 @@ async function generateSection(
     type: "json_schema",
     name: `${section.key}_schema`,
     schema: getSectionSchema(section.key, section.valueType),
-    strict: true,
+    strict: false,
   } as const;
 
   const userPrompt = buildSectionPrompt(reportBrief, section, existingSection);
@@ -1394,7 +1394,7 @@ async function callGPT52(
           model: "gpt-5.2",
           input: [
             {
-              role: "system",
+              role: "developer",
               content: systemPrompt
             },
             {
@@ -1466,6 +1466,7 @@ async function callGPT52(
         }
 
         if (response.status === 401) throw new Error("Invalid API configuration");
+        if (response.status === 400) throw new Error(`Bad request (400): ${errorText.substring(0, 300)}`);
         throw new Error(`Service error: ${response.status}`);
       }
 
