@@ -178,9 +178,10 @@ serve(async (req) => {
           if (currentReport?.status === "processing" || currentReport?.status === "ready") {
             console.log(`[Webhook BG] Report already in ${currentReport.status} state - skipping generation`);
           } else {
-            // Trigger report generation (long-running task)
+            // Trigger report generation (fire-and-forget - don't wait for response)
             console.log("[Webhook BG] Triggering report generation...");
-            const generateResponse = await fetch(
+            // Start generation WITHOUT awaiting - let it run independently
+            fetch(
               `${Deno.env.get("SUPABASE_URL")}/functions/v1/generate-report`,
               {
                 method: "POST",
@@ -190,14 +191,11 @@ serve(async (req) => {
                 },
                 body: JSON.stringify({ reportId }),
               }
-            );
-
-            if (!generateResponse.ok) {
-              console.error("[Webhook BG] Generation trigger failed:", generateResponse.status);
-              // Generation function handles its own retries
-            } else {
-              console.log("[Webhook BG] Generation triggered successfully");
-            }
+            ).then(() => {
+              console.log("[Webhook BG] Generation started");
+            }).catch(err => {
+              console.error("[Webhook BG] Generation trigger error:", err);
+            });
           }
         } catch (bgError) {
           console.error("[Webhook BG] Background task error:", bgError);
