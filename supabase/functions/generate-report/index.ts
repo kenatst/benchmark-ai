@@ -511,7 +511,7 @@ async function searchWithPerplexity(
   const maxAttempts = 3;
 
   try {
-    console.log(`[Perplexity] Search attempt ${attempt}/${maxAttempts}: "${query.substring(0, 60)}..."`);
+    console.log(`[Search] Search attempt ${attempt}/${maxAttempts}: "${query.substring(0, 60)}..."`);
 
     // 30-second timeout per search
     const controller = new AbortController();
@@ -546,30 +546,30 @@ IMPORTANT: Inclus des chiffres, URLs, noms, dates.`
       if (response.status === 429 || response.status >= 500) {
         if (attempt < maxAttempts) {
           const waitTime = Math.pow(2, attempt - 1) * 5000; // 5s, 10s, 20s
-          console.log(`[Perplexity] Transient error ${response.status}, retry in ${waitTime}ms...`);
+          console.log(`[Search] Transient error ${response.status}, retry in ${waitTime}ms...`);
           await new Promise(resolve => setTimeout(resolve, waitTime));
           return searchWithPerplexity(apiKey, query, context, attempt + 1);
         }
       }
 
       const errorText = await response.text();
-      console.error(`[Perplexity] Error ${response.status}:`, errorText);
-      throw new Error(`Perplexity API error: ${response.status}`);
+      console.error(`[Search] Error ${response.status}:`, errorText);
+      throw new Error(`Search API error: ${response.status}`);
     }
 
     const data = await response.json();
-    console.log(`[Perplexity] ✅ Search success: ${data.choices?.[0]?.message?.content?.length || 0} chars`);
+    console.log(`[Search] ✅ Search success: ${data.choices?.[0]?.message?.content?.length || 0} chars`);
     return {
       content: data.choices?.[0]?.message?.content || '',
       citations: data.citations || []
     };
   } catch (error) {
-    console.error(`[Perplexity] Attempt ${attempt} failed:`, error);
+    console.error(`[Search] Attempt ${attempt} failed:`, error);
 
     // Retry on timeout
     if (error instanceof Error && error.name === 'AbortError') {
       if (attempt < maxAttempts) {
-        console.log(`[Perplexity] Timeout, retry...`);
+        console.log(`[Search] Timeout, retry...`);
         await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 3000));
         return searchWithPerplexity(apiKey, query, context, attempt + 1);
       }
@@ -659,7 +659,7 @@ async function conductResearch(
 
   let researchDoc = `
 ═══════════════════════════════════════════════════════════════════════════════
-DONNÉES DE RECHERCHE WEB PERPLEXITY - ${new Date().toISOString().split('T')[0]}
+DONNÉES DE RECHERCHE - ${new Date().toISOString().split('T')[0]}
 ═══════════════════════════════════════════════════════════════════════════════
 
 `;
@@ -986,8 +986,8 @@ async function callClaudeOpus(
   temperature: number,
   maxRetries: number = 3
 ): Promise<string> {
-  console.log(`[Claude] Calling Opus 4.5 (${CLAUDE_MODEL}) with ${maxTokens} max tokens`);
-  console.log(`[Claude] Prompt length: ${userPrompt.length} chars`);
+  console.log(`[Analysis] Processing with ${maxTokens} max tokens`);
+  console.log(`[Analysis] Prompt length: ${userPrompt.length} chars`);
 
   // Use full token limit for Opus - it handles complex reports better
   const effectiveMaxTokens = maxTokens;
@@ -1000,7 +1000,7 @@ async function callClaudeOpus(
     const timeoutMs = 600000; // 10 minutes for full Opus generation
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
-      console.error(`[Claude] Request timeout after ${timeoutMs/1000}s (attempt ${attempt})`);
+      console.error(`[Analysis] Request timeout after ${timeoutMs/1000}s (attempt ${attempt})`);
       controller.abort();
     }, timeoutMs);
 
@@ -1026,12 +1026,12 @@ async function callClaudeOpus(
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`[Claude] API error ${response.status} (attempt ${attempt}):`, errorText);
+        console.error(`[Analysis] API error ${response.status} (attempt ${attempt}):`, errorText);
         
         // Rate limit - retry with exponential backoff
         if (response.status === 429) {
           const waitTime = Math.pow(2, attempt - 1) * 60000; // 60s, 120s, 240s
-          console.log(`[Claude] Rate limited. Waiting ${waitTime / 1000}s before retry ${attempt}/${maxRetries}...`);
+          console.log(`[Analysis] Rate limited. Waiting ${waitTime / 1000}s before retry ${attempt}/${maxRetries}...`);
 
           if (attempt < maxRetries) {
             await new Promise(resolve => setTimeout(resolve, waitTime));
@@ -1044,35 +1044,35 @@ async function callClaudeOpus(
         // Overloaded - retry with backoff
         if (response.status === 529) {
           const waitTime = Math.pow(2, attempt - 1) * 30000; // 30s, 60s, 120s
-          console.log(`[Claude] API overloaded (${response.status}). Waiting ${waitTime / 1000}s before retry ${attempt}/${maxRetries}...`);
+          console.log(`[Analysis] API overloaded (${response.status}). Waiting ${waitTime / 1000}s before retry ${attempt}/${maxRetries}...`);
 
           if (attempt < maxRetries) {
             await new Promise(resolve => setTimeout(resolve, waitTime));
             continue;
           }
-          lastError = new Error("Claude API overloaded after all retries. Please retry later.");
+          lastError = new Error("Service overloaded after all retries. Please retry later.");
           break;
         }
 
         // 5xx errors - transient, retry with backoff
         if (response.status >= 500) {
           const waitTime = Math.pow(2, attempt - 1) * 30000; // 30s, 60s, 120s
-          console.log(`[Claude] Server error ${response.status}. Waiting ${waitTime / 1000}s before retry ${attempt}/${maxRetries}...`);
+          console.log(`[Analysis] Server error ${response.status}. Waiting ${waitTime / 1000}s before retry ${attempt}/${maxRetries}...`);
 
           if (attempt < maxRetries) {
             await new Promise(resolve => setTimeout(resolve, waitTime));
             continue;
           }
-          lastError = new Error(`Claude API server error (${response.status}) after all retries`);
+          lastError = new Error(`Service error (${response.status}) after all retries`);
           break;
         }
         
-        if (response.status === 401) throw new Error("Invalid Claude API key");
-        throw new Error(`Claude API error: ${response.status}`);
+        if (response.status === 401) throw new Error("Invalid API configuration");
+        throw new Error(`Service error: ${response.status}`);
       }
 
       const data = await response.json();
-      console.log(`[Claude] Response received, stop_reason: ${data.stop_reason}`);
+      console.log(`[Analysis] Response received, stop_reason: ${data.stop_reason}`);
 
       let content = "";
       for (const block of data.content) {
@@ -1081,15 +1081,15 @@ async function callClaudeOpus(
         }
       }
 
-      console.log(`[Claude] Content length: ${content.length} chars`);
+      console.log(`[Analysis] Content length: ${content.length} chars`);
       return content;
     } catch (error) {
       clearTimeout(timeoutId);
       
       if (error instanceof Error && error.name === 'AbortError') {
-        lastError = new Error("Claude API request timed out after 10 minutes");
+        lastError = new Error("Request timed out after 10 minutes");
         if (attempt < maxRetries) {
-          console.log(`[Claude] Timeout. Retrying ${attempt}/${maxRetries}...`);
+          console.log(`[Analysis] Timeout. Retrying ${attempt}/${maxRetries}...`);
           continue;
         }
         break;
@@ -1100,7 +1100,7 @@ async function callClaudeOpus(
     }
   }
 
-  throw lastError || new Error("Claude API call failed after all retries");
+  throw lastError || new Error("Analysis failed after all retries");
 }
 
 // ============================================
