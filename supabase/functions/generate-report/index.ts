@@ -199,7 +199,7 @@ const TIER_DOCUMENTS = {
 // ============================================
 const TIER_CONFIG = {
   standard: {
-    max_tokens: 12000,
+    max_tokens: 3000,
     temperature: 0.3, // Allow creativity for recommendations
     perplexity_searches: 0,
     system_prompt: (lang: string) => `Tu es un DIRECTEUR ASSOCIÉ de cabinet de conseil stratégique (BCG/McKinsey alumni, 15+ ans d'expérience).
@@ -250,7 +250,7 @@ RETOURNE UNIQUEMENT LE JSON VALIDE, sans texte avant/après.`,
   },
 
   pro: {
-    max_tokens: 24000,
+    max_tokens: 5000,
     temperature: 0.25, // Strategic thinking for Pro tier
     perplexity_searches: 5,
     system_prompt: (lang: string) => `Tu es un PRINCIPAL de cabinet de conseil stratégique tier-1 (ex-McKinsey/BCG/Bain, 10+ ans).
@@ -300,7 +300,7 @@ RETOURNE UNIQUEMENT LE JSON VALIDE.`,
   },
 
   agency: {
-    max_tokens: 64000,
+    max_tokens: 6000,
     temperature: 0.2, // Analytical but allows creative recommendations
     perplexity_searches: 12,
     system_prompt: (lang: string) => `Tu es un SENIOR PARTNER d'un cabinet de conseil stratégique de rang mondial.
