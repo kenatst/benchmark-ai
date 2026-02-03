@@ -1,83 +1,12 @@
-declare namespace Deno {
-    export interface Env {
-        get(key: string): string | undefined;
-        toObject(): { [index: string]: string };
-    }
-    export const env: Env;
-}
+/**
+ * Minimal Deno type declarations for Edge Functions
+ * These extend/augment the built-in Deno types without conflicting
+ */
 
+// The serve function from Deno's HTTP server
 declare function serve(handler: (req: Request) => Promise<Response> | Response): void;
 
-declare function fetch(input: string | Request, init?: RequestInit): Promise<Response>;
-
-interface Request {
-    method: string;
-    url: string;
-    json(): Promise<any>;
-    headers: Headers;
-}
-interface Response {
-    body: any;
-    status: number;
-    statusText: string;
-    ok: boolean;
-    headers: Headers;
-    json(): Promise<any>;
-    text(): Promise<string>;
-}
-declare var Request: {
-    prototype: Request;
-    new(input: string | Request, init?: RequestInit): Request;
-};
-declare var Response: {
-    prototype: Response;
-    new(body?: BodyInit | null, init?: ResponseInit): Response;
-    json(data: any, init?: ResponseInit): Response;
-};
-
-interface Headers {
-    get(name: string): string | null;
-    set(name: string, value: string): void;
-    append(name: string, value: string): void;
-    delete(name: string): void;
-    forEach(callbackfn: (value: string, key: string, parent: Headers) => void, thisArg?: any): void;
-}
-
-interface URL {
-    searchParams: URLSearchParams;
-}
-interface URLSearchParams {
-    get(name: string): string | null;
-}
-declare var URL: {
-    prototype: URL;
-    new(url: string, base?: string | URL): URL;
-};
-
-interface AbortSignal {
-    readonly aborted: boolean;
-    addEventListener(type: string, listener: EventListener): void;
-    removeEventListener(type: string, listener: EventListener): void;
-}
-
-type BodyInit = string | Blob | ArrayBuffer | FormData | URLSearchParams;
-
-interface RequestInit {
-    method?: string;
-    headers?: any;
-    body?: BodyInit | null;
-    signal?: AbortSignal | null;
-}
-interface ResponseInit {
-    status?: number;
-    statusText?: string;
-    headers?: any;
-}
-
-interface EventListener {
-    (evt: Event): void;
-}
-
-interface Event {
-    type: string;
+// EdgeRuntime for background tasks (Supabase-specific)
+declare namespace EdgeRuntime {
+  function waitUntil(promise: Promise<unknown>): void;
 }
