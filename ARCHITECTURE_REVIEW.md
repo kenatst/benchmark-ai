@@ -21,7 +21,7 @@
 ✅ Stack technique moderne et bien structuré (React 18, TypeScript, Supabase, Stripe)
 ✅ Architecture backend solide avec Edge Functions (Deno)
 ✅ RLS correctement configurée sur les tables DB
-✅ Intégration IA robuste (Claude Opus 4.5 + Perplexity)
+✅ Intégration IA robuste (GPT-5.2 + Perplexity)
 ✅ Flow utilisateur cohérent et bien pensé
 ✅ Support multi-langue (7 langues)
 
@@ -479,7 +479,7 @@ Zod est installé mais utilisé seulement pour Auth. Manque:
 - Validation des réponses API
 - Validation des données avant localStorage
 - Validation des webhook Stripe
-- Validation des réponses Claude JSON
+- Validation des réponses GPT-5.2 JSON
 
 **Fix Requis:** Créer schemas.ts centralisé
 ```typescript
@@ -646,7 +646,7 @@ Fallback sur URL hardcodée = exposition + maintenance nightmare
 ✅ Supabase pour auth/DB/storage - Bon choix SAAS
 ✅ Edge Functions (Deno) - Déploiement simple
 ✅ Stripe pour paiements - Intégration solide
-✅ Claude Opus 4.5 - IA performante
+✅ GPT-5.2 - IA performante
 ✅ React Query - Gestion cache efficace
 ✅ shadcn/ui - Composants qualité production
 
@@ -800,7 +800,7 @@ Security:       ❌ 8 npm + 3 code vulnerabilities
 │  │ 2. create-embedded-checkout (Stripe)                     │  │
 │  │ 3. stripe-webhook (Payment processing) [VULNERABLE]      │  │
 │  │ 4. verify-payment (Stripe session check)                 │  │
-│  │ 5. generate-report (Claude Opus 4.5 + Perplexity)        │  │
+│  │ 5. generate-report (GPT-5.2 + Perplexity)                  │  │
 │  │ 6. generate-pdf (PDF institutional styling)              │  │
 │  │ 7. generate-excel (XLSX export - Agency tier)            │  │
 │  │ 8. generate-slides (PPTX export - Agency tier)           │  │
@@ -812,7 +812,7 @@ Security:       ❌ 8 npm + 3 code vulnerabilities
     ┌─────────────────────────┼─┼─┼─────────────────────────┐
     ↓                         ↓ ↓ ↓                         ↓
 ┌────────────────────┐  ┌──────────────┐  ┌──────────────┐ ┌─────────┐
-│  Supabase Auth     │  │ Supabase DB  │  │ Stripe API   │ │Claude   │
+│  Supabase Auth     │  │ Supabase DB  │  │ Stripe API   │ │GPT-5.2  │
 │  (JWT + OAuth)     │  │ (PostgreSQL) │  │ (Payments)   │ │Perplexity
 │                    │  │              │  │              │ │         │
 │ ✅ RLS ON tables   │  │ ❌ Pub RLS   │  │ ❌ Webhook   │ │✅ Works │

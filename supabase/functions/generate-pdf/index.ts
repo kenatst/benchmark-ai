@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { PDFDocument, rgb, StandardFonts, PDFPage, PDFFont, RGB } from "https://esm.sh/pdf-lib@1.17.1";
+import { getAuthContext } from "../_shared.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -201,7 +202,7 @@ class InstitutionalPDFBuilder {
     });
 
     // Company name - left
-    this.currentPage.drawText('BENCHMARK IQ', {
+    this.currentPage.drawText('BENCHMARK AI', {
       x: PAGE.MARGIN_LEFT,
       y: 35,
       size: 7,
@@ -384,7 +385,7 @@ class InstitutionalPDFBuilder {
       color: COLORS.SILVER,
     });
 
-    page.drawText('Produit par Benchmark IQ™ — Intelligence Concurrentielle Automatisée', {
+    page.drawText('Produit par Benchmark AI™ — Intelligence Concurrentielle Automatisée', {
       x: PAGE.MARGIN_LEFT,
       y: 45,
       size: 8,
@@ -1630,29 +1631,57 @@ class InstitutionalPDFBuilder {
 // ============================================================================
 // MAIN HANDLER
 // ============================================================================
-serve(async (req) => {
+serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
     const { reportId } = await req.json();
+    if (!reportId) {
+      return new Response(JSON.stringify({ error: "reportId is required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     console.log(`[${reportId}] Starting INSTITUTIONAL-GRADE PDF generation`);
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") || "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || ""
     );
+    const supabaseClient = createClient(
+      Deno.env.get("SUPABASE_URL") || "",
+      Deno.env.get("SUPABASE_ANON_KEY") || ""
+    );
+
+    const authContext = await getAuthContext(req, supabaseClient);
+    if (authContext.authType === 'none') {
+      return new Response(JSON.stringify({ error: authContext.error || "Not authenticated" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Get report data
-    const { data: report, error: fetchError } = await supabase
+    const reportQuery = supabase
       .from("reports")
       .select("*")
-      .eq("id", reportId)
-      .single();
+      .eq("id", reportId);
+
+    const { data: report, error: fetchError } = authContext.authType === 'user'
+      ? await reportQuery.eq("user_id", authContext.userId).single()
+      : await reportQuery.single();
 
     if (fetchError || !report) {
       throw new Error(`Report not found: ${fetchError?.message}`);
+    }
+
+    if (authContext.authType === 'user' && report.status !== "ready") {
+      return new Response(JSON.stringify({ error: "Report not ready" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Sanitize ALL data to ensure WinAnsi compatibility

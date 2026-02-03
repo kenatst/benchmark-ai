@@ -26,7 +26,7 @@
 - **Fixes:**
   - Added `.env` to `.gitignore` ✅
   - Created `.env.example` template ✅
-  - Documented secret management in `SETUP_CLAUDE_API.md` ✅
+  - Documented secret management in `SETUP_AI_API.md` ✅
 - **Impact:** Secrets will no longer be committed
 
 ---
@@ -45,11 +45,11 @@
 - **Fix:** Restricted to owner-only access control
 - **Impact:** Only report owners can download their PDFs
 
-### 6. ✅ Claude API Not Being Called
-- **Root Cause:** `CLAUDE_API_KEY` not configured in Supabase secrets
-- **Fix:** Created `SETUP_CLAUDE_API.md` with step-by-step guide
-- **Impact:** Users now know how to configure Claude API
-- **Action Required:** User must add `CLAUDE_API_KEY` to Supabase secrets
+### 6. ✅ AI API Not Being Called
+- **Root Cause:** `OPENAI_API_KEY` not configured in Supabase secrets
+- **Fix:** Created `SETUP_AI_API.md` with step-by-step guide
+- **Impact:** Users now know how to configure AI API
+- **Action Required:** User must add `OPENAI_API_KEY` to Supabase secrets
 
 ---
 
@@ -123,7 +123,7 @@
 
 ## 📁 NEW FILES CREATED
 
-1. **SETUP_CLAUDE_API.md** - Complete setup guide for Claude API, Stripe, Perplexity
+1. **SETUP_AI_API.md** - Complete setup guide for AI API, Stripe, Perplexity
 2. **ARCHITECTURE_REVIEW.md** - Full security audit report (800+ lines)
 3. **SECURITY_HOTFIXES.md** - Immediate action items with code fixes
 4. **.env.example** - Environment variable template
@@ -138,9 +138,9 @@
 
 ### ✅ IMMEDIATELY (Before Testing)
 
-1. **Configure Claude API Key**
+1. **Configure OpenAI API Key**
    - Go to https://supabase.com/dashboard/project/phmhzbmlszbontpfeddk/settings/functions
-   - Add secret: `CLAUDE_API_KEY` = your API key from https://console.anthropic.com/account/keys
+   - Add secret: `OPENAI_API_KEY` = your API key from OpenAI
    - Without this, reports won't generate!
 
 2. **Apply Database Migrations**
@@ -172,8 +172,8 @@
 
 1. Check Supabase Function Logs:
    - https://supabase.com/dashboard/project/phmhzbmlszbontpfeddk/functions
-   - Look for: `[Claude] Calling Opus 4.5...`
-   - If error: `CLAUDE_API_KEY is not configured` → Go to step 1 above
+   - Look for: `[GPT-5.2] Calling V1...`
+   - If error: `OPENAI_API_KEY is not configured` → Go to step 1 above
 
 2. Check recent commits for configuration examples
 
@@ -207,7 +207,7 @@ df74a2d fix: CRITICAL security and functionality fixes
 
 ## ✅ VERIFICATION
 
-All commits are on branch: `claude/architecture-review-testing-kgUgD`
+All commits are on branch: `architecture-review-testing-kgUgD`
 
 The application now has:
 - ✅ No unsigned webhook requests
@@ -222,4 +222,4 @@ The application now has:
 
 ---
 
-**Next Step:** Configure Claude API key in Supabase secrets (see SETUP_CLAUDE_API.md)
+**Next Step:** Configure OpenAI API key in Supabase secrets (see SETUP_AI_API.md)

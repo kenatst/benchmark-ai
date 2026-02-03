@@ -64,3 +64,40 @@ export const getPowerpointHeaders = () => ({
   ...corsHeaders,
   "Content-Type": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 });
+
+// ============================================
+// AUTH HELPERS - Shared across Edge functions
+// ============================================
+export type AuthContext = {
+  authType: 'user' | 'service_role' | 'none';
+  userId?: string;
+  error?: string;
+};
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function getAuthContext(req: Request, supabaseClient: any): Promise<AuthContext> {
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader) {
+    return { authType: 'none', error: 'Not authenticated' };
+  }
+
+  const token = authHeader.replace("Bearer ", "").trim();
+  if (!token) {
+    return { authType: 'none', error: 'Not authenticated' };
+  }
+
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  if (serviceRoleKey && token === serviceRoleKey) {
+    return { authType: 'service_role' };
+  }
+
+  try {
+    const { data: { user }, error } = await supabaseClient.auth.getUser(token);
+    if (error || !user?.id) {
+      return { authType: 'none', error: 'Not authenticated' };
+    }
+    return { authType: 'user', userId: user.id };
+  } catch {
+    return { authType: 'none', error: 'Not authenticated' };
+  }
+}

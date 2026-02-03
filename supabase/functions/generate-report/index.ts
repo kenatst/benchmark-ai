@@ -5,7 +5,7 @@ import { z } from "https://esm.sh/zod@3.23.8";
 // FORCE REDEPLOY: 2026-02-03 14:15 UTC - Token limit fix
 // Import shared constants (eliminates CORS header duplication across 10+ functions)
 // @ts-ignore - Deno import
-import { corsHeaders, getJsonHeaders } from "../_shared.ts";
+import { corsHeaders, getAuthContext } from "../_shared.ts";
 
 // ============================================
 // GPT-5.2 MODEL - PRODUCTION ANALYSIS ENGINE
@@ -26,6 +26,8 @@ const LANGUAGE_CONFIG: Record<string, { name: string; code: string }> = {
   zh: { name: '中文', code: 'zh' },
 };
 
+type TierType = 'standard' | 'pro' | 'agency';
+
 // ============================================
 // ZOD SCHEMAS FOR GPT-5.2 OUTPUT VALIDATION
 // Ensures generated reports conform to expected structure before DB save
@@ -37,6 +39,8 @@ const ReportMetadataSchema = z.object({
   sector: z.string(),
   location: z.string(),
   tier: z.enum(['standard', 'pro', 'agency']),
+  sources_count: z.number().optional(),
+  word_count: z.number().optional(),
 });
 
 // Shared fields across all tiers
@@ -47,27 +51,30 @@ const BaseReportSchema = z.object({
     situation_actuelle: z.string(),
     opportunite_principale: z.string(),
   }).passthrough(),
-  sources: z.array(z.string()).optional(),
-});
+  sources: z.array(z.union([
+    z.string(),
+    z.object({ title: z.string(), url: z.string() })
+  ])).optional(),
+}).passthrough();
 
 // Standard tier schema - basic report structure
 const StandardReportSchema = BaseReportSchema.extend({
   competitive_landscape: z.object({}).passthrough().optional(),
   positioning_strategy: z.object({}).passthrough().optional(),
-});
+}).passthrough();
 
 // Pro tier schema - adds strategic analysis
 const ProReportSchema = StandardReportSchema.extend({
   market_opportunities: z.object({}).passthrough().optional(),
   go_to_market: z.object({}).passthrough().optional(),
-});
+}).passthrough();
 
 // Agency tier schema - most comprehensive
 const AgencyReportSchema = ProReportSchema.extend({
   financial_projections: z.object({}).passthrough().optional(),
   risk_analysis: z.object({}).passthrough().optional(),
   implementation_roadmap: z.object({}).passthrough().optional(),
-});
+}).passthrough();
 
 // Map tiers to their schemas
 const REPORT_SCHEMAS: Record<string, z.ZodSchema> = {
@@ -80,7 +87,7 @@ const REPORT_SCHEMAS: Record<string, z.ZodSchema> = {
 // DOCUMENT FORMAT SPECIFICATIONS
 // ============================================
 // Configuration for institutional-grade PDF, Excel, and PowerPoint generation
-const CLAUDE_SKILLS = {
+const GPT_SKILLS = {
   // PDF Processing skill - comprehensive PDF manipulation
   pdf: {
     trigger: "PDF, .pdf, form, extract, merge, split",
@@ -190,10 +197,83 @@ const TIER_DOCUMENTS = {
   agency: {
     outputs: ["pdf", "xlsx", "pptx"],
     pdfPages: "40-50 pages",
-    excelSheets: CLAUDE_SKILLS.xlsx.sheets.agency,
-    pptxSlides: CLAUDE_SKILLS.pptx.slides.agency,
+    excelSheets: GPT_SKILLS.xlsx.sheets.agency,
+    pptxSlides: GPT_SKILLS.pptx.slides.agency,
     description: "Complete institutional package: PDF report + Excel data model + PowerPoint deck"
   }
+};
+
+// ============================================
+// WORD TARGETS & SECTION PLANS (by tier)
+// ============================================
+type SectionPlanItem = {
+  key: string;
+  label: string;
+  wordTarget: number;
+  valueType: 'object' | 'array';
+};
+
+const WORD_TARGETS: Record<TierType, { min: number; target: number; max: number }> = {
+  standard: { min: 2000, target: 2400, max: 3000 },
+  pro: { min: 4000, target: 5000, max: 6000 },
+  agency: { min: 8000, target: 9500, max: 12000 },
+};
+
+const SECTION_PLANS: Record<TierType, SectionPlanItem[]> = {
+  standard: [
+    { key: "executive_summary", label: "Résumé exécutif", wordTarget: 250, valueType: "object" },
+    { key: "market_context", label: "Contexte marché", wordTarget: 400, valueType: "object" },
+    { key: "competitive_landscape", label: "Analyse concurrentielle", wordTarget: 600, valueType: "object" },
+    { key: "positioning_recommendations", label: "Positionnement & messaging", wordTarget: 350, valueType: "object" },
+    { key: "pricing_strategy", label: "Stratégie pricing", wordTarget: 300, valueType: "object" },
+    { key: "go_to_market", label: "Go-to-market", wordTarget: 300, valueType: "object" },
+    { key: "action_plan", label: "Plan d'action 30/60/90", wordTarget: 200, valueType: "object" },
+    { key: "financial_projections_basic", label: "Projections financières light", wordTarget: 200, valueType: "object" },
+    { key: "multi_location_comparison", label: "Comparatif multi-localisations", wordTarget: 200, valueType: "object" },
+    { key: "risks_and_considerations", label: "Risques & considérations", wordTarget: 150, valueType: "object" },
+    { key: "assumptions_and_limitations", label: "Hypothèses & limites", wordTarget: 80, valueType: "array" },
+    { key: "next_steps_to_validate", label: "Prochaines validations", wordTarget: 60, valueType: "array" },
+    { key: "sources", label: "Sources", wordTarget: 60, valueType: "array" },
+  ],
+  pro: [
+    { key: "executive_summary", label: "Résumé exécutif", wordTarget: 350, valueType: "object" },
+    { key: "market_context", label: "Contexte marché", wordTarget: 600, valueType: "object" },
+    { key: "market_intelligence", label: "Market intelligence", wordTarget: 600, valueType: "object" },
+    { key: "competitive_landscape", label: "Analyse concurrentielle", wordTarget: 900, valueType: "object" },
+    { key: "competitive_intelligence", label: "Competitive intelligence", wordTarget: 700, valueType: "object" },
+    { key: "customer_insights", label: "Customer insights", wordTarget: 450, valueType: "object" },
+    { key: "positioning_recommendations", label: "Positionnement & messaging", wordTarget: 450, valueType: "object" },
+    { key: "pricing_strategy", label: "Stratégie pricing", wordTarget: 450, valueType: "object" },
+    { key: "go_to_market", label: "Go-to-market", wordTarget: 350, valueType: "object" },
+    { key: "action_plan", label: "Plan d'action", wordTarget: 250, valueType: "object" },
+    { key: "financial_projections_basic", label: "Projections financières basiques", wordTarget: 250, valueType: "object" },
+    { key: "multi_location_comparison", label: "Comparatif multi-localisations", wordTarget: 250, valueType: "object" },
+    { key: "risks_and_considerations", label: "Risques & considérations", wordTarget: 200, valueType: "object" },
+    { key: "assumptions_and_limitations", label: "Hypothèses & limites", wordTarget: 120, valueType: "array" },
+    { key: "next_steps_to_validate", label: "Prochaines validations", wordTarget: 80, valueType: "array" },
+    { key: "sources", label: "Sources", wordTarget: 120, valueType: "array" },
+  ],
+  agency: [
+    { key: "executive_summary", label: "Résumé exécutif", wordTarget: 600, valueType: "object" },
+    { key: "methodology", label: "Méthodologie", wordTarget: 500, valueType: "object" },
+    { key: "market_overview_detailed", label: "Panorama marché détaillé", wordTarget: 900, valueType: "object" },
+    { key: "territory_analysis", label: "Analyse territoriale", wordTarget: 700, valueType: "object" },
+    { key: "market_analysis", label: "Analyse marché (PESTEL/Porter)", wordTarget: 900, valueType: "object" },
+    { key: "competitive_intelligence", label: "Benchmark concurrentiel", wordTarget: 1200, valueType: "object" },
+    { key: "scoring_matrix", label: "Matrice de scoring", wordTarget: 600, valueType: "object" },
+    { key: "trends_analysis", label: "Tendances", wordTarget: 500, valueType: "object" },
+    { key: "swot_analysis", label: "SWOT", wordTarget: 400, valueType: "object" },
+    { key: "customer_intelligence", label: "Customer intelligence", wordTarget: 700, valueType: "object" },
+    { key: "strategic_recommendations", label: "Stratégie complète", wordTarget: 1200, valueType: "object" },
+    { key: "financial_projections", label: "Projections financières", wordTarget: 900, valueType: "object" },
+    { key: "detailed_roadmap", label: "Roadmap détaillée", wordTarget: 700, valueType: "object" },
+    { key: "implementation_roadmap", label: "Implementation roadmap", wordTarget: 500, valueType: "object" },
+    { key: "risk_register", label: "Risk register", wordTarget: 300, valueType: "array" },
+    { key: "appendices", label: "Annexes", wordTarget: 200, valueType: "object" },
+    { key: "multi_market_comparison", label: "Comparatif multi-marchés", wordTarget: 300, valueType: "object" },
+    { key: "assumptions_and_limitations", label: "Hypothèses & limites", wordTarget: 200, valueType: "array" },
+    { key: "sources", label: "Sources", wordTarget: 300, valueType: "array" },
+  ],
 };
 
 // ============================================
@@ -203,7 +283,9 @@ const TIER_CONFIG = {
   standard: {
     max_tokens: 3000,
     temperature: 0.3, // Allow creativity for recommendations
-    perplexity_searches: 0,
+    perplexity_searches: 4,
+    word_targets: WORD_TARGETS.standard,
+    section_plan: SECTION_PLANS.standard,
     system_prompt: (lang: string) => `Tu es un DIRECTEUR ASSOCIÉ de cabinet de conseil stratégique (BCG/McKinsey alumni, 15+ ans d'expérience).
 
 LANGUE DE RAPPORT: ${LANGUAGE_CONFIG[lang]?.name || 'Français'} - TOUT le rapport doit être rédigé dans cette langue.
@@ -218,14 +300,19 @@ Qualité attendue: Deck présentable à un C-Level sans modification.
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
 → LONGUEUR CIBLE: 2000-3000 mots de contenu substantiel (équivalent 12-15 pages PDF)
-→ CONCURRENTS: Analyser 3-5 concurrents (ceux fournis par l'utilisateur uniquement)
-→ SOURCES: Citer les URLs fournis par l'utilisateur, PAS de recherche web externe
+→ CONCURRENTS: Analyser 3-5 concurrents (ceux fournis par l'utilisateur en priorité; compléter si <3)
+→ RECHERCHE WEB: AUTOMATIQUE (light) pour pricing + marché
+→ MULTI-LOCALISATIONS: 1-2 marchés comparables
+→ PROJECTIONS FINANCIÈRES: light (ordre de grandeur + hypothèses claires)
+→ SOURCES: Citer les URLs fournies + sources web pertinentes
 → SECTIONS OBLIGATOIRES:
   • Résumé Exécutif (headline + situation + opportunité + 3-5 points clés)
   • Contexte Marché (vue secteur + spécificités locales + maturité + segments)
   • Analyse Concurrentielle (intensité + profils concurrents + gaps + position)
   • Recommandations Positionnement (cible + proposition valeur + taglines + messages)
   • Stratégie Pricing (benchmarks + packages recommandés + quick wins)
+  • Comparatif Multi-Localisations (1-2 marchés)
+  • Projections Financières Light (ordre de grandeur + hypothèses)
   • Go-to-Market (canaux prioritaires + contenu + partenariats)
   • Plan d'Action 30/60/90 jours (actions + owners + outcomes)
 
@@ -254,7 +341,9 @@ RETOURNE UNIQUEMENT LE JSON VALIDE, sans texte avant/après.`,
   pro: {
     max_tokens: 5000,
     temperature: 0.25, // Strategic thinking for Pro tier
-    perplexity_searches: 5,
+    perplexity_searches: 10,
+    word_targets: WORD_TARGETS.pro,
+    section_plan: SECTION_PLANS.pro,
     system_prompt: (lang: string) => `Tu es un PRINCIPAL de cabinet de conseil stratégique tier-1 (ex-McKinsey/BCG/Bain, 10+ ans).
 
 LANGUE DE RAPPORT: ${LANGUAGE_CONFIG[lang]?.name || 'Français'} - TOUT le rapport doit être rédigé dans cette langue.
@@ -278,7 +367,7 @@ Qualité attendue: Présentable à un Investment Committee / Board Advisor.
   • Customer Insights (pain points + besoins non satisfaits + switching barriers)
   • Pricing Table avec données concurrents réelles
   • Projections financières basiques (benchmarks CAC/LTV sectoriels)
-  • Multi-localisation: analyse de 1-2 marchés géographiques
+  • Multi-localisation: analyse de 1-2 marchés géographiques comparés
 
 TU DISPOSES DE DONNÉES DE RECHERCHE WEB - UTILISE-LES INTENSIVEMENT:
 
@@ -304,7 +393,9 @@ RETOURNE UNIQUEMENT LE JSON VALIDE.`,
   agency: {
     max_tokens: 6000,
     temperature: 0.2, // Analytical but allows creative recommendations
-    perplexity_searches: 12,
+    perplexity_searches: 16,
+    word_targets: WORD_TARGETS.agency,
+    section_plan: SECTION_PLANS.agency,
     system_prompt: (lang: string) => `Tu es un SENIOR PARTNER d'un cabinet de conseil stratégique de rang mondial.
 Expérience: 20+ ans, dont 5+ en tant que Partner. Background: Harvard MBA, ex-McKinsey Director.
 
@@ -399,6 +490,7 @@ CONTRAINTES ABSOLUES (MODE INSTITUTIONAL)
 3. PROFONDEUR D'ANALYSE
    ✓ Panorama marché avec chiffres clés sourcés
    ✓ Analyse territoriale micro-locale (quartiers, démographie, immobilier commercial)
+   ✓ Analyse comparative multi-marchés (1-3 zones pertinentes)
    ✓ Benchmark concurrentiel détaillé avec profils complets
    ✓ Tendances sectorielles catégorisées (produit/service/consommateur/surveillance)
    ✓ 3 scenarios financiers: Conservative (-20%), Baseline, Optimistic (+30%)
@@ -445,7 +537,6 @@ interface ReportInput {
   reportLanguage?: string;
 }
 
-type TierType = keyof typeof TIER_CONFIG;
 
 // ============================================
 // STRUCTURED LOGGING HELPER
@@ -478,6 +569,105 @@ function reportLog(reportId: string, level: 'INFO' | 'SUCCESS' | 'WARN' | 'ERROR
     duration
   };
   console.log(formatLog(entry));
+}
+
+// ============================================
+// JSON & TEXT HELPERS
+// ============================================
+function extractTextFromResponse(data: unknown): string {
+  if (!data) return "";
+  const anyData = data as any;
+
+  if (typeof anyData.output_text === 'string') return anyData.output_text;
+
+  if (Array.isArray(anyData.output)) {
+    const chunks: string[] = [];
+    for (const item of anyData.output) {
+      if (typeof item === 'string') {
+        chunks.push(item);
+        continue;
+      }
+      if (typeof item?.content === 'string') {
+        chunks.push(item.content);
+        continue;
+      }
+      if (Array.isArray(item?.content)) {
+        for (const c of item.content) {
+          if (typeof c === 'string') {
+            chunks.push(c);
+          } else if (c?.type === 'output_text' && typeof c?.text === 'string') {
+            chunks.push(c.text);
+          } else if (typeof c?.text === 'string') {
+            chunks.push(c.text);
+          }
+        }
+      }
+    }
+    if (chunks.length > 0) return chunks.join("\n");
+  }
+
+  if (typeof anyData.content === 'string') return anyData.content;
+  if (anyData.choices && Array.isArray(anyData.choices) && anyData.choices.length > 0) {
+    const choice = anyData.choices[0];
+    if (choice.message?.content) return choice.message.content;
+    if (choice.text) return choice.text;
+  }
+
+  if (typeof anyData === 'string') return anyData;
+  return "";
+}
+
+function extractJsonString(content: string): string {
+  const trimmed = content.trim();
+  if (trimmed.startsWith('{') || trimmed.startsWith('[')) return trimmed;
+  const jsonMatch = trimmed.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
+  return jsonMatch ? jsonMatch[0] : trimmed;
+}
+
+function safeJsonParse(content: string): unknown {
+  const clean = content
+    .replace(/```json\n?/g, "")
+    .replace(/```\n?/g, "")
+    .trim();
+  const json = extractJsonString(clean);
+  return JSON.parse(json);
+}
+
+function collectStrings(value: unknown, acc: string[] = []): string[] {
+  if (typeof value === 'string') {
+    acc.push(value);
+    return acc;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) collectStrings(item, acc);
+    return acc;
+  }
+  if (value && typeof value === 'object') {
+    for (const v of Object.values(value)) collectStrings(v, acc);
+  }
+  return acc;
+}
+
+function countWordsInObject(value: unknown): number {
+  const strings = collectStrings(value, []);
+  const combined = strings.join(" ").trim();
+  if (!combined) return 0;
+  return combined.split(/\s+/).filter(Boolean).length;
+}
+
+function getSectionSchema(sectionKey: string, valueType: 'object' | 'array'): Record<string, unknown> {
+  const valueSchema = valueType === 'array'
+    ? { type: "array", items: {} }
+    : { type: "object", additionalProperties: true };
+
+  return {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      [sectionKey]: valueSchema,
+    },
+    required: [sectionKey],
+  };
 }
 
 // ============================================
@@ -599,7 +789,7 @@ async function conductResearch(
   const tierConfig = TIER_CONFIG[tier];
   const searchCount = tierConfig.perplexity_searches;
 
-  if (searchCount === 0) {
+  if ((searchCount as number) === 0) {
     console.log(`[${reportId}] Standard tier - no web research`);
     return "Aucune recherche web pour ce tier.";
   }
@@ -609,6 +799,14 @@ async function conductResearch(
 
   const queries: string[] = [];
 
+  if (tier === 'standard') {
+    const competitorNames = input.competitors?.map(c => c.name).join(', ') || 'principaux acteurs';
+    queries.push(`Prix et tarifs de ${competitorNames} dans le secteur ${input.sector} en ${input.location.country} 2024 2025`);
+    queries.push(`Taille marché ${input.sector} ${input.location.country} 2024 2025 estimation`);
+    queries.push(`Tendances clés ${input.sector} ${input.location.country} 2025`);
+    queries.push(`Comparatif localisation ${input.location.country} ${input.location.city} zones similaires ${input.sector}`);
+  }
+
   if (tier === 'pro' || tier === 'agency') {
     const competitorNames = input.competitors?.map(c => c.name).join(', ') || 'principaux acteurs';
     queries.push(`Prix et tarifs de ${competitorNames} dans le secteur ${input.sector} en ${input.location.country} 2024 2025`);
@@ -616,6 +814,11 @@ async function conductResearch(
     queries.push(`Taille marché ${input.sector} ${input.location.country} TAM SAM milliards euros 2024 2025`);
     queries.push(`Benchmarks CAC LTV coût acquisition client ${input.sector} SaaS B2B B2C 2024`);
     queries.push(`${competitorNames} levée fonds employees chiffre affaires ${input.sector}`);
+    queries.push(`Avis clients et ratings ${input.sector} ${input.location.country} concurrents principaux`);
+    queries.push(`Trafic web estimé ${input.sector} ${input.location.country} concurrents`);
+    queries.push(`Comparatif pricing ${input.sector} ${input.location.country} offres budget premium`);
+    queries.push(`Barrières à l'entrée ${input.sector} ${input.location.country} réglementation`);
+    queries.push(`Segments de marché ${input.sector} ${input.location.country} segmentation clients`);
   }
 
   if (tier === 'agency') {
@@ -624,6 +827,12 @@ async function conductResearch(
     queries.push(`Innovation technologique disruption ${input.sector} IA automatisation 2025 startups`);
     queries.push(`Actualités récentes ${input.sector} ${input.location.country} acquisitions lancements 2024`);
     queries.push(`Unit economics ${input.sector} marge brute gross margin payback period benchmarks`);
+    queries.push(`Données territoriales ${input.location.city} ${input.location.country} démographie revenu immobilier commercial`);
+    queries.push(`Comparatif multi-marchés ${input.sector} Europe tendances prix et marges`);
+    queries.push(`Benchmarks opérationnels ${input.sector} productivité coûts fixes variables`);
+    queries.push(`Tendances consommateurs ${input.sector} ${input.location.country} 2025`);
+    queries.push(`Part de marché acteurs clés ${input.sector} ${input.location.country}`);
+    queries.push(`Prix immobilier commercial ${input.location.city} ${input.location.country} zones clés`);
   }
 
   // ============================================
@@ -638,7 +847,7 @@ async function conductResearch(
     const searchPromises = queriesToSearch.map((query, i) => {
       // Update progress every 3 searches
       if (i % 3 === 0) {
-        updateProgress(supabase, reportId, `Recherches web (${i + 1}/${searchCount})...`, 15 + Math.floor((i / searchCount) * 20)).catch(() => {});
+        updateProgress(supabase, reportId, `Recherches web (${i + 1}/${searchCount})...`, 15 + Math.floor((i / searchCount) * 20)).catch(() => { });
       }
 
       return searchWithPerplexity(perplexityKey, query, context)
@@ -686,7 +895,7 @@ ${result.citations.map((c, i) => `[${i + 1}] ${c}`).join('\n') || 'Aucune source
 // ============================================
 // PROMPT BUILDERS
 // ============================================
-function buildUserPrompt(input: ReportInput, plan: TierType, researchData: string): string {
+function buildReportBrief(input: ReportInput, plan: TierType, researchData: string): string {
   const competitorsList = input.competitors?.length > 0
     ? input.competitors.map((c, i) => {
       let line = `${i + 1}. ${c.name}`;
@@ -766,7 +975,7 @@ Ton souhaité: ${input.tonePreference}
 ${input.notes ? `Notes additionnelles: ${input.notes}` : ""}
 </constraints>`;
 
-  if (plan === "pro" || plan === "agency") {
+  if (plan === "standard" || plan === "pro" || plan === "agency") {
     prompt += `
 
 ${researchData}
@@ -783,9 +992,11 @@ INSTRUCTIONS CRITIQUES POUR L'UTILISATION DES DONNÉES DE RECHERCHE
 `;
   }
 
-  prompt += getJsonSchema(plan);
-
   return prompt;
+}
+
+function buildUserPrompt(input: ReportInput, plan: TierType, researchData: string): string {
+  return `${buildReportBrief(input, plan, researchData)}${getJsonSchema(plan)}`;
 }
 
 function getJsonSchema(plan: TierType): string {
@@ -794,7 +1005,7 @@ function getJsonSchema(plan: TierType): string {
 
 <json_schema>
 {
-  "report_metadata": { "title": "string", "generated_date": "YYYY-MM-DD", "business_name": "string", "sector": "string", "location": "string", "tier": "agency", "sources_count": number },
+  "report_metadata": { "title": "string", "generated_date": "YYYY-MM-DD", "business_name": "string", "sector": "string", "location": "string", "tier": "agency", "sources_count": number, "word_count": number },
   
   "executive_summary": { 
     "one_page_summary": "string (500 mots max, style consulting institutionnel)", 
@@ -913,6 +1124,8 @@ function getJsonSchema(plan: TierType): string {
   
   "risk_register": [{ "risk": "string", "impact": "Élevé/Moyen/Faible", "probability": "Élevé/Moyen/Faible", "mitigation": "string", "contingency": "string" }],
   
+  "multi_market_comparison": { "markets": [{ "market": "string", "why_selected": "string", "key_differences": ["string"], "opportunity_score": "1-10" }], "recommendation": "string" },
+  
   "appendices": {
     "glossary": [{ "term": "string", "definition": "string" }],
     "sources_by_category": [{ "category": "string (Données marché/Données territoriales/Sources sectorielles)", "sources": ["string"] }],
@@ -934,7 +1147,7 @@ Génère le rapport AGENCY-GRADE INSTITUTIONNEL complet (25+ pages équivalent).
 
 <json_schema>
 {
-  "report_metadata": { "title": "string", "generated_date": "YYYY-MM-DD", "business_name": "string", "sector": "string", "location": "string", "tier": "pro", "sources_count": number },
+  "report_metadata": { "title": "string", "generated_date": "YYYY-MM-DD", "business_name": "string", "sector": "string", "location": "string", "tier": "pro", "sources_count": number, "word_count": number },
   "executive_summary": { "headline": "string - accroche impactante", "situation_actuelle": "string", "opportunite_principale": "string", "key_findings": ["string - 3-5 points clés actionnables"], "urgency_level": "Critique/Élevé/Modéré", "urgency_rationale": "string", "market_size_estimate": "string avec €", "growth_rate": "string %" },
   "market_context": { "sector_overview": "string", "local_market_specifics": "string", "market_maturity": "string", "target_segments": [{ "segment_name": "string", "size_estimate": "string", "accessibility": "Facile/Moyen/Difficile", "value_potential": "Élevé/Moyen/Faible", "why_relevant": "string" }], "key_trends_impacting": ["string"] },
   "market_intelligence": { "sector_trends_2026": [{ "trend": "string", "impact_on_you": "string", "how_to_leverage": "string action concrète" }], "local_market_data": { "market_maturity": "string", "key_players_count": "string", "market_size_estimate": "string avec €", "growth_rate": "string %", "insights": ["string"] } },
@@ -945,6 +1158,8 @@ Génère le rapport AGENCY-GRADE INSTITUTIONNEL complet (25+ pages équivalent).
   "pricing_strategy": { "current_assessment": "string", "market_benchmarks": { "budget_tier": "string en €", "mid_tier": "string en €", "premium_tier": "string en €" }, "competitor_pricing_table": [{ "competitor": "string", "offer": "string", "price": "string en €" }], "recommended_pricing": [{ "package_name": "string", "suggested_price": "string en €", "what_includes": ["string"], "rationale": "string" }], "quick_wins": ["string - gains rapides pricing"], "upsell_opportunities": ["string"] },
   "go_to_market": { "priority_channels": [{ "channel": "string", "priority": "1/2/3", "why": "string", "first_action": "string - action concrète J+1", "expected_cac": "string en €", "expected_timeline": "string" }], "content_strategy": { "topics_to_own": ["string"], "content_gaps": ["string"], "content_formats": ["string"], "thought_leadership_opportunities": ["string"] }, "partnership_opportunities": ["string avec noms concrets"] },
   "action_plan": { "now_7_days": [{ "action": "string commençant par verbe", "owner": "string rôle", "outcome": "string résultat attendu" }], "days_8_30": [{ "action": "string", "owner": "string", "outcome": "string" }], "days_31_90": [{ "action": "string", "owner": "string", "outcome": "string" }], "quick_wins_with_proof": [{ "action": "string", "why_now": "string", "expected_impact": "string chiffré" }] },
+  "financial_projections_basic": { "revenue_range": "string en €", "assumptions": ["string"], "kpi_targets": ["string"] },
+  "multi_location_comparison": { "markets": [{ "market": "string", "key_differences": ["string"], "opportunity_score": "1-10" }], "recommended_market": "string", "rationale": "string" },
   "risks_and_considerations": { "market_risks": ["string"], "competitive_threats": ["string"], "regulatory_considerations": ["string"] },
   "assumptions_and_limitations": ["string"],
   "next_steps_to_validate": ["string - hypothèses à tester"],
@@ -960,7 +1175,7 @@ Génère le rapport PREMIUM complet. RETOURNE UNIQUEMENT LE JSON.`;
 
 <json_schema>
 {
-  "report_metadata": { "title": "string", "generated_date": "YYYY-MM-DD", "business_name": "string", "sector": "string", "location": "string", "tier": "standard" },
+  "report_metadata": { "title": "string", "generated_date": "YYYY-MM-DD", "business_name": "string", "sector": "string", "location": "string", "tier": "standard", "sources_count": number, "word_count": number },
   "executive_summary": { "headline": "string - accroche impactante max 15 mots", "situation_actuelle": "string", "opportunite_principale": "string", "key_findings": ["string - 3-5 points clés"], "urgency_level": "Critique/Élevé/Modéré", "urgency_rationale": "string" },
   "market_context": { "sector_overview": "string", "local_market_specifics": "string", "market_maturity": "Émergent/En croissance/Mature/Saturé", "target_segments": [{ "segment_name": "string", "size_estimate": "string", "accessibility": "Facile/Moyen/Difficile", "value_potential": "Élevé/Moyen/Faible", "why_relevant": "string" }], "key_trends_impacting": ["string"] },
   "competitive_landscape": { "competition_intensity": "Élevée/Moyenne/Faible", "competitors_analyzed": [{ "name": "string", "type": "Direct/Indirect/Substitut", "positioning": "string", "strengths": ["string max 3"], "weaknesses": ["string max 3"], "price_range": "string en €", "differentiation": "string", "threat_level": "Élevé/Moyen/Faible" }], "competitive_gaps": ["string"], "your_current_position": "string", "differentiation_opportunities": [{ "angle": "string", "feasibility": "Facile/Moyen/Difficile", "impact": "Élevé/Moyen/Faible", "description": "string" }] },
@@ -968,13 +1183,170 @@ Génère le rapport PREMIUM complet. RETOURNE UNIQUEMENT LE JSON.`;
   "pricing_strategy": { "current_assessment": "string", "market_benchmarks": { "budget_tier": "string en €", "mid_tier": "string en €", "premium_tier": "string en €" }, "recommended_pricing": [{ "package_name": "string", "suggested_price": "string en €", "what_includes": ["string"], "rationale": "string" }], "quick_wins": ["string"] },
   "go_to_market": { "priority_channels": [{ "channel": "string", "priority": "1/2/3", "why": "string", "first_action": "string action concrète", "expected_cac": "string", "expected_timeline": "string" }], "content_strategy": { "topics_to_own": ["string"], "content_formats": ["string"], "distribution_approach": "string" }, "partnership_opportunities": ["string"] },
   "action_plan": { "now_7_days": [{ "action": "string commençant par verbe d'action", "owner": "string", "outcome": "string résultat attendu" }], "days_8_30": [{ "action": "string", "owner": "string", "outcome": "string" }], "days_31_90": [{ "action": "string", "owner": "string", "outcome": "string" }] },
+  "financial_projections_basic": { "revenue_range": "string en €", "assumptions": ["string"], "kpi_targets": ["string"] },
+  "multi_location_comparison": { "markets": [{ "market": "string", "key_differences": ["string"], "opportunity_score": "1-10" }], "recommended_market": "string", "rationale": "string" },
   "risks_and_considerations": [{ "risk": "string", "impact": "Élevé/Moyen/Faible", "mitigation": "string" }],
   "assumptions_and_limitations": ["string"],
-  "next_steps_to_validate": ["string"]
+  "next_steps_to_validate": ["string"],
+  "sources": [{ "title": "string", "url": "string" }]
 }
 </json_schema>
 
 Génère le rapport de benchmark. RETOURNE UNIQUEMENT LE JSON.`;
+}
+
+// ============================================
+// SECTION GENERATION (multi-pass)
+// ============================================
+function estimateMaxTokens(wordTarget: number, tierMaxTokens: number): number {
+  const estimate = Math.ceil(wordTarget * 2);
+  return Math.min(tierMaxTokens, Math.max(600, estimate));
+}
+
+function buildSectionPrompt(
+  reportBrief: string,
+  section: SectionPlanItem,
+  existingSection?: unknown
+): string {
+  const expandNote = existingSection
+    ? `OBJECTIF: ÉTENDRE la section existante pour atteindre ~${section.wordTarget} mots, sans supprimer d'information.`
+    : `OBJECTIF: Générer la section complète (~${section.wordTarget} mots).`;
+
+  const existingJson = existingSection
+    ? `\nSECTION_EXISTANTE_JSON:\n${JSON.stringify({ [section.key]: existingSection })}\n`
+    : "";
+
+  return `
+${reportBrief}
+
+<section_instructions>
+SECTION: ${section.label} (${section.key})
+${expandNote}
+CONTRAINTES:
+- Répondre UNIQUEMENT en JSON valide.
+- Le JSON doit contenir UNE SEULE clé racine: "${section.key}".
+- Si une donnée est inconnue: écrire "non trouvé" ou "données non disponibles".
+- Citer les sources disponibles dans le champ "sources" si pertinent.
+- Respecte strictement la structure attendue pour cette section.
+</section_instructions>
+${existingJson}`.trim();
+}
+
+async function repairSectionJson(
+  apiKey: string,
+  section: SectionPlanItem,
+  brokenJson: string
+): Promise<unknown> {
+  const responseFormat = {
+    type: "json_schema",
+    json_schema: {
+      name: `${section.key}_repair`,
+      schema: getSectionSchema(section.key, section.valueType),
+      strict: true,
+    },
+  } as const;
+
+  const systemPrompt = `Tu es un assistant de correction JSON. Retourne un JSON valide correspondant strictement au schéma demandé.`;
+  const userPrompt = `JSON À RÉPARER:\n${brokenJson}\n\nRÉPARE ET RETOURNE UNIQUEMENT LE JSON.`;
+
+  const content = await callGPT52(
+    apiKey,
+    systemPrompt,
+    userPrompt,
+    1200,
+    0.1,
+    responseFormat
+  );
+
+  return safeJsonParse(content);
+}
+
+async function generateSection(
+  apiKey: string,
+  systemPrompt: string,
+  tierConfig: typeof TIER_CONFIG[TierType],
+  reportBrief: string,
+  section: SectionPlanItem,
+  existingSection?: unknown
+): Promise<unknown> {
+  const responseFormat = {
+    type: "json_schema",
+    json_schema: {
+      name: `${section.key}_schema`,
+      schema: getSectionSchema(section.key, section.valueType),
+      strict: true,
+    },
+  } as const;
+
+  const userPrompt = buildSectionPrompt(reportBrief, section, existingSection);
+  const maxTokens = estimateMaxTokens(section.wordTarget, tierConfig.max_tokens);
+
+  const content = await callGPT52(
+    apiKey,
+    systemPrompt,
+    userPrompt,
+    maxTokens,
+    tierConfig.temperature,
+    responseFormat
+  );
+
+  try {
+    return safeJsonParse(content);
+  } catch (error) {
+    console.warn(`[Section] JSON parse failed for ${section.key}. Attempting repair...`, error);
+    try {
+      return repairSectionJson(apiKey, section, content);
+    } catch (repairError) {
+      console.error(`[Section] Repair failed for ${section.key}:`, repairError);
+      return { [section.key]: section.valueType === 'array' ? [] : {} };
+    }
+  }
+}
+
+function normalizeSources(value: unknown): Array<{ title: string; url: string }> {
+  if (!Array.isArray(value)) return [];
+  const normalized: Array<{ title: string; url: string }> = [];
+
+  for (const item of value) {
+    if (!item) continue;
+    if (typeof item === 'string') {
+      const urlMatch = item.match(/https?:\/\/\S+/);
+      const url = urlMatch?.[0] || "";
+      const title = item.replace(url, "").trim() || url || "Source";
+      normalized.push({ title, url });
+      continue;
+    }
+    if (typeof item === 'object') {
+      const anyItem = item as any;
+      const title = typeof anyItem.title === 'string' ? anyItem.title : 'Source';
+      const url = typeof anyItem.url === 'string' ? anyItem.url : '';
+      normalized.push({ title, url });
+    }
+  }
+  return normalized;
+}
+
+function mergeSources(
+  primary: Array<{ title: string; url: string }>,
+  secondary: Array<{ title: string; url: string }>
+): Array<{ title: string; url: string }> {
+  const map = new Map<string, { title: string; url: string }>();
+  for (const s of [...primary, ...secondary]) {
+    const key = s.url || s.title;
+    if (!map.has(key)) map.set(key, s);
+  }
+  return Array.from(map.values());
+}
+
+function buildUserSources(input: ReportInput): Array<{ title: string; url: string }> {
+  const sources: Array<{ title: string; url: string }> = [];
+  if (input.website) {
+    sources.push({ title: input.businessName, url: input.website });
+  }
+  for (const c of input.competitors || []) {
+    if (c.url) sources.push({ title: c.name, url: c.url });
+  }
+  return sources;
 }
 
 // ============================================
@@ -986,6 +1358,7 @@ async function callGPT52(
   userPrompt: string,
   maxTokens: number,
   temperature: number,
+  responseFormat?: { type: "json_schema"; json_schema: { name: string; schema: Record<string, unknown>; strict: boolean } },
   maxRetries: number = 3
 ): Promise<string> {
   console.log(`[Analysis] Processing with ${maxTokens} max tokens (GPT-5.2)`);
@@ -1000,7 +1373,7 @@ async function callGPT52(
     const timeoutMs = 600000; // 10 minutes for full generation
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
-      console.error(`[Analysis] Request timeout after ${timeoutMs/1000}s (attempt ${attempt})`);
+      console.error(`[Analysis] Request timeout after ${timeoutMs / 1000}s (attempt ${attempt})`);
       controller.abort();
     }, timeoutMs);
 
@@ -1025,6 +1398,7 @@ async function callGPT52(
           ],
           temperature: temperature,
           max_output_tokens: effectiveMaxTokens,
+          ...(responseFormat ? { response_format: responseFormat } : {}),
         }),
         signal: controller.signal,
       });
@@ -1082,27 +1456,7 @@ async function callGPT52(
       console.log(`[Analysis] Response received from GPT-5.2`);
 
       // Extract content from GPT-5.2 response
-      let content = "";
-
-      // Try multiple response formats for compatibility
-      if (typeof data === 'string') {
-        // Direct string response
-        content = data;
-      } else if (data.content) {
-        // Direct content field
-        content = typeof data.content === 'string' ? data.content : JSON.stringify(data.content);
-      } else if (data.choices && Array.isArray(data.choices) && data.choices.length > 0) {
-        // Standard OpenAI format with choices
-        const choice = data.choices[0];
-        if (choice.message?.content) {
-          content = choice.message.content;
-        } else if (choice.text) {
-          content = choice.text;
-        }
-      } else if (data.output) {
-        // Output field format
-        content = typeof data.output === 'string' ? data.output : JSON.stringify(data.output);
-      }
+      const content = extractTextFromResponse(data);
 
       if (!content) {
         throw new Error("No content in GPT-5.2 response: " + JSON.stringify(data).substring(0, 200));
@@ -1148,23 +1502,24 @@ async function runGenerationAsync(
     }
 
     const PERPLEXITY_API_KEY = Deno.env.get("PERPLEXITY_API_KEY");
-    if (!PERPLEXITY_API_KEY && (plan === "pro" || plan === "agency")) {
-      throw new Error("PERPLEXITY_API_KEY is required for Pro and Agency tiers");
-    }
 
     const tierConfig = TIER_CONFIG[plan];
-    const reportLang = inputData.reportLanguage || 'fr';
+    if (tierConfig.perplexity_searches > 0 && !PERPLEXITY_API_KEY) {
+      throw new Error("PERPLEXITY_API_KEY is required for web research tiers");
+    }
+    let reportLang = inputData.reportLanguage || 'fr';
 
     // VALIDATION: Ensure language is supported
     if (!LANGUAGE_CONFIG[reportLang]) {
       console.warn(`[${reportId}] Unsupported language: ${reportLang}, defaulting to French`);
+      reportLang = 'fr';
       inputData.reportLanguage = 'fr';
     }
 
     console.log(`[${reportId}] Starting report generation`);
     console.log(`[${reportId}] Tier: ${plan} | Model: GPT-5.2 | Language: ${reportLang}`);
 
-    // Step 1: Conduct Perplexity research (for Pro and Agency)
+    // Step 1: Conduct Perplexity research
     await updateProgress(supabaseAdmin, reportId, "Lancement des recherches...", 10);
 
     let researchData = "";
@@ -1179,89 +1534,104 @@ async function runGenerationAsync(
       console.log(`[${reportId}] Research completed: ${researchData.length} chars`);
     }
 
-    // Step 2: Build the prompt with research data
-    await updateProgress(supabaseAdmin, reportId, "Préparation de l'analyse...", 45);
-    let userPrompt = buildUserPrompt(inputData, plan, researchData);
-
-    // Step 3: Call analysis engine
-    await updateProgress(supabaseAdmin, reportId, "Analyse stratégique en cours...", 55);
-
+    // Step 2: Build report brief
+    await updateProgress(supabaseAdmin, reportId, "Préparation du brief...", 30);
+    const reportBrief = buildReportBrief(inputData, plan, researchData);
     const systemPrompt = tierConfig.system_prompt(reportLang);
-    const content = await callGPT52(
-      GPT52_API_KEY,
-      systemPrompt,
-      userPrompt,
-      tierConfig.max_tokens,
-      tierConfig.temperature
-    );
 
-    if (!content) {
-      throw new Error("No content returned from GPT-5.2");
+    // Step 3: Generate sections (multi-pass)
+    await updateProgress(supabaseAdmin, reportId, "Génération des sections...", 45);
+    const sections = tierConfig.section_plan as SectionPlanItem[];
+    const outputSections: Record<string, unknown> = {};
+
+    const startProgress = 45;
+    const endProgress = 85;
+    const progressStep = Math.max(1, Math.floor((endProgress - startProgress) / Math.max(sections.length, 1)));
+
+    for (let i = 0; i < sections.length; i++) {
+      const section = sections[i];
+      const stepProgress = startProgress + (i * progressStep);
+      await updateProgress(supabaseAdmin, reportId, `Section: ${section.label}...`, Math.min(stepProgress, endProgress));
+
+      const sectionResult = await generateSection(
+        GPT52_API_KEY,
+        systemPrompt,
+        tierConfig,
+        reportBrief,
+        section
+      );
+
+      if (sectionResult && typeof sectionResult === 'object' && (section.key in (sectionResult as Record<string, unknown>))) {
+        outputSections[section.key] = (sectionResult as Record<string, unknown>)[section.key];
+      } else {
+        outputSections[section.key] = section.valueType === 'array' ? [] : {};
+      }
     }
 
-    // Step 4: Parse JSON response with robust error handling
-    await updateProgress(supabaseAdmin, reportId, "Parsing du rapport...", 90);
+    // Step 4: Expansion pass if under minimum word count
+    let passesUsed = 1;
+    let currentWordCount = countWordsInObject(outputSections);
+    const minWords = tierConfig.word_targets.min;
 
-    console.log(`[${reportId}] Parsing JSON response...`);
-
-    let outputData;
-    try {
-      // Step 4a: First attempt - clean markdown code blocks
-      let cleanContent = content
-        .replace(/```json\n?/g, "")
-        .replace(/```\n?/g, "")
-        .trim();
-
-      // Step 4b: If starts with non-JSON, try to extract JSON object
-      if (!cleanContent.startsWith('{')) {
-        console.log(`[${reportId}] Content doesn't start with {, attempting to extract JSON...`);
-        const jsonMatch = cleanContent.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          cleanContent = jsonMatch[0];
-          console.log(`[${reportId}] Extracted JSON, length: ${cleanContent.length}`);
-        }
-      }
-
-      outputData = JSON.parse(cleanContent);
-      console.log(`[${reportId}] ✅ JSON parsed successfully, keys: ${Object.keys(outputData).join(', ')}`);
-
-      // VALIDATION: Validate against tier-specific schema
-      const schema = REPORT_SCHEMAS[plan];
-      const validationResult = schema.safeParse(outputData);
-
-      if (!validationResult.success) {
-        console.warn(`[${reportId}] Schema validation failed for ${plan} tier:`, validationResult.error.errors);
-        console.log(`[${reportId}] Proceeding with unvalidated data (will be logged for monitoring)`);
-        // Continue with data even if validation fails - partial reports are better than no reports
-      } else {
-        console.log(`[${reportId}] ✅ Schema validation passed for ${plan} tier`);
-        outputData = validationResult.data;
-      }
-    } catch (parseError) {
-      console.error(`[${reportId}] Failed to parse GPT-5.2 response:`, {
-        error: parseError instanceof Error ? parseError.message : 'Unknown error',
-        preview: content.substring(0, 300),
-        length: content.length
+    for (let pass = 0; pass < 2 && currentWordCount < minWords; pass++) {
+      passesUsed += 1;
+      const sectionsToExpand = sections.filter((section) => {
+        const sectionValue = outputSections[section.key];
+        const sectionWords = countWordsInObject(sectionValue);
+        return sectionWords < section.wordTarget * 0.8;
       });
 
-      // Last resort: return a minimal valid report structure
-      console.log(`[${reportId}] Creating minimal fallback report structure...`);
-      outputData = {
-        report_metadata: {
-          title: `Rapport ${plan} - ${inputData.businessName}`,
-          generated_date: new Date().toISOString().split('T')[0],
-          business_name: inputData.businessName,
-          sector: inputData.sector,
-          location: `${inputData.location?.city}, ${inputData.location?.country}`,
-          tier: plan,
-          error: "JSON parsing failed - partial report"
-        },
-        executive_summary: {
-          headline: "Rapport généré avec limitation de parsing",
-          situation_actuelle: "La génération a réussi mais le parsing JSON a échoué",
-          opportunite_principale: "Veuillez contacter le support pour assistance"
+      if (sectionsToExpand.length === 0) break;
+
+      await updateProgress(supabaseAdmin, reportId, "Extension des sections...", 88);
+
+      for (const section of sectionsToExpand) {
+        const expanded = await generateSection(
+          GPT52_API_KEY,
+          systemPrompt,
+          tierConfig,
+          reportBrief,
+          section,
+          outputSections[section.key]
+        );
+        if (expanded && typeof expanded === 'object' && (section.key in (expanded as Record<string, unknown>))) {
+          outputSections[section.key] = (expanded as Record<string, unknown>)[section.key];
         }
-      };
+      }
+
+      currentWordCount = countWordsInObject(outputSections);
+    }
+    console.log(`[${reportId}] Expansion passes used: ${passesUsed}`);
+
+    // Step 5: Assemble report metadata + normalize sources
+    const userSources = buildUserSources(inputData);
+    const modelSources = normalizeSources(outputSections.sources);
+    const mergedSources = mergeSources(modelSources, userSources);
+
+    outputSections.sources = mergedSources;
+
+    let outputData: Record<string, unknown> = {
+      report_metadata: {
+        title: `Rapport ${plan} - ${inputData.businessName}`,
+        generated_date: new Date().toISOString().split('T')[0],
+        business_name: inputData.businessName,
+        sector: inputData.sector,
+        location: `${inputData.location?.city}, ${inputData.location?.country}`,
+        tier: plan,
+        sources_count: mergedSources.length,
+        word_count: countWordsInObject(outputSections),
+      },
+      ...outputSections,
+    };
+
+    // VALIDATION: Validate against tier-specific schema
+    const schema = REPORT_SCHEMAS[plan];
+    const validationResult = schema.safeParse(outputData);
+    if (!validationResult.success) {
+      console.warn(`[${reportId}] Schema validation failed for ${plan} tier:`, validationResult.error.errors);
+      console.log(`[${reportId}] Proceeding with unvalidated data (will be logged for monitoring)`);
+    } else {
+      outputData = validationResult.data as Record<string, unknown>;
     }
 
     // Step 5: Update report with output
@@ -1279,7 +1649,7 @@ async function runGenerationAsync(
     if (updateError) throw updateError;
 
     console.log(`[${reportId}] ✅ Report generated successfully`);
-    console.log(`[${reportId}] Tier: ${plan} | Sources: ${outputData?.sources?.length || 0}`);
+    console.log(`[${reportId}] Tier: ${plan} | Sources: ${(outputData as any)?.sources?.length || 0}`);
 
     // Step 6: Generate all documents in PARALLEL (PDF + Excel + PowerPoint)
     await updateProgress(supabaseAdmin, reportId, "Génération des documents...", 95);
@@ -1376,7 +1746,7 @@ async function runGenerationAsync(
 // ============================================
 // MAIN HANDLER - Returns immediately, runs generation async
 // ============================================
-serve(async (req) => {
+serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -1399,41 +1769,42 @@ serve(async (req) => {
       throw new Error("Report ID is required");
     }
 
-    // SECURITY: Verify user is authenticated
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      throw new Error("Not authenticated");
+    const authContext = await getAuthContext(req, supabaseClient);
+    if (authContext.authType === 'none') {
+      throw new Error(authContext.error || "Not authenticated");
     }
 
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
-
-    if (authError || !user?.id) {
-      console.error("[Generate] Auth error:", authError);
-      throw new Error("Not authenticated");
-    }
-
-    console.log(`[${reportId}] User verified: ${user.id}`);
+    console.log(`[${reportId}] Authenticated: ${authContext.authType}${authContext.userId ? ` (${authContext.userId})` : ''}`);
 
     // Get the report
-    const { data: report, error: fetchError } = await supabaseAdmin
+    const reportQuery = supabaseAdmin
       .from("reports")
       .select("*")
-      .eq("id", reportId)
-      .eq("user_id", user.id) // ← Ownership check: only allow if user owns report
-      .single();
+      .eq("id", reportId);
+
+    const { data: report, error: fetchError } = authContext.authType === 'user'
+      ? await reportQuery.eq("user_id", authContext.userId).single()
+      : await reportQuery.single();
 
     if (fetchError || !report) {
       console.error(`[${reportId}] Report not found or unauthorized:`, fetchError);
       throw new Error("Report not found or access denied");
     }
 
+    const forbiddenStatuses = new Set(["draft", "abandoned"]);
+    if (forbiddenStatuses.has(String(report.status))) {
+      throw new Error("Report not eligible for generation");
+    }
+
     // Check if already processing or ready
     if (report.status === "processing") {
-      return new Response(JSON.stringify({ success: true, message: "Report already processing", reportId }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
-      });
+      const canForceStart = authContext.authType === 'service_role' && (report.processing_progress ?? 0) <= 5;
+      if (!canForceStart) {
+        return new Response(JSON.stringify({ success: true, message: "Report already processing", reportId }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        });
+      }
     }
 
     if (report.status === "ready") {
@@ -1455,6 +1826,11 @@ serve(async (req) => {
 
     const inputData = report.input_data as ReportInput;
     const plan = (report.plan || "standard") as TierType;
+
+    // Security: ensure only paid/processing/ready/failed can run
+    if (authContext.authType === 'user' && !["paid", "processing", "ready", "failed"].includes(String(report.status))) {
+      throw new Error("Report not eligible for generation");
+    }
 
     // Validate plan
     if (!TIER_CONFIG[plan]) {

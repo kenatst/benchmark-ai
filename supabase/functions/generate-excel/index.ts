@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import * as XLSX from "https://esm.sh/xlsx@0.18.5";
+import { getAuthContext } from "../_shared.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -31,7 +32,7 @@ function buildExecutiveSummarySheet(data: any): any[][] {
   const meta = data?.report_metadata || {};
 
   const rows: any[][] = [
-    ["RAPPORT BENCHMARK IQ - RÉSUMÉ EXÉCUTIF"],
+    ["RAPPORT BENCHMARK AI - RÉSUMÉ EXÉCUTIF"],
     [],
     ["Entreprise", meta.business_name || "N/A"],
     ["Secteur", meta.sector || "N/A"],
@@ -283,7 +284,7 @@ function buildSourcesSheet(data: any): any[][] {
 // ============================================================================
 // MAIN HANDLER
 // ============================================================================
-serve(async (req) => {
+serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -304,17 +305,39 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_URL") || "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || ""
     );
+    const supabaseClient = createClient(
+      Deno.env.get("SUPABASE_URL") || "",
+      Deno.env.get("SUPABASE_ANON_KEY") || ""
+    );
 
-    const { data: report, error: fetchError } = await supabase
+    const authContext = await getAuthContext(req, supabaseClient);
+    if (authContext.authType === 'none') {
+      return new Response(JSON.stringify({ error: authContext.error || "Not authenticated" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const reportQuery = supabase
       .from("reports")
       .select("*")
-      .eq("id", reportId)
-      .single();
+      .eq("id", reportId);
+
+    const { data: report, error: fetchError } = authContext.authType === 'user'
+      ? await reportQuery.eq("user_id", authContext.userId).single()
+      : await reportQuery.single();
 
     if (fetchError || !report) {
       return new Response(
         JSON.stringify({ error: `Report not found` }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (authContext.authType === 'user' && report.status !== "ready") {
+      return new Response(
+        JSON.stringify({ error: "Report not ready" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 

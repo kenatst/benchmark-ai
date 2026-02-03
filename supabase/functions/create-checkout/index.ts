@@ -33,6 +33,10 @@ serve(async (req) => {
 
     console.log(`[Checkout] Plan: ${plan}, ReportId: ${reportId}`);
 
+    if (!reportId) {
+      throw new Error("Report ID is required");
+    }
+
     if (!plan || !PRICE_IDS[plan as keyof typeof PRICE_IDS]) {
       throw new Error(`Invalid plan selected: ${plan}`);
     }
@@ -58,6 +62,34 @@ serve(async (req) => {
 
     if (!stripeKey) {
       throw new Error("STRIPE_TEST_KEY not configured");
+    }
+
+    // Verify report ownership and status
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+    );
+
+    const { data: report, error: reportError } = await supabaseAdmin
+      .from("reports")
+      .select("id, user_id, status")
+      .eq("id", reportId)
+      .eq("user_id", user.id)
+      .single();
+
+    if (reportError || !report) {
+      console.error("[Checkout] Report not found or unauthorized:", reportError);
+      return new Response(JSON.stringify({ error: "Report not found or access denied" }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (report.status !== "draft") {
+      return new Response(JSON.stringify({ error: `Report has already been paid for (status: ${report.status})` }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Initialize Stripe
@@ -124,11 +156,6 @@ serve(async (req) => {
     console.log(`[Checkout] Session created: ${session.id}, URL: ${session.url}`);
 
     // Update the report with the Stripe session ID using service role for reliability
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-    );
-
     const { error: updateError } = await supabaseAdmin
       .from("reports")
       .update({ 

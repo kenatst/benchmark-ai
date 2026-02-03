@@ -20,9 +20,13 @@ const plans = [
     priceValue: 1499,
     description: '2000-3000 mots',
     features: [
-      '3-5 concurrents analysés',
+      '3-5 concurrents (URLs fournies)',
+      'Recherche web automatique (light)',
+      'Multi-localisations comparées',
+      'Projections financières light',
+      'Plan d’action 30/60/90 jours',
       'PDF standard',
-      'Sources citées (URLs fournies)',
+      'Sources citées (URLs + web)',
     ],
     icon: Sparkles,
   },
@@ -33,9 +37,14 @@ const plans = [
     priceValue: 3499,
     description: '4000-6000 mots',
     features: [
-      '5-10 concurrents analysés',
+      '5-10 concurrents recherchés',
       'Recherche web automatique',
-      'Vérification des sources',
+      'Positionnement + taglines',
+      'Analyse pricing concurrentielle',
+      'Plan d’action avec preuves',
+      '10-20 sources citées',
+      'Multi-localisations (1-2 marchés)',
+      'Projections financières basiques',
       'PDF premium',
     ],
     icon: Target,
@@ -48,10 +57,15 @@ const plans = [
     priceValue: 6999,
     description: '8000-12000 mots',
     features: [
-      '10-15 concurrents analysés',
-      'Analyse multi-marchés',
+      '10-15 concurrents (deep dive)',
+      'Agency-grade (PESTEL, Porter)',
+      'Stratégie complète brand',
+      'Modèle économique complet',
+      'Roadmap 12 mois phasée',
+      '30-50 sources catégorisées',
+      'Analyse comparative multi-marchés',
+      'Scénarios + unit economics',
       'PDF + Excel + Slides',
-      'Export white-label',
     ],
     icon: BarChart3,
   },
@@ -62,6 +76,8 @@ const reportIncludes = [
   'Tableau comparatif des concurrents',
   'Matrice de positionnement',
   'Recommandations tarifaires',
+  'Multi-localisations (si applicable)',
+  'Projections financières',
   'Analyse des canaux go-to-market',
   'Évaluation des risques',
   "Plan d'action 30/60/90 jours",
@@ -239,7 +255,7 @@ export const StepReview = ({ data, onPayment, isProcessing }: StepReviewProps) =
 
       {/* Trust microcopy */}
       <div className="text-center text-xs text-muted-foreground space-y-1">
-        <p>Nous n'inventons pas les sources. Si vous fournissez des URLs concurrents, nous les citons.</p>
+        <p>Nous n'inventons pas les sources. Nous citons les URLs fournies + sources web pertinentes.</p>
         <p>Ceci est un outil d'aide à la décision, pas un conseil juridique ou financier.</p>
       </div>
     </div>

@@ -42,6 +42,8 @@ export const WebSummary = ({ outputData, plan, pdfUrl, onDownload, isDownloading
   const expectedRoi = isAgency ? agencyData.executive_summary?.expected_roi : null;
   const marketSize = isAgency ? agencyData.market_analysis?.market_sizing?.total_addressable_market : null;
   const growthRate = isAgency ? agencyData.market_analysis?.market_dynamics?.growth_rate : null;
+  const wordCount = outputData?.report_metadata?.word_count;
+  const sourcesCount = outputData?.report_metadata?.sources_count || (outputData as any)?.sources?.length;
 
   // Competitor count
   const competitorCount = isAgency
@@ -259,6 +261,34 @@ export const WebSummary = ({ outputData, plan, pdfUrl, onDownload, isDownloading
             </CardContent>
           </Card>
         )}
+
+        {wordCount && (
+          <Card className="bg-gradient-to-br from-background to-muted/30">
+            <CardContent className="p-5">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <FileText className="w-5 h-5 text-primary" />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Longueur</p>
+              <p className="text-lg font-bold text-foreground">{wordCount.toLocaleString()} mots</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {sourcesCount ? (
+          <Card className="bg-gradient-to-br from-background to-muted/30">
+            <CardContent className="p-5">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-lg bg-coral/10 flex items-center justify-center">
+                  <Target className="w-5 h-5 text-coral-foreground" />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Sources</p>
+              <p className="text-lg font-bold text-foreground">{sourcesCount}</p>
+            </CardContent>
+          </Card>
+        ) : null}
 
         {!investmentRequired && !expectedRoi && (
           <>

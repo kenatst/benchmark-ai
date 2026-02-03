@@ -1,11 +1,12 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import PptxGenJS from "https://esm.sh/pptxgenjs@3.12.0";
+import { getAuthContext } from "../_shared.ts";
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 // ============================================================================
@@ -97,7 +98,7 @@ function buildTitleSlide(pptx: any, data: SlideData): void {
     });
 
     // Footer
-    slide.addText("Produit par Benchmark IQ", {
+    slide.addText("Produit par Benchmark AI", {
         x: 0.5,
         y: 6.8,
         w: 5,
@@ -444,7 +445,7 @@ function buildClosingSlide(pptx: any, data: SlideData): void {
         align: "center",
     });
 
-    slide.addText("Contact: support@benchmarkiq.io", {
+    slide.addText("Contact: support@benchmarkai.app", {
         x: 0.5,
         y: 4.5,
         w: 9,
@@ -454,7 +455,7 @@ function buildClosingSlide(pptx: any, data: SlideData): void {
         align: "center",
     });
 
-    slide.addText("Benchmark IQ - Intelligence Concurrentielle Automatisee", {
+    slide.addText("Benchmark AI - Intelligence Concurrentielle Automatisée", {
         x: 0.5,
         y: 6.8,
         w: 9,
@@ -468,7 +469,7 @@ function buildClosingSlide(pptx: any, data: SlideData): void {
 // ============================================================================
 // MAIN HANDLER
 // ============================================================================
-serve(async (req) => {
+serve(async (req: Request) => {
     if (req.method === "OPTIONS") {
         return new Response("ok", { headers: corsHeaders });
     }
@@ -497,18 +498,40 @@ serve(async (req) => {
             Deno.env.get("SUPABASE_URL") || "",
             Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || ""
         );
+        const supabaseClient = createClient(
+            Deno.env.get("SUPABASE_URL") || "",
+            Deno.env.get("SUPABASE_ANON_KEY") || ""
+        );
+
+        const authContext = await getAuthContext(req, supabaseClient);
+        if (authContext.authType === 'none') {
+            return new Response(
+                JSON.stringify({ error: authContext.error || "Not authenticated" }),
+                { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+        }
 
         // Get report data
-        const { data: report, error: fetchError } = await supabase
+        const reportQuery = supabase
             .from("reports")
             .select("*")
-            .eq("id", reportId)
-            .single();
+            .eq("id", reportId);
+
+        const { data: report, error: fetchError } = authContext.authType === 'user'
+            ? await reportQuery.eq("user_id", authContext.userId).single()
+            : await reportQuery.single();
 
         if (fetchError || !report) {
             return new Response(
                 JSON.stringify({ error: `Report not found: ${fetchError?.message}` }),
                 { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+        }
+
+        if (authContext.authType === 'user' && report.status !== "ready") {
+            return new Response(
+                JSON.stringify({ error: "Report not ready" }),
+                { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
         }
 
@@ -525,7 +548,7 @@ serve(async (req) => {
         const pptx = new PptxGenJS();
         pptx.layout = "LAYOUT_16x9";
         pptx.title = `Benchmark ${outputData?.report_metadata?.business_name || ""}`;
-        pptx.author = "Benchmark IQ";
+        pptx.author = "Benchmark AI";
 
         // Build slides
         buildTitleSlide(pptx, outputData);

@@ -27,7 +27,7 @@ export interface ActionPlanItem {
   tasks: string[];
 }
 
-// New Claude output format - Standard tier
+// New GPT-5.2 output format - Standard tier
 export interface StandardReportOutput {
   report_metadata: {
     title: string;
@@ -36,6 +36,8 @@ export interface StandardReportOutput {
     sector: string;
     location: string;
     tier: 'standard';
+    sources_count?: number;
+    word_count?: number;
   };
   executive_summary: {
     headline: string;
@@ -117,6 +119,16 @@ export interface StandardReportOutput {
     days_31_90: Array<{ action: string; owner: string; outcome: string }>;
     quick_wins_with_proof?: Array<{ action: string; why_now: string; expected_impact: string }>;
   };
+  financial_projections_basic?: {
+    revenue_range: string;
+    assumptions: string[];
+    kpi_targets: string[];
+  };
+  multi_location_comparison?: {
+    markets: Array<{ market: string; key_differences: string[]; opportunity_score?: string }>;
+    recommended_market: string;
+    rationale: string;
+  };
   risks_and_considerations: Array<{ risk: string; impact: string; mitigation: string }> | {
     market_risks?: string[];
     competitive_threats?: string[];
@@ -137,6 +149,7 @@ export interface ProReportOutput extends Omit<StandardReportOutput, 'report_meta
     location: string;
     tier: 'pro';
     sources_count: number;
+    word_count?: number;
   };
   executive_summary: {
     headline: string;
@@ -187,6 +200,16 @@ export interface ProReportOutput extends Omit<StandardReportOutput, 'report_meta
     switching_barriers: string[];
     decision_criteria: string[];
   };
+  financial_projections_basic?: {
+    revenue_range: string;
+    assumptions: string[];
+    kpi_targets: string[];
+  };
+  multi_location_comparison?: {
+    markets: Array<{ market: string; key_differences: string[]; opportunity_score?: string }>;
+    recommended_market: string;
+    rationale: string;
+  };
 }
 
 // Agency tier has the most comprehensive output
@@ -199,6 +222,7 @@ export interface AgencyReportOutput {
     location: string;
     tier: 'agency';
     sources_count: number;
+    word_count?: number;
   };
   executive_summary: {
     one_page_summary: string;
@@ -417,7 +441,7 @@ export interface AgencyReportOutput {
   }>;
   assumptions_and_limitations: string[];
   sources: Array<{ title: string; url: string }>;
-  
+
   // Institutional-grade additions (Agency tier enhanced)
   methodology?: {
     scope: string;
@@ -433,7 +457,7 @@ export interface AgencyReportOutput {
     }[];
     limitations: string[];
   };
-  
+
   market_overview_detailed?: {
     key_metrics: { indicator: string; value: string; source?: string }[];
     market_structure: {
@@ -449,7 +473,7 @@ export interface AgencyReportOutput {
     }[];
     sources: string;
   };
-  
+
   territory_analysis?: {
     location_name: string;
     demographics: { indicator: string; value: string }[];
@@ -459,7 +483,7 @@ export interface AgencyReportOutput {
     opportunities: string[];
     sources: string;
   };
-  
+
   scoring_matrix?: {
     criteria: string[];
     competitors: {
@@ -473,7 +497,7 @@ export interface AgencyReportOutput {
     }[];
     interpretation: string;
   };
-  
+
   trends_analysis?: {
     period: string;
     categories: {
@@ -483,7 +507,7 @@ export interface AgencyReportOutput {
     }[];
     key_insights: string[];
   };
-  
+
   strategic_recommendations_detailed?: {
     positioning_options: {
       id: string;
@@ -504,7 +528,7 @@ export interface AgencyReportOutput {
     economic_model: { indicator: string; target: string }[];
     attention_points: { point: string; impact?: string }[];
   };
-  
+
   detailed_roadmap?: {
     phases: {
       phase: string;
@@ -522,13 +546,18 @@ export interface AgencyReportOutput {
     total_budget: string;
     recommended_equity: string;
   };
-  
+
   appendices?: {
     glossary: { term: string; definition: string }[];
     sources_by_category: { category: string; sources: string[] }[];
     assumptions: { assumption: string; validation_plan?: string }[];
     unknowns: { item: string; how_to_find?: string }[];
     validation_plan: string[];
+  };
+
+  multi_market_comparison?: {
+    markets: Array<{ market: string; why_selected: string; key_differences: string[]; opportunity_score?: string }>;
+    recommendation: string;
   };
 }
 
