@@ -8,9 +8,10 @@ import { z } from "https://esm.sh/zod@3.23.8";
 import { corsHeaders, getJsonHeaders } from "../_shared.ts";
 
 // ============================================
-// CLAUDE MODELS - PRODUCTION ONLY OPUS 4.5
+// GPT-5.2 MODEL - PRODUCTION ANALYSIS ENGINE
 // ============================================
-const CLAUDE_MODEL = "claude-opus-4-5-20251101"; // ✅ C'EST TOUT !
+// API calls use GPT-5.2 via OpenAI /v1/responses endpoint
+// API key required: OPENAI_API_KEY environment variable
 
 // ============================================
 // SUPPORTED LANGUAGES FOR REPORT GENERATION
@@ -26,7 +27,7 @@ const LANGUAGE_CONFIG: Record<string, { name: string; code: string }> = {
 };
 
 // ============================================
-// ZOD SCHEMAS FOR CLAUDE OUTPUT VALIDATION
+// ZOD SCHEMAS FOR GPT-5.2 OUTPUT VALIDATION
 // Ensures generated reports conform to expected structure before DB save
 // ============================================
 const ReportMetadataSchema = z.object({
@@ -76,9 +77,9 @@ const REPORT_SCHEMAS: Record<string, z.ZodSchema> = {
 };
 
 // ============================================
-// CLAUDE API SKILLS - DOCUMENT GENERATION
+// DOCUMENT FORMAT SPECIFICATIONS
 // ============================================
-// These skill triggers activate Claude Opus 4.5's native document handling
+// Configuration for institutional-grade PDF, Excel, and PowerPoint generation
 const CLAUDE_SKILLS = {
   // PDF Processing skill - comprehensive PDF manipulation
   pdf: {
@@ -977,9 +978,9 @@ Génère le rapport de benchmark. RETOURNE UNIQUEMENT LE JSON.`;
 }
 
 // ============================================
-// CLAUDE OPUS 4.5 API CALL WITH RETRY LOGIC
+// GPT-5.2 API CALL WITH RETRY LOGIC
 // ============================================
-async function callClaudeOpus(
+async function callGPT52(
   apiKey: string,
   systemPrompt: string,
   userPrompt: string,
@@ -987,18 +988,16 @@ async function callClaudeOpus(
   temperature: number,
   maxRetries: number = 3
 ): Promise<string> {
-  console.log(`[Analysis] Processing with ${maxTokens} max tokens`);
+  console.log(`[Analysis] Processing with ${maxTokens} max tokens (GPT-5.2)`);
   console.log(`[Analysis] Prompt length: ${userPrompt.length} chars`);
 
-  // Use full token limit for Opus - it handles complex reports better
   const effectiveMaxTokens = maxTokens;
-
   let lastError: Error | null = null;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     // Create an AbortController for timeout
-    // Opus needs more time for complex analysis, allow up to 10 minutes
-    const timeoutMs = 600000; // 10 minutes for full Opus generation
+    // GPT-5.2 needs time for complex analysis, allow up to 10 minutes
+    const timeoutMs = 600000; // 10 minutes for full generation
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
       console.error(`[Analysis] Request timeout after ${timeoutMs/1000}s (attempt ${attempt})`);
@@ -1006,19 +1005,26 @@ async function callClaudeOpus(
     }, timeoutMs);
 
     try {
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
+      const response = await fetch("https://api.openai.com/v1/responses", {
         method: "POST",
         headers: {
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
+          "Authorization": `Bearer ${apiKey}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: CLAUDE_MODEL,
-          max_tokens: effectiveMaxTokens,
+          model: "gpt-5.2",
+          input: [
+            {
+              role: "system",
+              content: systemPrompt
+            },
+            {
+              role: "user",
+              content: userPrompt
+            }
+          ],
           temperature: temperature,
-          system: systemPrompt,
-          messages: [{ role: "user", content: userPrompt }],
+          max_output_tokens: effectiveMaxTokens,
         }),
         signal: controller.signal,
       });
@@ -1028,7 +1034,7 @@ async function callClaudeOpus(
       if (!response.ok) {
         const errorText = await response.text();
         console.error(`[Analysis] API error ${response.status} (attempt ${attempt}):`, errorText);
-        
+
         // Rate limit - retry with exponential backoff
         if (response.status === 429) {
           const waitTime = Math.pow(2, attempt - 1) * 60000; // 60s, 120s, 240s
@@ -1043,15 +1049,15 @@ async function callClaudeOpus(
         }
 
         // Overloaded - retry with backoff
-        if (response.status === 529) {
+        if (response.status === 503) {
           const waitTime = Math.pow(2, attempt - 1) * 30000; // 30s, 60s, 120s
-          console.log(`[Analysis] API overloaded (${response.status}). Waiting ${waitTime / 1000}s before retry ${attempt}/${maxRetries}...`);
+          console.log(`[Analysis] Service unavailable (${response.status}). Waiting ${waitTime / 1000}s before retry ${attempt}/${maxRetries}...`);
 
           if (attempt < maxRetries) {
             await new Promise(resolve => setTimeout(resolve, waitTime));
             continue;
           }
-          lastError = new Error("Service overloaded after all retries. Please retry later.");
+          lastError = new Error("Service unavailable after all retries. Please retry later.");
           break;
         }
 
@@ -1067,26 +1073,46 @@ async function callClaudeOpus(
           lastError = new Error(`Service error (${response.status}) after all retries`);
           break;
         }
-        
+
         if (response.status === 401) throw new Error("Invalid API configuration");
         throw new Error(`Service error: ${response.status}`);
       }
 
       const data = await response.json();
-      console.log(`[Analysis] Response received, stop_reason: ${data.stop_reason}`);
+      console.log(`[Analysis] Response received from GPT-5.2`);
 
+      // Extract content from GPT-5.2 response
       let content = "";
-      for (const block of data.content) {
-        if (block.type === "text") {
-          content += block.text;
+
+      // Try multiple response formats for compatibility
+      if (typeof data === 'string') {
+        // Direct string response
+        content = data;
+      } else if (data.content) {
+        // Direct content field
+        content = typeof data.content === 'string' ? data.content : JSON.stringify(data.content);
+      } else if (data.choices && Array.isArray(data.choices) && data.choices.length > 0) {
+        // Standard OpenAI format with choices
+        const choice = data.choices[0];
+        if (choice.message?.content) {
+          content = choice.message.content;
+        } else if (choice.text) {
+          content = choice.text;
         }
+      } else if (data.output) {
+        // Output field format
+        content = typeof data.output === 'string' ? data.output : JSON.stringify(data.output);
+      }
+
+      if (!content) {
+        throw new Error("No content in GPT-5.2 response: " + JSON.stringify(data).substring(0, 200));
       }
 
       console.log(`[Analysis] Content length: ${content.length} chars`);
       return content;
     } catch (error) {
       clearTimeout(timeoutId);
-      
+
       if (error instanceof Error && error.name === 'AbortError') {
         lastError = new Error("Request timed out after 10 minutes");
         if (attempt < maxRetries) {
@@ -1095,7 +1121,7 @@ async function callClaudeOpus(
         }
         break;
       }
-      
+
       lastError = error as Error;
       break;
     }
@@ -1116,9 +1142,9 @@ async function runGenerationAsync(
   supabaseAdmin: any
 ) {
   try {
-    const CLAUDE_API_KEY = Deno.env.get("CLAUDE_API_KEY");
-    if (!CLAUDE_API_KEY) {
-      throw new Error("CLAUDE_API_KEY is not configured");
+    const GPT52_API_KEY = Deno.env.get("OPENAI_API_KEY");
+    if (!GPT52_API_KEY) {
+      throw new Error("OPENAI_API_KEY is not configured (required for GPT-5.2)");
     }
 
     const PERPLEXITY_API_KEY = Deno.env.get("PERPLEXITY_API_KEY");
@@ -1136,7 +1162,7 @@ async function runGenerationAsync(
     }
 
     console.log(`[${reportId}] Starting report generation`);
-    console.log(`[${reportId}] Tier: ${plan} | Model: ${CLAUDE_MODEL} | Language: ${reportLang}`);
+    console.log(`[${reportId}] Tier: ${plan} | Model: GPT-5.2 | Language: ${reportLang}`);
 
     // Step 1: Conduct Perplexity research (for Pro and Agency)
     await updateProgress(supabaseAdmin, reportId, "Lancement des recherches...", 10);
@@ -1161,8 +1187,8 @@ async function runGenerationAsync(
     await updateProgress(supabaseAdmin, reportId, "Analyse stratégique en cours...", 55);
 
     const systemPrompt = tierConfig.system_prompt(reportLang);
-    const content = await callClaudeOpus(
-      CLAUDE_API_KEY,
+    const content = await callGPT52(
+      GPT52_API_KEY,
       systemPrompt,
       userPrompt,
       tierConfig.max_tokens,
@@ -1170,7 +1196,7 @@ async function runGenerationAsync(
     );
 
     if (!content) {
-      throw new Error("No content returned from Claude");
+      throw new Error("No content returned from GPT-5.2");
     }
 
     // Step 4: Parse JSON response with robust error handling
@@ -1212,7 +1238,7 @@ async function runGenerationAsync(
         outputData = validationResult.data;
       }
     } catch (parseError) {
-      console.error(`[${reportId}] Failed to parse Claude response:`, {
+      console.error(`[${reportId}] Failed to parse GPT-5.2 response:`, {
         error: parseError instanceof Error ? parseError.message : 'Unknown error',
         preview: content.substring(0, 300),
         length: content.length
