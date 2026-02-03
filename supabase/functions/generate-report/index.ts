@@ -1013,7 +1013,30 @@ async function runGenerationAsync(
 
     // Step 2: Build the prompt with research data
     await updateProgress(supabaseAdmin, reportId, "Préparation de l'analyse...", 45);
-    const userPrompt = buildUserPrompt(inputData, plan, researchData);
+    let userPrompt = buildUserPrompt(inputData, plan, researchData);
+    
+    // Add strict JSON enforcement for Haiku model (it tends to ask clarifying questions)
+    if (USE_HAIKU_FOR_TESTING) {
+      userPrompt += `
+
+═══════════════════════════════════════════════════════════════════════════════
+⚠️ INSTRUCTION ABSOLUE - À SUIVRE IMMÉDIATEMENT ⚠️
+═══════════════════════════════════════════════════════════════════════════════
+
+TU DOIS GÉNÉRER LE JSON MAINTENANT. NE POSE AUCUNE QUESTION.
+TU AS TOUTES LES INFORMATIONS NÉCESSAIRES CI-DESSUS.
+
+RÈGLES STRICTES:
+1. RETOURNE UNIQUEMENT UN OBJET JSON VALIDE
+2. NE COMMENCE PAS PAR "Je comprends" ou "Avant de générer" ou toute autre phrase
+3. COMMENCE DIRECTEMENT PAR L'ACCOLADE OUVRANTE: {
+4. TERMINE PAR L'ACCOLADE FERMANTE: }
+5. PAS DE COMMENTAIRES, PAS DE QUESTIONS, PAS DE TEXTE EXPLICATIF
+
+SI TU NE GÉNÈRES PAS DE JSON IMMÉDIATEMENT, L'UTILISATEUR PERD SON ARGENT.
+
+GÉNÈRE LE JSON MAINTENANT:`;
+    }
 
     // Step 3: Call analysis engine
     await updateProgress(supabaseAdmin, reportId, "Analyse stratégique en cours...", 55);
