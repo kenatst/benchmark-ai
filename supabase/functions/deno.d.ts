@@ -8,6 +8,8 @@ declare namespace Deno {
 
 declare function serve(handler: (req: Request) => Promise<Response> | Response): void;
 
+declare function fetch(input: string | Request, init?: RequestInit): Promise<Response>;
+
 interface Request {
     method: string;
     url: string;
@@ -18,6 +20,8 @@ interface Response {
     body: any;
     status: number;
     headers: Headers;
+    json(): Promise<any>;
+    text(): Promise<string>;
 }
 declare var Request: {
     prototype: Request;
@@ -25,7 +29,7 @@ declare var Request: {
 };
 declare var Response: {
     prototype: Response;
-    new(body?: any, init?: ResponseInit): Response;
+    new(body?: BodyInit | null, init?: ResponseInit): Response;
     json(data: any, init?: ResponseInit): Response;
 };
 
@@ -48,7 +52,13 @@ declare var URL: {
     new(url: string, base?: string | URL): URL;
 };
 
-interface RequestInit { }
+type BodyInit = string | Blob | ArrayBuffer | FormData | URLSearchParams;
+
+interface RequestInit {
+    method?: string;
+    headers?: any;
+    body?: BodyInit | null;
+}
 interface ResponseInit {
     status?: number;
     statusText?: string;
