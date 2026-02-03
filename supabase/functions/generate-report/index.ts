@@ -9,9 +9,16 @@ const corsHeaders = {
 };
 
 // ============================================
-// CLAUDE OPUS 4.5 - THE ONLY MODEL (INSTITUTIONAL GRADE)
+// CLAUDE MODELS - USE HAIKU FOR TESTING (FASTER + CHEAPER)
+// Switch to Opus for production when everything works
 // ============================================
-const CLAUDE_MODEL = "claude-opus-4-5-20251101";
+// Set to true to use fast/cheap Haiku 4.5, false for Opus 4.5
+const USE_HAIKU_FOR_TESTING = true;
+
+const CLAUDE_MODEL_OPUS = "claude-opus-4-5-20251101";
+const CLAUDE_MODEL_HAIKU = "claude-3-5-haiku-20241022";
+
+const CLAUDE_MODEL = USE_HAIKU_FOR_TESTING ? CLAUDE_MODEL_HAIKU : CLAUDE_MODEL_OPUS;
 
 // ============================================
 // SUPPORTED LANGUAGES FOR REPORT GENERATION
@@ -856,18 +863,24 @@ async function callClaudeOpus(
   temperature: number,
   maxRetries: number = 3
 ): Promise<string> {
-  console.log(`[Claude] Calling Opus 4.5 (${CLAUDE_MODEL}) with ${maxTokens} max tokens`);
+  const modelName = USE_HAIKU_FOR_TESTING ? "Haiku 4.5 (TEST MODE)" : "Opus 4.5";
+  console.log(`[Claude] Calling ${modelName} (${CLAUDE_MODEL}) with ${maxTokens} max tokens`);
   console.log(`[Claude] Prompt length: ${userPrompt.length} chars`);
+
+  // Reduce max_tokens for Haiku to speed up response
+  const effectiveMaxTokens = USE_HAIKU_FOR_TESTING ? Math.min(maxTokens, 8000) : maxTokens;
 
   let lastError: Error | null = null;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    // Create an AbortController for timeout (5 minutes for large reports)
+    // Create an AbortController for timeout
+    // Haiku is much faster, use shorter timeout
+    const timeoutMs = USE_HAIKU_FOR_TESTING ? 120000 : 300000; // 2 min for Haiku, 5 min for Opus
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
-      console.error(`[Claude] Request timeout after 300s (attempt ${attempt})`);
+      console.error(`[Claude] Request timeout after ${timeoutMs/1000}s (attempt ${attempt})`);
       controller.abort();
-    }, 300000); // 5 minutes timeout
+    }, timeoutMs);
 
     try {
       const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -879,7 +892,7 @@ async function callClaudeOpus(
         },
         body: JSON.stringify({
           model: CLAUDE_MODEL,
-          max_tokens: maxTokens,
+          max_tokens: effectiveMaxTokens,
           temperature: temperature,
           system: systemPrompt,
           messages: [{ role: "user", content: userPrompt }],
