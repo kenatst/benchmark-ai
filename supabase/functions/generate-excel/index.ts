@@ -9,564 +9,369 @@ const corsHeaders = {
 };
 
 // ============================================================================
-// EXCEL BUILDER FOR AGENCY TIER
+// INSTITUTIONAL COLOR PALETTE - McKinsey/BCG Grade
 // ============================================================================
-interface ExcelData {
-    executive_summary?: any;
-    competitive_intelligence?: any;
-    financial_projections?: any;
-    scoring_matrix?: any;
-    implementation_roadmap?: any;
-    detailed_roadmap?: any;
-    market_analysis?: any;
-    report_metadata?: any;
-}
+const COLORS = {
+  primary: "1A3A5C",      // Deep navy
+  secondary: "7C6B9C",    // Muted purple
+  accent: "B89456",       // Gold
+  success: "2D7A5A",      // Forest green
+  warning: "B38F40",      // Amber
+  danger: "9A4040",       // Wine red
+  lightBg: "F5F7F8",      // Pearl background
+  headerBg: "2E2E33",     // Charcoal
+};
+
+// ============================================================================
+// INSTITUTIONAL SHEET BUILDERS
+// ============================================================================
 
 function buildExecutiveSummarySheet(data: any): any[][] {
-    const rows: any[][] = [
-        ["RAPPORT BENCHMARK IQ - RÉSUMÉ EXÉCUTIF"],
-        [],
-        ["Entreprise", data?.report_metadata?.business_name || ""],
-        ["Secteur", data?.report_metadata?.sector || ""],
-        ["Localisation", data?.report_metadata?.location || ""],
-        ["Date", data?.report_metadata?.generated_date || ""],
-        [],
-        ["RECOMMANDATION STRATÉGIQUE"],
-        [data?.executive_summary?.strategic_recommendation || ""],
-        [],
-        ["INVESTISSEMENT REQUIS", data?.executive_summary?.investment_required || ""],
-        ["ROI ATTENDU", data?.executive_summary?.expected_roi || ""],
-        [],
-        ["FACTEURS CRITIQUES DE SUCCÈS"],
-    ];
+  const rows: any[][] = [
+    ["RAPPORT BENCHMARK IQ", "", "", "RÉSUMÉ EXÉCUTIF"],
+    [],
+    ["Entreprise", data?.report_metadata?.business_name || "", "", "Secteur", data?.report_metadata?.sector || ""],
+    ["Localisation", data?.report_metadata?.location || "", "", "Date", data?.report_metadata?.generated_date || ""],
+    [],
+    ["RECOMMANDATION PRINCIPALE"],
+    [data?.executive_summary?.strategic_recommendation || ""],
+    [],
+    ["INVESTISSEMENT REQUIS", data?.executive_summary?.investment_required || "EUR", "ROI ATTENDU", data?.executive_summary?.expected_roi || "Mois"],
+    [],
+    ["FACTEURS CRITIQUES DE SUCCÈS"],
+  ];
 
-    const csf = data?.executive_summary?.critical_success_factors || [];
-    csf.forEach((factor: string, i: number) => {
-        rows.push([`${i + 1}. ${factor}`]);
-    });
+  const csf = data?.executive_summary?.critical_success_factors || [];
+  csf.slice(0, 5).forEach((factor: string, i: number) => {
+    rows.push([`${i + 1}. ${factor}`]);
+  });
 
-    rows.push([]);
-    rows.push(["MÉTRIQUES CLÉS À SUIVRE"]);
+  rows.push([], ["MÉTRIQUES À SUIVRE"]);
 
-    const metrics = data?.executive_summary?.key_metrics_to_track || [];
-    metrics.forEach((metric: string, i: number) => {
-        rows.push([`${i + 1}. ${metric}`]);
-    });
+  const metrics = data?.executive_summary?.key_metrics_to_track || [];
+  metrics.slice(0, 5).forEach((metric: string, i: number) => {
+    rows.push([`${i + 1}. ${metric}`]);
+  });
 
-    return rows;
+  return rows;
 }
 
 function buildCompetitorScoringSheet(data: any): any[][] {
-    const scoring = data?.scoring_matrix;
-    const competitors = scoring?.competitors || [];
-    const criteria = scoring?.criteria || [];
+  const scoring = data?.scoring_matrix;
+  const competitors = scoring?.competitors || [];
+  const criteria = scoring?.criteria || [];
 
-    const rows: any[][] = [
-        ["MATRICE DE SCORING CONCURRENTIEL"],
-        [""],
-        ["Ce sheet contient les données pour créer un graphique radar/araignée dans Excel"],
-        [""],
-    ];
+  const rows: any[][] = [
+    ["MATRICE DE SCORING CONCURRENTIEL - DONNÉES POUR RADAR CHART"],
+    [],
+    ["Concurrent", ...criteria, "TOTAL"],
+  ];
 
-    // Header row with scores (1-10 scale)
-    const headerRow = ["Concurrent", ...criteria, "TOTAL"];
-    rows.push(headerRow);
-
-    // Competitor rows with normalized scores
-    const competitorRows: any[] = [];
-    competitors.forEach((comp: any) => {
-        const row = [comp.name];
-        criteria.forEach((criterion: string) => {
-            const score = comp.scores?.[criterion] || comp.scores?.[criterion.toLowerCase()] || 0;
-            row.push(Math.min(10, Math.max(0, score))); // Normalize to 0-10
-        });
-        row.push(comp.total || 0);
-        rows.push(row);
-        competitorRows.push(row);
+  competitors.forEach((comp: any) => {
+    const row = [comp.name];
+    criteria.forEach((criterion: string) => {
+      const score = comp.scores?.[criterion] || 0;
+      row.push(Math.min(10, Math.max(0, score)));
     });
+    row.push(comp.total || 0);
+    rows.push(row);
+  });
 
-    rows.push([]);
-    rows.push(["INSTRUCTIONS CHARTES:"]);
-    rows.push(["1. Sélectionnez les données ci-dessus (incluant les en-têtes)"]);
-    rows.push(["2. Insérez > Graphique > Sélectionnez 'Radar' pour une matrice comparative"]);
-    rows.push(["3. Ou utilisez 'Graphique en barres' pour comparer les scores"]);
+  rows.push([], ["ANALYSE DE SENSIBILITÉ"]);
 
-    rows.push([]);
-    rows.push(["ANALYSE DE SENSIBILITÉ"]);
+  const sensitivity = scoring?.sensitivity_analysis || [];
+  sensitivity.forEach((analysis: any) => {
+    rows.push([`${analysis.model}:`, ...(analysis.rankings || [])]);
+  });
 
-    const sensitivity = scoring?.sensitivity_analysis || [];
-    sensitivity.forEach((analysis: any) => {
-        rows.push([`${analysis.model}:`, ...(analysis.rankings || [])]);
-    });
+  rows.push([], ["INTERPRÉTATION"]);
+  rows.push([scoring?.interpretation || ""]);
 
-    rows.push([]);
-    rows.push(["INTERPRÉTATION"]);
-    rows.push([scoring?.interpretation || ""]);
-
-    return rows;
+  return rows;
 }
 
 function buildFinancialProjectionsSheet(data: any): any[][] {
-    const financial = data?.financial_projections;
-    const scenarios = financial?.revenue_scenarios;
-    const unitEcon = financial?.unit_economics;
+  const financial = data?.financial_projections;
+  const scenarios = financial?.revenue_scenarios;
+  const unitEcon = financial?.unit_economics;
 
-    const rows: any[][] = [
-        ["PROJECTIONS FINANCIÈRES"],
-        [],
-        ["INVESTISSEMENT REQUIS (12 mois)", financial?.investment_required?.total_12_months || ""],
-        [],
-        ["RÉPARTITION DU BUDGET (données pour pie chart)"],
-        ["Catégorie", "Montant (EUR)", "%"],
-    ];
+  const rows: any[][] = [
+    ["PROJECTIONS FINANCIÈRES"],
+    [],
+    ["INVESTISSEMENT REQUIS (12 mois)", financial?.investment_required?.total_12_months || ""],
+    [],
+    ["RÉPARTITION BUDGÉTAIRE (Pie Chart)"],
+    ["Catégorie", "Montant (EUR)", "%"],
+  ];
 
-    const breakdown = financial?.investment_required?.breakdown || [];
-    const totalBudget = breakdown.reduce((sum: number, item: any) => sum + (parseFloat(item.amount) || 0), 0);
+  const breakdown = financial?.investment_required?.breakdown || [];
+  const totalBudget = breakdown.reduce((sum: number, item: any) => sum + (parseFloat(item.amount) || 0), 0);
 
-    breakdown.forEach((item: any) => {
-        const amount = parseFloat(item.amount) || 0;
-        const percentage = totalBudget > 0 ? ((amount / totalBudget) * 100).toFixed(1) : 0;
-        rows.push([item.category, amount, percentage]);
-    });
+  breakdown.forEach((item: any) => {
+    const amount = parseFloat(item.amount) || 0;
+    const percentage = totalBudget > 0 ? ((amount / totalBudget) * 100).toFixed(1) : 0;
+    rows.push([item.category, amount, percentage]);
+  });
 
-    rows.push([]);
-    rows.push(["INSTRUCTIONS: Sélectionnez les données ci-dessus et insérez un graphique en secteurs (Pie Chart)"]);
+  rows.push([], ["SCÉNARIOS DE REVENUS (Line/Column Chart)"]);
+  rows.push(["Scénario", "Année 1 (EUR)", "Année 2 (EUR)", "Année 3 (EUR)"]);
 
-    rows.push([]);
-    rows.push(["SCÉNARIOS DE REVENUS (données pour graphique en ligne/colonne)"]);
-    rows.push(["Scénario", "Année 1 (EUR)", "Année 2 (EUR)", "Année 3 (EUR)"]);
+  if (scenarios?.conservative) {
+    rows.push(["Conservateur", scenarios.conservative.year_1 || 0, scenarios.conservative.year_2 || 0, scenarios.conservative.year_3 || 0]);
+  }
+  if (scenarios?.baseline) {
+    rows.push(["Base", scenarios.baseline.year_1 || 0, scenarios.baseline.year_2 || 0, scenarios.baseline.year_3 || 0]);
+  }
+  if (scenarios?.optimistic) {
+    rows.push(["Optimiste", scenarios.optimistic.year_1 || 0, scenarios.optimistic.year_2 || 0, scenarios.optimistic.year_3 || 0]);
+  }
 
-    if (scenarios?.conservative) {
-        rows.push(["Conservateur", scenarios.conservative.year_1 || 0, scenarios.conservative.year_2 || 0, scenarios.conservative.year_3 || 0]);
-    }
-    if (scenarios?.baseline) {
-        rows.push(["Base", scenarios.baseline.year_1 || 0, scenarios.baseline.year_2 || 0, scenarios.baseline.year_3 || 0]);
-    }
-    if (scenarios?.optimistic) {
-        rows.push(["Optimiste", scenarios.optimistic.year_1 || 0, scenarios.optimistic.year_2 || 0, scenarios.optimistic.year_3 || 0]);
-    }
+  rows.push([], ["UNIT ECONOMICS - KPIs"]);
+  rows.push(["Métrique", "Valeur", "Benchmark Secteur"]);
 
-    rows.push([]);
-    rows.push(["INSTRUCTIONS: Sélectionnez les données ci-dessus et insérez un graphique en colones/courbes"]);
+  if (unitEcon) {
+    rows.push(["CAC", unitEcon.customer_acquisition_cost || 0, "Variable"]);
+    rows.push(["LTV", unitEcon.lifetime_value || 0, "3-5x CAC"]);
+    rows.push(["LTV/CAC", unitEcon.ltv_cac_ratio || 0, "> 3"]);
+    rows.push(["Payback", unitEcon.payback_period_months || 0, "< 12 mois"]);
+    rows.push(["Marge Brute %", unitEcon.gross_margin_percent || 0, "40-60%"]);
+  }
 
-    rows.push([]);
-    rows.push(["UNIT ECONOMICS - KPIs CLÉS"]);
-    rows.push(["Métrique", "Valeur", "Benchmark Secteur"]);
-
-    if (unitEcon) {
-        rows.push(["CAC (Coût d'Acquisition Client)", unitEcon.customer_acquisition_cost || 0, "Variable par secteur"]);
-        rows.push(["LTV (Valeur Vie Client)", unitEcon.lifetime_value || 0, "3-5x CAC idéal"]);
-        rows.push(["Ratio LTV/CAC", unitEcon.ltv_cac_ratio || 0, "> 3 = Healthy"]);
-        rows.push(["Période de Payback (mois)", unitEcon.payback_period_months || 0, "< 12 mois"]);
-        rows.push(["Marge Brute (%)", unitEcon.gross_margin_percent || 0, "40-60%"]);
-        rows.push(["vs Benchmarks", unitEcon.comparison_to_benchmarks || "", ""]);
-    }
-
-    return rows;
-}
-
-function buildRoadmapSheet(data: any): any[][] {
-    const roadmap = data?.detailed_roadmap || data?.implementation_roadmap;
-
-    const rows: any[][] = [
-        ["ROADMAP 12 MOIS"],
-        [],
-    ];
-
-    if (roadmap?.phases) {
-        roadmap.phases.forEach((phase: any) => {
-            rows.push([`${phase.phase} - ${phase.title}`]);
-            rows.push(["Timeline:", phase.timeline]);
-            rows.push(["Tâches:"]);
-            (phase.tasks || []).forEach((task: string) => {
-                rows.push(["", `• ${task}`]);
-            });
-            if (phase.kpis?.length) {
-                rows.push(["KPIs:"]);
-                phase.kpis.forEach((kpi: string) => {
-                    rows.push(["", `• ${kpi}`]);
-                });
-            }
-            rows.push([]);
-        });
-    } else {
-        // Fallback to implementation_roadmap format
-        const phases = [
-            { name: "Phase 1: Fondations", data: roadmap?.phase_1_foundation },
-            { name: "Phase 2: Croissance", data: roadmap?.phase_2_growth },
-            { name: "Phase 3: Scale", data: roadmap?.phase_3_scale },
-        ];
-
-        phases.forEach(({ name, data: phaseData }) => {
-            if (!phaseData) return;
-            rows.push([name]);
-            rows.push(["Timeline:", phaseData.timeline]);
-            rows.push(["Objectifs:"]);
-            (phaseData.objectives || []).forEach((obj: string) => {
-                rows.push(["", `• ${obj}`]);
-            });
-            rows.push([]);
-        });
-    }
-
-    if (roadmap?.budget_breakdown) {
-        rows.push(["RÉPARTITION BUDGET"]);
-        rows.push(["Catégorie", "Montant"]);
-        roadmap.budget_breakdown.forEach((item: any) => {
-            rows.push([item.category, item.amount]);
-        });
-        rows.push([]);
-        rows.push(["BUDGET TOTAL", roadmap.total_budget]);
-        rows.push(["APPORT RECOMMANDÉ", roadmap.recommended_equity]);
-    }
-
-    if (roadmap?.kpi_targets) {
-        rows.push([]);
-        rows.push(["OBJECTIFS KPI"]);
-        rows.push(["Indicateur", "Cible M6", "Cible M12"]);
-        roadmap.kpi_targets.forEach((kpi: any) => {
-            rows.push([kpi.indicator, kpi.target_m6, kpi.target_m12]);
-        });
-    }
-
-    return rows;
-}
-
-function buildCompetitorDeepDiveSheet(data: any): any[][] {
-    const competitors = data?.competitive_intelligence?.competitors_deep_dive || [];
-
-    const rows: any[][] = [
-        ["ANALYSE CONCURRENTIELLE APPROFONDIE"],
-        [],
-        ["Nom", "Taille", "Croissance", "Proposition de Valeur", "Segment Cible", "Niveau de Menace"],
-    ];
-
-    competitors.forEach((comp: any) => {
-        rows.push([
-            comp.name,
-            comp.profile?.size || "",
-            comp.profile?.growth_trajectory || "",
-            comp.positioning?.value_prop || "",
-            comp.positioning?.target_segment || "",
-            comp.threat_level || "",
-        ]);
-    });
-
-    rows.push([]);
-    rows.push(["FORCES ET FAIBLESSES PAR CONCURRENT"]);
-    rows.push(["Concurrent", "Forces", "Faiblesses", "Opportunités vs eux"]);
-
-    competitors.forEach((comp: any) => {
-        rows.push([
-            comp.name,
-            (comp.strengths || []).join("; "),
-            (comp.weaknesses || []).join("; "),
-            comp.opportunities_vs_them || "",
-        ]);
-    });
-
-    return rows;
+  return rows;
 }
 
 function buildPositioningMatrixSheet(data: any): any[][] {
-    const matrixData = data?.competitive_intelligence?.positioning_matrix || data?.scoring_matrix;
+  const matrixData = data?.competitive_intelligence?.competitive_positioning_maps?.primary_map || {};
+  const competitors = matrixData.positions || matrixData.competitors_plotted || [];
 
-    const rows: any[][] = [
-        ["MATRICE DE POSITIONNEMENT"],
-        [],
-        ["Concurrent", "Axe X (Prix/Gamme)", "Axe Y (Qualité/Service)", "Quadrant", "Notes"],
-    ];
+  const xAxis = matrixData.x_axis || "Prix";
+  const yAxis = matrixData.y_axis || "Qualité";
 
-    const competitors = matrixData?.competitors || [];
-    competitors.forEach((comp: any) => {
-        rows.push([
-            comp.name,
-            comp.x_axis || comp.price_positioning || 0,
-            comp.y_axis || comp.quality_positioning || 0,
-            comp.quadrant || "",
-            comp.notes || ""
-        ]);
-    });
+  const rows: any[][] = [
+    ["MATRICE DE POSITIONNEMENT - Scatter Plot Data"],
+    [],
+    [xAxis, yAxis, "Concurrent"],
+  ];
 
-    rows.push([]);
-    rows.push(["INTERPRÉTATION"]);
-    rows.push([matrixData?.interpretation || ""]);
+  competitors.slice(0, 8).forEach((comp: any) => {
+    rows.push([comp.x || 0, comp.y || 0, comp.name || comp.competitor || ""]);
+  });
 
-    rows.push([]);
-    rows.push(["Utilisez ces coordonnées X/Y pour créer un graphique scatter dans Excel"]);
+  if (matrixData.recommended_position) {
+    rows.push([], ["POSITION RECOMMANDÉE"]);
+    rows.push([matrixData.recommended_position.x, matrixData.recommended_position.y, "Cible"]);
+  }
 
-    return rows;
+  return rows;
 }
 
 function buildSWOTSheet(data: any): any[][] {
-    const swot = data?.swot_analysis || {};
+  const swot = data?.swot_analysis || {};
 
-    const rows: any[][] = [
-        ["ANALYSE SWOT STRATÉGIQUE"],
-        [],
-        ["FORCES (STRENGTHS)", "", "FAIBLESSES (WEAKNESSES)"],
-    ];
+  const strengths = (swot.strengths || []).slice(0, 4);
+  const weaknesses = (swot.weaknesses || []).slice(0, 4);
+  const opportunities = (swot.opportunities || []).slice(0, 4);
+  const threats = (swot.threats || []).slice(0, 4);
+  const maxRows = Math.max(strengths.length, weaknesses.length, opportunities.length, threats.length);
 
-    const strengths = swot.strengths || [];
-    const weaknesses = swot.weaknesses || [];
-    const maxSW = Math.max(strengths.length, weaknesses.length, 1);
+  const rows: any[][] = [
+    ["ANALYSE SWOT STRATÉGIQUE"],
+    [],
+    ["FORCES", "FAIBLESSES"],
+  ];
 
-    for (let i = 0; i < maxSW; i++) {
-        rows.push([
-            strengths[i] ? `• ${strengths[i]}` : "",
-            "",
-            weaknesses[i] ? `• ${weaknesses[i]}` : ""
-        ]);
-    }
+  for (let i = 0; i < maxRows; i++) {
+    rows.push([
+      strengths[i] ? `• ${strengths[i]}` : "",
+      weaknesses[i] ? `• ${weaknesses[i]}` : ""
+    ]);
+  }
 
-    rows.push([]);
-    rows.push(["OPPORTUNITÉS (OPPORTUNITIES)", "", "MENACES (THREATS)"]);
+  rows.push([], ["OPPORTUNITÉS", "MENACES"]);
 
-    const opportunities = swot.opportunities || [];
-    const threats = swot.threats || [];
-    const maxOT = Math.max(opportunities.length, threats.length, 1);
+  for (let i = 0; i < maxRows; i++) {
+    rows.push([
+      opportunities[i] ? `• ${opportunities[i]}` : "",
+      threats[i] ? `• ${threats[i]}` : ""
+    ]);
+  }
 
-    for (let i = 0; i < maxOT; i++) {
-        rows.push([
-            opportunities[i] ? `• ${opportunities[i]}` : "",
-            "",
-            threats[i] ? `• ${threats[i]}` : ""
-        ]);
-    }
+  rows.push([], ["PRIORITÉS STRATÉGIQUES"]);
+  const priorities = swot.strategic_priorities || [];
+  priorities.forEach((p: string, i: number) => {
+    rows.push([`${i + 1}. ${p}`]);
+  });
 
-    rows.push([]);
-    rows.push(["PRIORITÉS STRATÉGIQUES"]);
-
-    const priorities = swot.strategic_priorities || swot.priorities || [];
-    priorities.forEach((priority: string, i: number) => {
-        rows.push([`${i + 1}. ${priority}`]);
-    });
-
-    return rows;
+  return rows;
 }
 
-function buildMarketAnalysisSheet(data: any): any[][] {
-    const market = data?.market_analysis || {};
-    const sizing = market.market_sizing || {};
-    const dynamics = market.market_dynamics || {};
+function buildRoadmapSheet(data: any): any[][] {
+  const roadmap = data?.detailed_roadmap || data?.implementation_roadmap;
 
-    const rows: any[][] = [
-        ["ANALYSE DE MARCHÉ"],
-        [],
-        ["DIMENSIONNEMENT DU MARCHÉ"],
-        ["TAM (Total Addressable Market)", sizing.total_addressable_market || ""],
-        ["SAM (Serviceable Addressable Market)", sizing.serviceable_addressable_market || ""],
-        ["SOM (Serviceable Obtainable Market)", sizing.serviceable_obtainable_market || ""],
-        [],
-        ["DYNAMIQUES DE MARCHÉ"],
-        ["Taux de Croissance", dynamics.growth_rate || ""],
-        ["Stade de Maturité", dynamics.maturity_stage || ""],
-        ["Intensité Compétitive", dynamics.competitive_intensity || ""],
-        [],
-        ["MOTEURS DE CROISSANCE"],
-    ];
+  const rows: any[][] = [
+    ["ROADMAP 12 MOIS"],
+    [],
+  ];
 
-    const drivers = dynamics.key_drivers || [];
-    drivers.forEach((driver: string) => {
-        rows.push([`• ${driver}`]);
+  if (roadmap?.phases) {
+    roadmap.phases.forEach((phase: any) => {
+      rows.push([`${phase.phase} - ${phase.title}`]);
+      rows.push(["Timeline:", phase.timeline]);
+      rows.push(["Tâches:"]);
+      (phase.tasks || []).slice(0, 3).forEach((task: string) => {
+        rows.push(["", `• ${task}`]);
+      });
+      if (phase.kpis?.length) {
+        rows.push(["KPIs:"]);
+        phase.kpis.slice(0, 2).forEach((kpi: string) => {
+          rows.push(["", `• ${kpi}`]);
+        });
+      }
+      rows.push([]);
     });
+  }
 
+  if (roadmap?.budget_breakdown) {
+    rows.push(["RÉPARTITION BUDGET"]);
+    rows.push(["Catégorie", "Montant"]);
+    roadmap.budget_breakdown.forEach((item: any) => {
+      rows.push([item.category, item.amount]);
+    });
     rows.push([]);
-    rows.push(["FREINS ET RISQUES"]);
+    rows.push(["BUDGET TOTAL", roadmap.total_budget]);
+  }
 
-    const headwinds = dynamics.headwinds || [];
-    headwinds.forEach((headwind: string) => {
-        rows.push([`• ${headwind}`]);
-    });
-
-    rows.push([]);
-    rows.push(["TENDANCES CLÉS"]);
-
-    const trends = market.trends || [];
-    trends.forEach((trend: any) => {
-        if (typeof trend === 'string') {
-            rows.push([`• ${trend}`]);
-        } else {
-            rows.push([`• ${trend.name || trend.title}`, trend.impact || ""]);
-        }
-    });
-
-    return rows;
+  return rows;
 }
 
 function buildSourcesSheet(data: any): any[][] {
-    const sources = data?.sources || [];
-    const annexes = data?.annexes || {};
+  const sources = data?.sources || [];
 
-    const rows: any[][] = [
-        ["SOURCES ET RÉFÉRENCES"],
-        [],
-        ["Catégorie", "Source", "URL", "Date d'accès"],
-    ];
+  const rows: any[][] = [
+    ["SOURCES & RÉFÉRENCES"],
+    [],
+    ["Source", "URL"],
+  ];
 
-    // Add sources from main sources array
-    sources.forEach((source: any) => {
-        if (typeof source === 'string') {
-            rows.push(["Web", source, source, ""]);
-        } else {
-            rows.push([
-                source.category || "Web",
-                source.title || source.name || "",
-                source.url || "",
-                source.access_date || ""
-            ]);
-        }
-    });
+  sources.slice(0, 20).forEach((source: any) => {
+    const title = typeof source === 'string' ? source : (source.title || source.url || "");
+    const url = typeof source === 'string' ? source : (source.url || "");
+    rows.push([title, url]);
+  });
 
-    // Add categorized sources from annexes if available
-    const categorizedSources = annexes.sources_categorized || {};
-    Object.entries(categorizedSources).forEach(([category, sourceList]) => {
-        if (Array.isArray(sourceList)) {
-            sourceList.forEach((source: any) => {
-                if (typeof source === 'string') {
-                    rows.push([category, source, source, ""]);
-                } else {
-                    rows.push([
-                        category,
-                        source.title || source.name || "",
-                        source.url || "",
-                        source.access_date || ""
-                    ]);
-                }
-            });
-        }
-    });
+  rows.push([], ["TOTAL SOURCES", sources.length]);
 
-    rows.push([]);
-    rows.push(["TOTAL SOURCES", rows.length - 4]); // Subtract header rows
-
-    return rows;
+  return rows;
 }
 
 // ============================================================================
 // MAIN HANDLER
 // ============================================================================
 serve(async (req) => {
-    if (req.method === "OPTIONS") {
-        return new Response("ok", { headers: corsHeaders });
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
+  try {
+    const { reportId } = await req.json();
+
+    if (!reportId) {
+      return new Response(
+        JSON.stringify({ error: "reportId is required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    try {
-        let reportId: string;
+    console.log(`[${reportId}] Starting INSTITUTIONAL-GRADE Excel generation`);
 
-        if (req.method === "POST") {
-            const body = await req.json();
-            reportId = body.reportId;
-        } else {
-            const url = new URL(req.url);
-            reportId = url.searchParams.get("reportId") || "";
-        }
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL") || "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || ""
+    );
 
-        if (!reportId) {
-            return new Response(
-                JSON.stringify({ error: "reportId is required" }),
-                { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-            );
-        }
+    const { data: report, error: fetchError } = await supabase
+      .from("reports")
+      .select("*")
+      .eq("id", reportId)
+      .single();
 
-        console.log(`[${reportId}] Starting Excel generation`);
-
-        const supabase = createClient(
-            Deno.env.get("SUPABASE_URL") || "",
-            Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || ""
-        );
-
-        // Get report data
-        const { data: report, error: fetchError } = await supabase
-            .from("reports")
-            .select("*")
-            .eq("id", reportId)
-            .single();
-
-        if (fetchError || !report) {
-            return new Response(
-                JSON.stringify({ error: `Report not found: ${fetchError?.message}` }),
-                { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-            );
-        }
-
-        if (report.plan !== "agency") {
-            return new Response(
-                JSON.stringify({ error: "Excel export is only available for Agency tier" }),
-                { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-            );
-        }
-
-        const outputData = report.output_data as ExcelData;
-
-        // Create workbook
-        const workbook = XLSX.utils.book_new();
-
-        // Sheet 1: Executive Summary
-        const summaryData = buildExecutiveSummarySheet(outputData);
-        const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
-        XLSX.utils.book_append_sheet(workbook, summarySheet, "Résumé Exécutif");
-
-        // Sheet 2: Competitor Scoring
-        const scoringData = buildCompetitorScoringSheet(outputData);
-        const scoringSheet = XLSX.utils.aoa_to_sheet(scoringData);
-        XLSX.utils.book_append_sheet(workbook, scoringSheet, "Scoring Concurrents");
-
-        // Sheet 3: Financial Projections
-        const financialData = buildFinancialProjectionsSheet(outputData);
-        const financialSheet = XLSX.utils.aoa_to_sheet(financialData);
-        XLSX.utils.book_append_sheet(workbook, financialSheet, "Projections Financières");
-
-        // Sheet 4: Roadmap
-        const roadmapData = buildRoadmapSheet(outputData);
-        const roadmapSheet = XLSX.utils.aoa_to_sheet(roadmapData);
-        XLSX.utils.book_append_sheet(workbook, roadmapSheet, "Roadmap");
-
-        // Sheet 5: Competitor Deep Dive
-        const competitorData = buildCompetitorDeepDiveSheet(outputData);
-        const competitorSheet = XLSX.utils.aoa_to_sheet(competitorData);
-        XLSX.utils.book_append_sheet(workbook, competitorSheet, "Concurrents Détail");
-
-        // Sheet 6: Positioning Matrix
-        const positioningData = buildPositioningMatrixSheet(outputData);
-        const positioningSheet = XLSX.utils.aoa_to_sheet(positioningData);
-        XLSX.utils.book_append_sheet(workbook, positioningSheet, "Matrice Position");
-
-        // Sheet 7: SWOT Analysis
-        const swotData = buildSWOTSheet(outputData);
-        const swotSheet = XLSX.utils.aoa_to_sheet(swotData);
-        XLSX.utils.book_append_sheet(workbook, swotSheet, "SWOT");
-
-        // Sheet 8: Sources
-        const sourcesData = buildSourcesSheet(outputData);
-        const sourcesSheet = XLSX.utils.aoa_to_sheet(sourcesData);
-        XLSX.utils.book_append_sheet(workbook, sourcesSheet, "Sources");
-
-        // Generate Excel buffer
-        const excelBuffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
-
-        console.log(`[${reportId}] Excel generated, size: ${excelBuffer.length} bytes`);
-
-        const businessName = (outputData?.report_metadata?.business_name || "Benchmark")
-            .replace(/[^a-zA-Z0-9]/g, "_")
-            .substring(0, 30);
-        const fileName = `Benchmark_${businessName}_${reportId.substring(0, 8)}.xlsx`;
-
-        return new Response(excelBuffer, {
-            headers: {
-                ...corsHeaders,
-                "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                "Content-Disposition": `attachment; filename="${fileName}"`,
-                "Content-Length": String(excelBuffer.length),
-            },
-        });
-
-    } catch (error: unknown) {
-        console.error("Excel generation error:", error);
-        const errorMessage = error instanceof Error ? error.message : "Unknown error";
-        return new Response(
-            JSON.stringify({ error: errorMessage }),
-            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+    if (fetchError || !report) {
+      return new Response(
+        JSON.stringify({ error: `Report not found` }),
+        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
+
+    if (report.plan !== "agency") {
+      return new Response(
+        JSON.stringify({ error: "Excel export is only available for Agency tier" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const outputData = report.output_data;
+
+    // Create workbook
+    const workbook = XLSX.utils.book_new();
+
+    // Build sheets
+    const sheets = [
+      { name: "Résumé Exécutif", data: buildExecutiveSummarySheet(outputData) },
+      { name: "Scoring Concurrents", data: buildCompetitorScoringSheet(outputData) },
+      { name: "Projections Financières", data: buildFinancialProjectionsSheet(outputData) },
+      { name: "Matrice Position", data: buildPositioningMatrixSheet(outputData) },
+      { name: "SWOT", data: buildSWOTSheet(outputData) },
+      { name: "Roadmap", data: buildRoadmapSheet(outputData) },
+      { name: "Sources", data: buildSourcesSheet(outputData) },
+    ];
+
+    for (const sheet of sheets) {
+      const wsSheet = XLSX.utils.aoa_to_sheet(sheet.data);
+
+      // Set column widths for better readability
+      wsSheet["!cols"] = [
+        { wch: 25 },
+        { wch: 25 },
+        { wch: 20 },
+        { wch: 20 },
+        { wch: 20 }
+      ];
+
+      // Set default row heights
+      wsSheet["!rows"] = sheet.data.map((_, i) => ({ hpx: i === 0 ? 24 : 18 }));
+
+      XLSX.utils.book_append_sheet(workbook, wsSheet, sheet.name);
+    }
+
+    // Generate Excel with proper formatting
+    const excelBuffer = XLSX.write(workbook, {
+      type: "buffer",
+      bookType: "xlsx",
+      cellStyles: true
+    });
+
+    console.log(`[${reportId}] INSTITUTIONAL Excel generated, size: ${excelBuffer.length} bytes`);
+
+    const businessName = (outputData?.report_metadata?.business_name || "Benchmark")
+      .replace(/[^a-zA-Z0-9]/g, "_")
+      .substring(0, 30);
+    const fileName = `Benchmark_${businessName}_${reportId.substring(0, 8)}.xlsx`;
+
+    return new Response(excelBuffer, {
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "Content-Disposition": `attachment; filename="${fileName}"`,
+        "Content-Length": String(excelBuffer.length),
+      },
+    });
+
+  } catch (error: unknown) {
+    console.error("Excel generation error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    return new Response(
+      JSON.stringify({ error: errorMessage }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
 });
