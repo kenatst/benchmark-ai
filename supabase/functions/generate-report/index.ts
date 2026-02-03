@@ -1240,23 +1240,27 @@ async function repairSectionJson(
   section: SectionPlanItem,
   brokenJson: string
 ): Promise<unknown> {
-  const textFormat = {
-    type: "json_schema",
-    name: `${section.key}_repair`,
-    schema: getSectionSchema(section.key, section.valueType),
-    strict: false,
-  } as const;
+  // NOTE: We intentionally do NOT use `text.format` structured outputs here.
+  // OpenAI's JSON schema subset requires `additionalProperties: false` for all objects,
+  // and our current section schemas are not strict enough (causing 400 invalid_json_schema).
+  // A deterministic “repair to valid JSON” prompt is more reliable than failing hard.
 
-  const systemPrompt = `Tu es un assistant de correction JSON. Retourne un JSON valide correspondant strictement au schéma demandé.`;
-  const userPrompt = `JSON À RÉPARER:\n${brokenJson}\n\nRÉPARE ET RETOURNE UNIQUEMENT LE JSON.`;
+  const systemPrompt = `Tu es un assistant de correction JSON.
+Objectif: retourner un JSON STRICTEMENT VALIDE.
+Contraintes:
+- Retourne UNIQUEMENT du JSON, sans backticks, sans texte.
+- Le JSON DOIT contenir UNE SEULE clé racine: "${section.key}".
+- Si une valeur est inconnue: utilise "non trouvé".
+- Si la structure est incertaine, conserve au maximum les champs existants (ne supprime pas d'infos).`;
+
+  const userPrompt = `JSON À RÉPARER (peut contenir du texte/markdown/erreurs):\n${brokenJson}\n\nRÉPARE ET RETOURNE UNIQUEMENT LE JSON VALIDE.`;
 
   const content = await callGPT52(
     apiKey,
     systemPrompt,
     userPrompt,
     1200,
-    0.1,
-    textFormat
+    0.1
   );
 
   return safeJsonParse(content);
@@ -1270,13 +1274,6 @@ async function generateSection(
   section: SectionPlanItem,
   existingSection?: unknown
 ): Promise<unknown> {
-  const textFormat = {
-    type: "json_schema",
-    name: `${section.key}_schema`,
-    schema: getSectionSchema(section.key, section.valueType),
-    strict: false,
-  } as const;
-
   const userPrompt = buildSectionPrompt(reportBrief, section, existingSection);
   const maxTokens = estimateMaxTokens(section.wordTarget, tierConfig.max_tokens);
 
@@ -1288,27 +1285,12 @@ async function generateSection(
       systemPrompt,
       userPrompt,
       maxTokens,
-      tierConfig.temperature,
-      textFormat
+      tierConfig.temperature
     );
     console.log(`[Section] GPT-5.2 responded for ${section.key}: ${content.length} chars`);
   } catch (apiError) {
     console.error(`[Section] GPT-5.2 API call FAILED for ${section.key}:`, apiError instanceof Error ? apiError.message : apiError);
-    // Fallback: try WITHOUT structured output format (text.format) in case that's the issue
-    try {
-      console.log(`[Section] Retrying ${section.key} WITHOUT text.format...`);
-      content = await callGPT52(
-        apiKey,
-        systemPrompt,
-        userPrompt,
-        maxTokens,
-        tierConfig.temperature
-      );
-      console.log(`[Section] Retry succeeded for ${section.key}: ${content.length} chars`);
-    } catch (retryError) {
-      console.error(`[Section] Retry also FAILED for ${section.key}:`, retryError instanceof Error ? retryError.message : retryError);
-      return { [section.key]: section.valueType === 'array' ? [] : {} };
-    }
+    return { [section.key]: section.valueType === 'array' ? [] : {} };
   }
 
   try {
@@ -1565,6 +1547,19 @@ async function runGenerationAsync(
 
     console.log(`[${reportId}] Starting report generation`);
     console.log(`[${reportId}] Tier: ${plan} | Model: GPT-5.2 | Language: ${reportLang}`);
+
+    // IMPORTANT UX/STATE: if the report previously failed, a user-triggered retry must
+    // switch it back to processing immediately (otherwise the UI can keep showing “failed”
+    // while the async generation is actually running).
+    await supabaseAdmin
+      .from('reports')
+      .update({
+        status: 'processing',
+        processing_step: 'Démarrage de la génération...',
+        processing_progress: 5,
+        updated_at: new Date().toISOString(),
+      } as Record<string, unknown>)
+      .eq('id', reportId);
 
     // Step 1: Conduct Perplexity research
     await updateProgress(supabaseAdmin, reportId, "Lancement des recherches...", 10);
