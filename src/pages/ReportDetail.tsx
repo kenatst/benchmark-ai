@@ -7,7 +7,7 @@ import { useReports, Report } from '@/hooks/useReports';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { ReportInput, ReportOutput } from '@/types/report';
 import { toast } from 'sonner';
-import { ArrowLeft, FileText, Loader2, Download, FileSpreadsheet, Presentation } from 'lucide-react';
+import { ArrowLeft, FileText, Loader2, Download } from 'lucide-react';
 import { ReportHero } from '@/components/report/ReportHero';
 import { WebSummary } from '@/components/report/WebSummary';
 import { downloadDocument } from '@/lib/download';
@@ -130,10 +130,7 @@ const ReportDetail = () => {
     }
   };
 
-  // Computed states for backward compatibility with ReportHero
   const isDownloading = downloadingFormat === 'pdf';
-  const isDownloadingExcel = downloadingFormat === 'excel';
-  const isDownloadingSlides = downloadingFormat === 'powerpoint';
 
   // Unified download handler - supports all formats (PDF, Excel, PowerPoint)
   const downloadFile = async (format: 'pdf' | 'excel' | 'powerpoint') => {
@@ -171,10 +168,7 @@ const ReportDetail = () => {
     }
   };
 
-  // Wrapper functions for backward compatibility with existing UI
   const handleDownload = () => downloadFile('pdf');
-  const handleDownloadExcel = () => report?.plan === 'agency' && downloadFile('excel');
-  const handleDownloadSlides = () => report?.plan === 'agency' && downloadFile('powerpoint');
 
   if (authLoading || isLoading) {
     return (
@@ -236,13 +230,9 @@ const ReportDetail = () => {
             processingProgress={processingProgress}
             processingStep={report.processing_step}
             onDownload={handleDownload}
-            onDownloadExcel={handleDownloadExcel}
-            onDownloadSlides={handleDownloadSlides}
             onRetry={handleRetry}
             isRetrying={isRetrying}
             isDownloading={isDownloading}
-            isDownloadingExcel={isDownloadingExcel}
-            isDownloadingSlides={isDownloadingSlides}
           />
 
           {/* Web Summary - Only shown when report is ready */}

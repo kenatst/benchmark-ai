@@ -1,6 +1,6 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Download, CheckCircle, AlertCircle, RefreshCw, Loader2, FileSpreadsheet, Presentation } from 'lucide-react';
+import { Download, CheckCircle, AlertCircle, RefreshCw, Loader2 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 
 interface ReportHeroProps {
@@ -12,13 +12,9 @@ interface ReportHeroProps {
   processingProgress: number;
   processingStep?: string;
   onDownload: () => void;
-  onDownloadExcel?: () => void;
-  onDownloadSlides?: () => void;
   onRetry: () => void;
   isRetrying: boolean;
   isDownloading?: boolean;
-  isDownloadingExcel?: boolean;
-  isDownloadingSlides?: boolean;
 }
 
 export const ReportHero = ({
@@ -30,15 +26,10 @@ export const ReportHero = ({
   processingProgress,
   processingStep,
   onDownload,
-  onDownloadExcel,
-  onDownloadSlides,
   onRetry,
   isRetrying,
-  isDownloading = false,
-  isDownloadingExcel = false,
-  isDownloadingSlides = false
+  isDownloading = false
 }: ReportHeroProps) => {
-  const isAgency = plan === 'agency';
   const getPlanLabel = (p: string) => {
     switch (p) {
       case 'agency': return 'AGENCY';
@@ -88,50 +79,6 @@ export const ReportHero = ({
                 )}
               </Button>
             </div>
-
-            {/* Agency tier multi-format exports */}
-            {isAgency && (
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  size="default"
-                  variant="secondary"
-                  onClick={onDownloadExcel}
-                  disabled={isDownloadingExcel}
-                  className="gap-2"
-                >
-                  {isDownloadingExcel ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Excel...
-                    </>
-                  ) : (
-                    <>
-                      <FileSpreadsheet className="w-4 h-4" />
-                      Excel
-                    </>
-                  )}
-                </Button>
-                <Button
-                  size="default"
-                  variant="secondary"
-                  onClick={onDownloadSlides}
-                  disabled={isDownloadingSlides}
-                  className="gap-2"
-                >
-                  {isDownloadingSlides ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Slides...
-                    </>
-                  ) : (
-                    <>
-                      <Presentation className="w-4 h-4" />
-                      Slides
-                    </>
-                  )}
-                </Button>
-              </div>
-            )}
           </div>
         )}
       </div>

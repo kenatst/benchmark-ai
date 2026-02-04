@@ -133,7 +133,20 @@ serve(async (req) => {
       // ============================================
       const backgroundTasks = async () => {
         try {
-          // Update to processing status AFTER returning 200
+          // IDEMPOTENCY CHECK FIRST: Fetch current status BEFORE changing anything
+          // Prevents duplicate generations if webhook fires multiple times
+          const { data: currentReport } = await supabaseAdmin
+            .from("reports")
+            .select("status")
+            .eq("id", reportId)
+            .single();
+
+          if (currentReport?.status === "processing" || currentReport?.status === "ready") {
+            console.log(`[Webhook BG] Report already in ${currentReport.status} state - skipping generation`);
+            return; // Exit early - don't set processing, don't trigger
+          }
+
+          // NOW set to processing (only if not already processing/ready)
           await supabaseAdmin
             .from("reports")
             .update({ status: "processing", processing_step: "Initialisation...", processing_progress: 5 })
@@ -167,36 +180,23 @@ serve(async (req) => {
             }
           }
 
-          // IDEMPOTENCY CHECK: Fetch current status before triggering
-          // Prevents duplicate generations if webhook fires multiple times
-          const { data: currentReport } = await supabaseAdmin
-            .from("reports")
-            .select("status")
-            .eq("id", reportId)
-            .single();
-
-          if (currentReport?.status === "processing" || currentReport?.status === "ready") {
-            console.log(`[Webhook BG] Report already in ${currentReport.status} state - skipping generation`);
-          } else {
-            // Trigger report generation (fire-and-forget - don't wait for response)
-            console.log("[Webhook BG] Triggering report generation...");
-            // Start generation WITHOUT awaiting - let it run independently
-            fetch(
-              `${Deno.env.get("SUPABASE_URL")}/functions/v1/generate-report`,
-              {
-                method: "POST",
-                headers: {
-                  Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({ reportId }),
-              }
-            ).then(() => {
-              console.log("[Webhook BG] Generation started");
-            }).catch(err => {
-              console.error("[Webhook BG] Generation trigger error:", err);
-            });
-          }
+          // Trigger report generation (fire-and-forget - don't wait for response)
+          console.log("[Webhook BG] Triggering report generation...");
+          fetch(
+            `${Deno.env.get("SUPABASE_URL")}/functions/v1/generate-report`,
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ reportId }),
+            }
+          ).then(() => {
+            console.log("[Webhook BG] Generation started");
+          }).catch(err => {
+            console.error("[Webhook BG] Generation trigger error:", err);
+          });
         } catch (bgError) {
           console.error("[Webhook BG] Background task error:", bgError);
           // Log for monitoring, but don't fail the webhook

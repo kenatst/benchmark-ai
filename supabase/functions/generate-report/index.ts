@@ -198,11 +198,9 @@ const TIER_DOCUMENTS = {
     description: "PDF report with market intelligence, deep competitor profiles, and financial benchmarks"
   },
   agency: {
-    outputs: ["pdf", "xlsx", "pptx"],
+    outputs: ["pdf"],
     pdfPages: "40-50 pages",
-    excelSheets: GPT_SKILLS.xlsx.sheets.agency,
-    pptxSlides: GPT_SKILLS.pptx.slides.agency,
-    description: "Complete institutional package: PDF report + Excel data model + PowerPoint deck"
+    description: "Complete institutional PDF report (Excel + Slides temporarily disabled)"
   }
 };
 
@@ -449,7 +447,7 @@ LANGUE DE RAPPORT: ${LANGUAGE_CONFIG[lang]?.name || 'Français'} - TOUT le rappo
 → LONGUEUR CIBLE: 8000-12000 mots de contenu institutionnel (équivalent 40-50 pages PDF)
 → CONCURRENTS: 10-15 concurrents en analyse approfondie (deep dive)
 → SOURCES: 30-50 sources catégorisées (Données marché / Territoriales / Sectorielles)
-→ LIVRABLES: Ce rapport sera exporté en PDF + Excel + Slides deck
+→ LIVRABLES: Ce rapport sera exporté en PDF
 → FRAMEWORKS OBLIGATOIRES:
   • Analyse PESTEL complète (Political, Economic, Social, Technological, Environmental, Legal)
   • Porter 5 Forces avec scores 1-10 et analyse détaillée
@@ -466,42 +464,6 @@ LANGUE DE RAPPORT: ${LANGUAGE_CONFIG[lang]?.name || 'Français'} - TOUT le rappo
   • Unit Economics (CAC, LTV, ratio, payback period, gross margin)
   • Roadmap 12 mois phasé avec KPIs et budget par phase
   • Annexes: glossaire, sources catégorisées, assumptions log, unknowns
-
-═══════════════════════════════════════════════════════════════════════════════
-LIVRABLES MULTI-FORMAT (SKILL TRIGGERS: PDF + Excel + PowerPoint)
-═══════════════════════════════════════════════════════════════════════════════
-
-1. PDF INSTITUTIONNEL (40-50 pages)
-   Skill trigger: PDF, .pdf, document institutionnel
-   → Format: A4, marges 72pt, typographie Helvetica/Georgia
-   → Palette: Navy #1a3a5c, Gold #b89456, Forest #2d7a5a
-   → Sections: Couverture, Executive Summary, TOC, Corps, Annexes
-   → Qualité: Publication-ready, zéro révision nécessaire
-
-2. FICHIER EXCEL (.xlsx) - Spreadsheet avec data model
-   Skill trigger: Excel, spreadsheet, .xlsx, financial model, data table
-   Feuilles obligatoires:
-   → "Résumé Exécutif" - KPIs clés et recommandation
-   → "Scoring Concurrents" - Matrice comparative avec formules
-   → "Matrice Positionnement" - Coordonnées X/Y pour visualisation
-   → "Projections Financières" - 3 scénarios avec P&L simplifié
-   → "Unit Economics" - CAC, LTV, payback, marge
-   → "Roadmap 12 mois" - Phases, tâches, KPIs, budget
-   → "Budget Détaillé" - Line items par catégorie
-   → "Sources" - Liste catégorisée avec URLs
-
-3. DECK POWERPOINT (.pptx) - Slide deck executive
-   Skill trigger: PowerPoint, presentation, .pptx, slides, pitch deck
-   Slides obligatoires (9 min):
-   → Slide 1: Titre & Contexte
-   → Slide 2: Résumé Exécutif (1 page)
-   → Slide 3: Panorama Marché (TAM/SAM/SOM)
-   → Slide 4: Paysage Concurrentiel
-   → Slide 5: Matrice de Positionnement
-   → Slide 6: SWOT (quadrants visuels)
-   → Slide 7: Projections Financières
-   → Slide 8: Roadmap 12 mois
-   → Slide 9: Prochaines Étapes & Contact
 
 ═══════════════════════════════════════════════════════════════════════════════
 CONTRAINTES ABSOLUES (MODE INSTITUTIONAL)
@@ -1761,7 +1723,8 @@ async function runGenerationAsync(
 
     const tierConfig = TIER_CONFIG[plan];
     if (tierConfig.perplexity_searches > 0 && !PERPLEXITY_API_KEY) {
-      throw new Error("PERPLEXITY_API_KEY is required for web research tiers");
+      console.warn(`[${reportId}] ⚠️ PERPLEXITY_API_KEY missing - continuing WITHOUT web research. Report quality will be reduced.`);
+      await updateProgress(supabaseAdmin, reportId, "Recherche web indisponible - génération sans données web...", 8);
     }
     let reportLang = inputData.reportLanguage || 'fr';
 
@@ -1976,8 +1939,8 @@ INSTRUCTIONS CRITIQUES POUR L'UTILISATION DES DONNÉES DE RECHERCHE
     console.log(`[${reportId}] ✅ Report generated successfully`);
     console.log(`[${reportId}] Tier: ${plan} | Sources: ${(outputData as any)?.sources?.length || 0}`);
 
-    // Step 6: Generate all documents in PARALLEL (PDF + Excel + PowerPoint)
-    await updateProgress(supabaseAdmin, reportId, "Génération des documents...", 95);
+    // Step 6: Generate PDF document only (Excel + Slides disabled for now)
+    await updateProgress(supabaseAdmin, reportId, "Génération du PDF...", 95);
 
     // @ts-ignore - Deno runtime
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
@@ -1988,60 +1951,22 @@ INSTRUCTIONS CRITIQUES POUR L'UTILISATION DES DONNÉES DE RECHERCHE
       "Authorization": `Bearer ${serviceRoleKey}`,
     };
 
-    // Launch all document generation in parallel
-    const generatePdf = fetch(`${supabaseUrl}/functions/v1/generate-pdf`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ reportId }),
-    }).catch(err => {
-      console.error(`[${reportId}] PDF generation failed:`, err);
-      return null;
-    });
+    // Generate PDF only
+    try {
+      const pdfResponse = await fetch(`${supabaseUrl}/functions/v1/generate-pdf`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ reportId }),
+      });
 
-    const generateExcel = plan === 'agency' ? fetch(`${supabaseUrl}/functions/v1/generate-excel`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ reportId }),
-    }).catch(err => {
-      console.error(`[${reportId}] Excel generation failed:`, err);
-      return null;
-    }) : Promise.resolve(null);
-
-    const generatePowerpoint = plan === 'agency' ? fetch(`${supabaseUrl}/functions/v1/generate-slides`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ reportId }),
-    }).catch(err => {
-      console.error(`[${reportId}] PowerPoint generation failed:`, err);
-      return null;
-    }) : Promise.resolve(null);
-
-    // Wait for all documents to generate
-    const [pdfResponse, excelResponse, ppptResponse] = await Promise.all([
-      generatePdf,
-      generateExcel,
-      generatePowerpoint,
-    ]);
-
-    // Log document generation results
-    if (pdfResponse?.ok) {
-      reportLog(reportId, 'SUCCESS', 'Document Generation', 'PDF generated successfully');
-    } else if (pdfResponse) {
-      reportLog(reportId, 'WARN', 'Document Generation', `PDF generation failed: ${pdfResponse.status}`);
-    }
-
-    if (plan === 'agency') {
-      if (excelResponse?.ok) {
-        reportLog(reportId, 'SUCCESS', 'Document Generation', 'Excel generated successfully');
-      } else if (excelResponse) {
-        reportLog(reportId, 'WARN', 'Document Generation', `Excel generation failed: ${excelResponse.status}`);
+      if (pdfResponse?.ok) {
+        reportLog(reportId, 'SUCCESS', 'Document Generation', 'PDF generated successfully');
+      } else {
+        reportLog(reportId, 'WARN', 'Document Generation', `PDF generation returned: ${pdfResponse?.status}`);
       }
-
-      if (ppptResponse?.ok) {
-        reportLog(reportId, 'SUCCESS', 'Document Generation', 'PowerPoint generated successfully');
-      } else if (ppptResponse) {
-        reportLog(reportId, 'WARN', 'Document Generation', `PowerPoint generation failed: ${ppptResponse.status}`);
-      }
+    } catch (pdfErr) {
+      console.error(`[${reportId}] PDF generation failed:`, pdfErr);
+      reportLog(reportId, 'WARN', 'Document Generation', `PDF generation error: ${pdfErr instanceof Error ? pdfErr.message : 'unknown'}`);
     }
 
     // Final update - mark as ready
@@ -2054,7 +1979,7 @@ INSTRUCTIONS CRITIQUES POUR L'UTILISATION DES DONNÉES DE RECHERCHE
       } as Record<string, unknown>)
       .eq("id", reportId);
 
-    reportLog(reportId, 'SUCCESS', 'Report Generation', `All documents generated for ${plan} tier`);
+    reportLog(reportId, 'SUCCESS', 'Report Generation', `PDF generated for ${plan} tier`);
 
   } catch (error: unknown) {
     console.error(`[${reportId}] Generation error:`, error);
