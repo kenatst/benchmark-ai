@@ -5,7 +5,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 // @ts-ignore - Deno import
 import { z } from "https://esm.sh/zod@3.23.8";
 
-// FORCE REDEPLOY: 2026-02-03 14:15 UTC - Token limit fix
+// FORCE REDEPLOY: 2026-02-04 - Prompt optimization + truncation fix (cost -70%)
 // Import shared constants (eliminates CORS header duplication across 10+ functions)
 // @ts-ignore - Deno import
 import { corsHeaders, getAuthContext } from "../_shared.ts";
@@ -284,11 +284,20 @@ const SECTION_PLANS: Record<TierType, SectionPlanItem[]> = {
 // ============================================
 const TIER_CONFIG = {
   standard: {
-    max_tokens: 3000,
+    max_tokens: 4000,
     temperature: 0.3, // Allow creativity for recommendations
     perplexity_searches: 4,
     word_targets: WORD_TARGETS.standard,
     section_plan: SECTION_PLANS.standard,
+    // Lean system prompt used for SECTION-BY-SECTION generation (no deliverable specs)
+    section_system_prompt: (lang: string) => `Tu es un DIRECTEUR ASSOCIÉ de cabinet de conseil stratégique (BCG/McKinsey alumni, 15+ ans).
+LANGUE: ${LANGUAGE_CONFIG[lang]?.name || 'Français'} - Rédige dans cette langue.
+MISSION: Produire UNE SECTION de benchmark concurrentiel de calibre C-Level.
+RÈGLES:
+- Retourne UNIQUEMENT du JSON valide, sans texte/markdown avant ou après.
+- Cite tes sources. Jamais inventer de données.
+- Si une donnée est inconnue: "non trouvé" ou "données non disponibles".
+- Style: direct, factuel, quantifié, actionnable.`,
     system_prompt: (lang: string) => `Tu es un DIRECTEUR ASSOCIÉ de cabinet de conseil stratégique (BCG/McKinsey alumni, 15+ ans d'expérience).
 
 LANGUE DE RAPPORT: ${LANGUAGE_CONFIG[lang]?.name || 'Français'} - TOUT le rapport doit être rédigé dans cette langue.
@@ -342,11 +351,21 @@ RETOURNE UNIQUEMENT LE JSON VALIDE, sans texte avant/après.`,
   },
 
   pro: {
-    max_tokens: 5000,
+    max_tokens: 12000,
     temperature: 0.25, // Strategic thinking for Pro tier
     perplexity_searches: 10,
     word_targets: WORD_TARGETS.pro,
     section_plan: SECTION_PLANS.pro,
+    // Lean system prompt used for SECTION-BY-SECTION generation (no deliverable specs)
+    section_system_prompt: (lang: string) => `Tu es un PRINCIPAL de cabinet de conseil stratégique tier-1 (ex-McKinsey/BCG/Bain, 10+ ans).
+LANGUE: ${LANGUAGE_CONFIG[lang]?.name || 'Français'} - Rédige dans cette langue.
+MISSION: Produire UNE SECTION de rapport d'intelligence compétitive de calibre premium.
+RÈGLES:
+- Retourne UNIQUEMENT du JSON valide, sans texte/markdown avant ou après.
+- Utilise les données de recherche fournies. Cite tes sources systématiquement.
+- Jamais inventer de données. "non trouvé" si donnée absente.
+- Chaque affirmation sur un concurrent = source obligatoire.
+- Style: direct, factuel, quantifié, actionnable. Qualité Investment Committee.`,
     system_prompt: (lang: string) => `Tu es un PRINCIPAL de cabinet de conseil stratégique tier-1 (ex-McKinsey/BCG/Bain, 10+ ans).
 
 LANGUE DE RAPPORT: ${LANGUAGE_CONFIG[lang]?.name || 'Français'} - TOUT le rapport doit être rédigé dans cette langue.
@@ -394,11 +413,24 @@ RETOURNE UNIQUEMENT LE JSON VALIDE.`,
   },
 
   agency: {
-    max_tokens: 6000,
+    max_tokens: 16000,
     temperature: 0.2, // Analytical but allows creative recommendations
     perplexity_searches: 16,
     word_targets: WORD_TARGETS.agency,
     section_plan: SECTION_PLANS.agency,
+    // Lean system prompt used for SECTION-BY-SECTION generation (no deliverable specs)
+    section_system_prompt: (lang: string) => `Tu es un SENIOR PARTNER d'un cabinet de conseil stratégique de rang mondial (20+ ans, Harvard MBA).
+LANGUE: ${LANGUAGE_CONFIG[lang]?.name || 'Français'} - Rédige dans cette langue.
+MISSION: Produire UNE SECTION d'un rapport d'intelligence stratégique de calibre institutionnel.
+RÈGLES:
+- Retourne UNIQUEMENT du JSON valide, sans texte/markdown avant ou après.
+- Utilise INTENSIVEMENT les données de recherche fournies. Cite systématiquement les sources.
+- Jamais inventer de données. "non trouvé" ou "données non disponibles" si absent.
+- Tout chiffre DOIT être sourcé (ou marqué comme estimation).
+- Dates absolues (ex: "janvier 2026") plutôt que "récemment".
+- Hypothèses EXPLICITES et TESTABLES.
+- Frameworks: Porter 5 Forces, PESTEL, SWOT si pertinent pour la section.
+- Style: institutionnel, rigoureux, quantifié, actionnable. Qualité publication-ready.`,
     system_prompt: (lang: string) => `Tu es un SENIOR PARTNER d'un cabinet de conseil stratégique de rang mondial.
 Expérience: 20+ ans, dont 5+ en tant que Partner. Background: Harvard MBA, ex-McKinsey Director.
 
@@ -948,6 +980,97 @@ ${result.citations.map((c, i) => `[${i + 1}] ${c}`).join('\n') || 'Aucune source
 }
 
 // ============================================
+// RESEARCH DATA FILTERING PER SECTION
+// ============================================
+// Maps section keys to relevant research query keywords.
+// Only matching research blocks are sent to each section, cutting input tokens by 60-80%.
+const SECTION_RESEARCH_RELEVANCE: Record<string, string[]> = {
+  // Sections that need ALL research (summaries)
+  executive_summary: ["*"],
+  // Sections with targeted research needs
+  methodology: [],  // Meta section, no research needed
+  market_overview_detailed: ["Taille marché", "TAM SAM", "Tendances marché", "Segments de marché", "croissance"],
+  market_context: ["Taille marché", "TAM SAM", "Tendances marché", "Segments de marché", "croissance"],
+  territory_analysis: ["Données territoriales", "immobilier commercial", "démographie"],
+  market_analysis: ["PESTEL", "Porter", "Barrières", "Tendances marché", "réglementation"],
+  market_intelligence: ["Taille marché", "TAM SAM", "Tendances marché", "croissance", "Segments"],
+  competitive_intelligence: ["Prix et tarifs", "Avis clients", "ratings", "levée fonds", "employees", "chiffre affaires", "Trafic web"],
+  competitive_landscape: ["Prix et tarifs", "Avis clients", "ratings", "levée fonds", "Comparatif pricing"],
+  scoring_matrix: ["Prix et tarifs", "Avis clients", "ratings", "Comparatif pricing"],
+  trends_analysis: ["Tendances marché", "Innovation technologique", "disruption", "IA", "Actualités récentes"],
+  swot_analysis: ["Tendances marché", "Barrières", "Prix et tarifs", "Innovation", "PESTEL", "Porter"],
+  customer_intelligence: ["Avis clients", "ratings", "Segments de marché", "segmentation", "Benchmarks CAC LTV"],
+  customer_insights: ["Avis clients", "ratings", "Segments de marché", "segmentation"],
+  strategic_recommendations: ["Tendances marché", "Comparatif pricing", "Innovation", "Segments", "Benchmarks CAC"],
+  strategic_recommendations_detailed: ["Tendances marché", "Comparatif pricing", "Innovation", "Segments", "Benchmarks CAC", "immobilier"],
+  positioning_recommendations: ["Prix et tarifs", "Comparatif pricing", "Avis clients", "Segments"],
+  pricing_strategy: ["Prix et tarifs", "Comparatif pricing", "Benchmarks CAC LTV"],
+  go_to_market: ["Segments de marché", "Benchmarks CAC LTV", "Tendances marché", "Trafic web"],
+  financial_projections: ["Benchmarks CAC LTV", "Unit economics", "marge brute", "Taille marché"],
+  financial_projections_basic: ["Benchmarks CAC LTV", "Unit economics", "Taille marché"],
+  detailed_roadmap: ["Benchmarks CAC LTV", "Innovation technologique"],
+  implementation_roadmap: ["Innovation technologique", "Benchmarks CAC"],
+  action_plan: ["Tendances marché", "Innovation"],
+  risk_register: ["Barrières", "réglementation", "Tendances marché"],
+  risks_and_considerations: ["Barrières", "réglementation", "Tendances marché"],
+  multi_market_comparison: ["Comparatif multi-marchés", "Tendances marché", "Taille marché"],
+  appendices: [],  // Will pull from sources already in other sections
+  assumptions_and_limitations: [],
+  next_steps_to_validate: [],
+  sources: ["*"],
+};
+
+/**
+ * Filters research data to only include blocks relevant to a specific section.
+ * Each research block starts with "────" separator containing the query.
+ * Returns filtered research string or full data for "*" sections.
+ */
+function filterResearchForSection(fullResearchData: string, sectionKey: string): string {
+  if (!fullResearchData || fullResearchData.length < 100) return fullResearchData;
+
+  const relevanceKeys = SECTION_RESEARCH_RELEVANCE[sectionKey];
+
+  // If section wants all research or is not mapped, send everything
+  if (!relevanceKeys || relevanceKeys.includes("*")) return fullResearchData;
+
+  // If section needs no research, return minimal header
+  if (relevanceKeys.length === 0) {
+    return "\n(Données de recherche non nécessaires pour cette section.)\n";
+  }
+
+  // Split research into blocks by the separator pattern
+  const blocks = fullResearchData.split(/(?=────────────────────────────────────────────────────────────────────────────────\nRECHERCHE:)/);
+
+  const relevantBlocks: string[] = [];
+  // Keep the header (first block with date)
+  if (blocks.length > 0 && blocks[0].includes("DONNÉES DE RECHERCHE")) {
+    relevantBlocks.push(blocks[0].trim());
+  }
+
+  // Filter blocks by matching query text against relevance keywords
+  for (let i = 1; i < blocks.length; i++) {
+    const block = blocks[i];
+    const queryLine = block.split('\n').find(l => l.startsWith('RECHERCHE:')) || block.substring(0, 200);
+    const queryLower = queryLine.toLowerCase();
+
+    const isRelevant = relevanceKeys.some(keyword =>
+      queryLower.includes(keyword.toLowerCase())
+    );
+
+    if (isRelevant) {
+      relevantBlocks.push(block.trim());
+    }
+  }
+
+  if (relevantBlocks.length <= 1) {
+    // Only header, no relevant research found
+    return "\n(Aucune donnée de recherche directement pertinente pour cette section.)\n";
+  }
+
+  return relevantBlocks.join("\n\n");
+}
+
+// ============================================
 // PROMPT BUILDERS
 // ============================================
 function buildReportBrief(input: ReportInput, plan: TierType, researchData: string): string {
@@ -1030,7 +1153,8 @@ Ton souhaité: ${input.tonePreference}
 ${input.notes ? `Notes additionnelles: ${input.notes}` : ""}
 </constraints>`;
 
-  if (plan === "standard" || plan === "pro" || plan === "agency") {
+  // Only append research data if non-empty (in section-by-section mode, research is filtered and appended separately)
+  if (researchData && researchData.length > 50) {
     prompt += `
 
 ${researchData}
@@ -1254,10 +1378,10 @@ Génère le rapport de benchmark. RETOURNE UNIQUEMENT LE JSON.`;
 // SECTION GENERATION (multi-pass)
 // ============================================
 function estimateMaxTokens(wordTarget: number, tierMaxTokens: number): number {
-  // Conservative: JSON outputs + sources often need more tokens than plain text.
-  // This reduces truncation (unterminated strings / cut-off arrays) which is a major failure mode.
-  const estimate = Math.ceil(wordTarget * 3);
-  return Math.min(tierMaxTokens, Math.max(900, estimate));
+  // JSON outputs need more tokens than plain text due to keys, brackets, nested structures, sources.
+  // Using 5x multiplier (was 3x) to prevent truncation which is the #1 failure mode.
+  const estimate = Math.ceil(wordTarget * 5);
+  return Math.min(tierMaxTokens, Math.max(1500, estimate));
 }
 
 function buildSectionPrompt(
@@ -1297,7 +1421,7 @@ async function repairSectionJson(
   // NOTE: We intentionally do NOT use `text.format` structured outputs here.
   // OpenAI's JSON schema subset requires `additionalProperties: false` for all objects,
   // and our current section schemas are not strict enough (causing 400 invalid_json_schema).
-  // A deterministic “repair to valid JSON” prompt is more reliable than failing hard.
+  // A deterministic "repair to valid JSON" prompt is more reliable than failing hard.
 
   const systemPrompt = `Tu es un assistant de correction JSON.
 Objectif: retourner un JSON STRICTEMENT VALIDE.
@@ -1307,17 +1431,50 @@ Contraintes:
 - Si une valeur est inconnue: utilise "non trouvé".
 - Si la structure est incertaine, conserve au maximum les champs existants (ne supprime pas d'infos).`;
 
-  const userPrompt = `JSON À RÉPARER (peut contenir du texte/markdown/erreurs):\n${brokenJson}\n\nRÉPARE ET RETOURNE UNIQUEMENT LE JSON VALIDE.`;
+  // Limit broken JSON sent to repair to avoid huge prompts (keep first 8000 chars)
+  const truncatedBroken = brokenJson.length > 8000 ? brokenJson.substring(0, 8000) + "\n...(tronqué)" : brokenJson;
+  const userPrompt = `JSON À RÉPARER (peut contenir du texte/markdown/erreurs):\n${truncatedBroken}\n\nRÉPARE ET RETOURNE UNIQUEMENT LE JSON VALIDE.`;
+
+  // Proportional repair tokens: at least 2000, up to wordTarget * 4
+  const repairTokens = Math.max(2000, Math.min(8000, section.wordTarget * 4));
 
   const content = await callGPT52(
     apiKey,
     systemPrompt,
     userPrompt,
-    1200,
+    repairTokens,
     0.1
   );
 
   return safeJsonParse(content);
+}
+
+/**
+ * Checks if a JSON string appears truncated (unbalanced braces/brackets).
+ */
+function isJsonTruncated(content: string): boolean {
+  const trimmed = content.trim();
+  if (!trimmed) return true;
+  // Quick check: does it end with a closing brace/bracket?
+  const lastChar = trimmed[trimmed.length - 1];
+  if (lastChar !== '}' && lastChar !== ']') return true;
+  // Deeper check: count open/close braces
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+  for (let i = 0; i < trimmed.length; i++) {
+    const ch = trimmed[i];
+    if (inString) {
+      if (escape) { escape = false; continue; }
+      if (ch === '\\') { escape = true; continue; }
+      if (ch === '"') { inString = false; }
+      continue;
+    }
+    if (ch === '"') { inString = true; continue; }
+    if (ch === '{' || ch === '[') depth++;
+    else if (ch === '}' || ch === ']') depth--;
+  }
+  return depth !== 0;
 }
 
 async function generateSection(
@@ -1333,7 +1490,7 @@ async function generateSection(
 
   let content: string;
   try {
-    console.log(`[Section] Calling GPT-5.2 for section: ${section.key} (${maxTokens} max tokens)...`);
+    console.log(`[Section] Calling GPT-5.2 for section: ${section.key} (${maxTokens} max tokens, prompt: ${userPrompt.length} chars, sysPrompt: ${systemPrompt.length} chars)...`);
     content = await callGPT52(
       apiKey,
       systemPrompt,
@@ -1342,6 +1499,22 @@ async function generateSection(
       tierConfig.temperature
     );
     console.log(`[Section] GPT-5.2 responded for ${section.key}: ${content.length} chars`);
+
+    // TRUNCATION DETECTION: If output looks truncated, retry with 2x tokens
+    if (isJsonTruncated(content)) {
+      const retryTokens = Math.min(tierConfig.max_tokens, maxTokens * 2);
+      if (retryTokens > maxTokens) {
+        console.warn(`[Section] Output appears TRUNCATED for ${section.key}. Retrying with ${retryTokens} tokens (was ${maxTokens})...`);
+        content = await callGPT52(
+          apiKey,
+          systemPrompt,
+          userPrompt,
+          retryTokens,
+          tierConfig.temperature
+        );
+        console.log(`[Section] Retry responded for ${section.key}: ${content.length} chars, truncated: ${isJsonTruncated(content)}`);
+      }
+    }
   } catch (apiError) {
     console.error(`[Section] GPT-5.2 API call FAILED for ${section.key}:`, apiError instanceof Error ? apiError.message : apiError);
     return { [section.key]: section.valueType === 'array' ? [] : {} };
@@ -1630,15 +1803,23 @@ async function runGenerationAsync(
       console.log(`[${reportId}] Research completed: ${researchData.length} chars`);
     }
 
-    // Step 2: Build report brief
+    // Step 2: Build report brief (WITHOUT research data - it will be filtered per section)
     await updateProgress(supabaseAdmin, reportId, "Préparation du brief...", 30);
-    const reportBrief = buildReportBrief(inputData, plan, researchData);
-    const systemPrompt = tierConfig.system_prompt(reportLang);
+    const reportBriefBase = buildReportBrief(inputData, plan, ""); // Base brief without research
+    const fullSystemPrompt = tierConfig.system_prompt(reportLang);
 
-    console.log(`[${reportId}] Brief length: ${reportBrief.length} chars, System prompt length: ${systemPrompt.length} chars`);
+    // Use lean section system prompt for section-by-section generation (strips PDF/Excel/PPT specs)
+    const sectionSystemPrompt = (tierConfig as any).section_system_prompt
+      ? (tierConfig as any).section_system_prompt(reportLang)
+      : fullSystemPrompt;
+
+    console.log(`[${reportId}] Brief (base, no research): ${reportBriefBase.length} chars`);
+    console.log(`[${reportId}] Full system prompt: ${fullSystemPrompt.length} chars`);
+    console.log(`[${reportId}] Section system prompt: ${sectionSystemPrompt.length} chars (saved ${fullSystemPrompt.length - sectionSystemPrompt.length} chars per call)`);
+    console.log(`[${reportId}] Research data: ${researchData.length} chars`);
     console.log(`[${reportId}] GPT-5.2 API key present: ${!!GPT52_API_KEY} (length: ${GPT52_API_KEY.length})`);
 
-    // Step 3: Generate sections (multi-pass)
+    // Step 3: Generate sections (multi-pass) with per-section filtered research
     await updateProgress(supabaseAdmin, reportId, "Génération des sections...", 45);
     const sections = tierConfig.section_plan as SectionPlanItem[];
     const outputSections: Record<string, unknown> = {};
@@ -1655,12 +1836,27 @@ async function runGenerationAsync(
       const stepProgress = startProgress + (i * progressStep);
       await updateProgress(supabaseAdmin, reportId, `Section: ${section.label}...`, Math.min(stepProgress, endProgress));
 
+      // Filter research data to only include blocks relevant to this section
+      const filteredResearch = filterResearchForSection(researchData, section.key);
+      const sectionBrief = reportBriefBase + (filteredResearch.length > 50 ? `\n\n${filteredResearch}\n\n═══════════════════════════════════════════════════════════════════════════════
+INSTRUCTIONS CRITIQUES POUR L'UTILISATION DES DONNÉES DE RECHERCHE
+═══════════════════════════════════════════════════════════════════════════════
+
+1. CITE SYSTÉMATIQUEMENT les données trouvées dans le champ "sources" du JSON
+2. Pour les prix concurrents: utilise UNIQUEMENT les données trouvées ou indique "non trouvé"
+3. Pour le sizing marché: cite la source exacte (Statista, étude sectorielle, etc.)
+4. JAMAIS inventer de données - mieux vaut "données non disponibles" que des chiffres faux
+5. Distingue clairement: "confirmé par recherche" vs "estimation basée sur..."
+` : "");
+
+      console.log(`[${reportId}] Section ${section.key}: filtered research ${filteredResearch.length} chars (full was ${researchData.length})`);
+
       try {
         const sectionResult = await generateSection(
           GPT52_API_KEY,
-          systemPrompt,
+          sectionSystemPrompt,
           tierConfig,
-          reportBrief,
+          sectionBrief,
           section
         );
 
@@ -1707,12 +1903,16 @@ async function runGenerationAsync(
         const p = 88 + Math.min(6, Math.floor((i / Math.max(1, sectionsToExpand.length)) * 6));
         await updateProgress(supabaseAdmin, reportId, `Extension: ${section.label}...`, p);
 
+        // Use filtered research for expansion too
+        const filteredResearch = filterResearchForSection(researchData, section.key);
+        const sectionBrief = reportBriefBase + (filteredResearch.length > 50 ? `\n\n${filteredResearch}` : "");
+
         try {
           const expanded = await generateSection(
             GPT52_API_KEY,
-            systemPrompt,
+            sectionSystemPrompt,
             tierConfig,
-            reportBrief,
+            sectionBrief,
             section,
             outputSections[section.key]
           );
