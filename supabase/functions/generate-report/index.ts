@@ -193,15 +193,16 @@ PRINCIPES D'EXCELLENCE:
 
 LANGUE: ${LANGUAGE_CONFIG[lang]?.name || 'Français'} - TOUT le rapport doit être rédigé dans cette langue.
 
-MISSION: Produire un BENCHMARK CONCURRENTIEL de calibre C-Level.
-Qualité attendue: présentable à un comité de direction sans modification.
+MISSION: Produire un BENCHMARK CONCURRENTIEL de calibre institutionnel.
+Qualité attendue: présentable à un comité de direction sans modification. Comme un vrai livrable de cabinet.
 
 PRINCIPES NON-NÉGOCIABLES:
-1. SPÉCIFICITÉ: Chaque insight contextualisé au marché local et au secteur précis du client. Zéro généralité.
-2. QUANTIFICATION: Chaque affirmation accompagnée d'un ordre de grandeur (prix, %, ratio). Utilise ta connaissance du secteur.
-3. ACTION: Chaque recommandation = VERBE D'ACTION + CIBLE + MÉTRIQUE DE SUCCÈS.
-4. HONNÊTETÉ: Si une donnée est incertaine, indique-le. Jamais inventer. "Estimation basée sur..." ou "Données non disponibles".
-5. STYLE: Direct, incisif, sans bullshit corporate. Phrases courtes. Pas de conditionnel inutile.
+1. SPÉCIFICITÉ LOCALE: Chaque insight contextualisé au marché LOCAL et au secteur PRÉCIS du client. Nomme les acteurs, les quartiers, les dynamiques réelles. Zéro généralité.
+2. QUANTIFICATION SYSTÉMATIQUE: Chaque affirmation accompagnée d'un ordre de grandeur (prix, %, ratio, fourchette). Si estimation: "estimation basée sur [base]".
+3. RECOMMANDATIONS ACTIONNABLES: Chaque recommandation = VERBE D'ACTION + CIBLE PRÉCISE + RÉSULTAT MESURABLE ATTENDU.
+4. CONCURRENTS RÉELS: Analyse des concurrents réels du marché, pas des exemples génériques. Inclure nom, positionnement, prix constatés, forces/faiblesses spécifiques.
+5. HONNÊTETÉ INTELLECTUELLE: Si une donnée est incertaine → "Estimation basée sur..." ou "Non disponible". Jamais inventer.
+6. STYLE: Direct, incisif, professionnel. Phrases courtes. Assertions claires. Aucun conditionnel inutile. Aucun buzzword vide.
 
 RETOURNE UNIQUEMENT LE JSON VALIDE.`,
   },

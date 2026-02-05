@@ -29,25 +29,25 @@ export const ACQUISITION_CHANNELS = [
 ];
 
 export const BENCHMARK_GOALS = [
-  { id: 'competitors', label: 'Competitor map', description: 'Understand who you\'re competing against' },
-  { id: 'pricing', label: 'Pricing strategy', description: 'Optimize your pricing tiers' },
-  { id: 'positioning', label: 'Positioning & messaging', description: 'Differentiate your brand' },
-  { id: 'gtm', label: 'Go-to-market plan', description: 'Plan your market entry' },
-  { id: 'risks', label: 'Risks & compliance', description: 'Identify potential challenges' },
-  { id: 'growth', label: 'Growth opportunities', description: 'Find new revenue streams' }
+  { id: 'competitors', label: 'Carte concurrentielle', description: 'Identifier et analyser vos concurrents' },
+  { id: 'pricing', label: 'Strategie tarifaire', description: 'Optimiser vos prix et packages' },
+  { id: 'positioning', label: 'Positionnement & messaging', description: 'Differencier votre marque' },
+  { id: 'gtm', label: 'Plan go-to-market', description: 'Planifier votre entree sur le marche' },
+  { id: 'risks', label: 'Risques & conformite', description: 'Identifier les defis potentiels' },
+  { id: 'growth', label: 'Opportunites de croissance', description: 'Trouver de nouveaux leviers de revenu' }
 ];
 
 export const DIFFERENTIATORS = [
-  'Price',
-  'Quality',
-  'Speed',
-  'Customer Service',
-  'Technology',
-  'Local Expertise',
-  'Specialization',
+  'Prix',
+  'Qualite',
+  'Rapidite',
+  'Service client',
+  'Technologie',
+  'Expertise locale',
+  'Specialisation',
   'Experience',
-  'Warranty/Guarantee',
-  'Customization'
+  'Garantie',
+  'Sur-mesure'
 ];
 
 export const COUNTRIES = [

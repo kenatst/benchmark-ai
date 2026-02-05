@@ -9,26 +9,26 @@ export const Hero = () => {
       <div className="absolute top-32 left-16 w-24 h-24 rounded-full bg-lavender/30 blur-3xl animate-float-slow" />
       <div className="absolute top-48 right-24 w-36 h-36 rounded-full bg-coral/20 blur-3xl animate-float" style={{ animationDelay: '2s' }} />
       <div className="absolute bottom-32 left-1/4 w-32 h-32 rounded-full bg-sky/20 blur-3xl animate-float-slow" style={{ animationDelay: '4s' }} />
-      
+
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="max-w-5xl mx-auto text-center">
           {/* Feature badges */}
           <div className="opacity-0-initial animate-fade-up flex flex-wrap justify-center gap-3 mb-8">
-            <span className="badge-coral">ANALYSE VECTORIELLE</span>
-            <span className="badge-sky">DESIGN PREMIUM</span>
-            <span className="badge-mint">SÉRÉNITÉ TOTALE</span>
+            <span className="badge-coral">INTELLIGENCE CONCURRENTIELLE</span>
+            <span className="badge-sky">RAPPORT STRATEGIQUE</span>
+            <span className="badge-mint">GENERE PAR IA</span>
           </div>
 
           {/* Headline */}
           <h1 className="opacity-0-initial animate-fade-up stagger-1 text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-black text-foreground leading-[0.95] mb-6">
-            Le benchmark
+            Votre benchmark
             <br />
-            <span className="text-gradient-lavender italic">augmenté.</span>
+            <span className="text-gradient-lavender italic">en 3 minutes.</span>
           </h1>
 
           {/* Subheadline */}
           <p className="opacity-0-initial animate-fade-up stagger-2 text-lg sm:text-xl md:text-2xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed font-medium">
-            Dites adieu aux études de marché froides. <span className="text-foreground font-bold underline decoration-lavender decoration-4 underline-offset-4">BenchmarkAI</span> fusionne élégance et puissance pour votre positionnement.
+            Analyse concurrentielle, strategie tarifaire et plan d'action&nbsp;&mdash; un rapport de qualite cabinet-conseil, genere instantanement par <span className="text-foreground font-bold">GPT-5.2</span>.
           </p>
 
           {/* CTAs */}
@@ -36,7 +36,7 @@ export const Hero = () => {
             <Link to="/app/new">
               <Button size="xl" className="w-full sm:w-auto group shadow-2xl hover:scale-105 transition-transform duration-300">
                 <Sparkles className="w-5 h-5 mr-2" />
-                GÉNÉRER MON BENCHMARK
+                GENERER MON BENCHMARK
                 <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
               </Button>
             </Link>
@@ -48,10 +48,20 @@ export const Hero = () => {
             </Link>
           </div>
 
-          {/* Social proof line */}
-          <div className="opacity-0-initial animate-fade-up stagger-4 flex items-center justify-center gap-3 text-sm text-muted-foreground">
-            <div className="w-8 h-0.5 bg-sky rounded-full" />
-            <span className="font-medium tracking-wide">REJOINT PAR LES MEILLEURS ENTREPRENEURS</span>
+          {/* Value props line */}
+          <div className="opacity-0-initial animate-fade-up stagger-4 flex flex-wrap items-center justify-center gap-6 text-sm text-muted-foreground">
+            <span className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-mint" />
+              A partir de 14,99EUR
+            </span>
+            <span className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-coral" />
+              3 etapes, 3 minutes
+            </span>
+            <span className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-sky" />
+              PDF professionnel inclus
+            </span>
           </div>
         </div>
       </div>
