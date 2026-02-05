@@ -4,25 +4,23 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { StepBasics } from '@/components/wizard/StepBasics';
 import { StepOffer } from '@/components/wizard/StepOffer';
-import { StepGoals } from '@/components/wizard/StepGoals';
+import { StepGoalsAndContext } from '@/components/wizard/StepGoalsAndContext';
 import { StepCompetitors } from '@/components/wizard/StepCompetitors';
-import { StepContext } from '@/components/wizard/StepContext';
 import { StepReview } from '@/components/wizard/StepReview';
 import { ReportInput } from '@/types/report';
 import { initialFormData } from '@/data/formOptions';
 import { useReports } from '@/hooks/useReports';
 import { useAuthContext } from '@/contexts/AuthContext';
-import { ArrowLeft, ArrowRight, Home, Sparkles, Target, Users, Settings, CheckCircle, Save } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Home, Sparkles, Target, Users, CheckCircle, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import logoB from '@/assets/logo-b.png';
 
 const STEPS = [
   { id: 1, title: 'Votre business', icon: Home, color: 'bg-lavender/20 text-lavender-foreground' },
   { id: 2, title: 'Votre offre', icon: Target, color: 'bg-coral/20 text-coral-foreground' },
-  { id: 3, title: 'Objectifs', icon: Sparkles, color: 'bg-sky/20 text-sky-foreground' },
+  { id: 3, title: 'Objectifs & Contexte', icon: Sparkles, color: 'bg-sky/20 text-sky-foreground' },
   { id: 4, title: 'Concurrents', icon: Users, color: 'bg-mint/20 text-mint-foreground' },
-  { id: 5, title: 'Contexte', icon: Settings, color: 'bg-peach/20 text-peach-foreground' },
-  { id: 6, title: 'Finaliser', icon: CheckCircle, color: 'bg-gold/20 text-gold' }
+  { id: 5, title: 'Finaliser', icon: CheckCircle, color: 'bg-gold/20 text-gold' }
 ];
 
 const STORAGE_KEY = 'benchmark_wizard_draft';
@@ -68,19 +66,15 @@ const NewBenchmark = () => {
   const validateStep = (step: number): boolean => {
     switch (step) {
       case 1:
-        // Seuls businessName et sector sont obligatoires
         return !!(formData.businessName && formData.sector);
       case 2:
         return !!formData.whatYouSell;
       case 3:
-        return formData.goals.length > 0;
+        // Goals required + at least timeline or budget for context
+        return formData.goals.length > 0 && !!(formData.timeline || formData.budgetLevel);
       case 4:
-        // VALIDATION: At least one competitor required for meaningful analysis
         return !!(formData.competitors && formData.competitors.length > 0);
       case 5:
-        // VALIDATION: Timeline and/or budget level required for context
-        return !!(formData.timeline || formData.budgetLevel);
-      case 6:
         return true;
       default:
         return true;
@@ -134,7 +128,7 @@ const NewBenchmark = () => {
     }
   };
 
-  const StepComponents = [StepBasics, StepOffer, StepGoals, StepCompetitors, StepContext, StepReview];
+  const StepComponents = [StepBasics, StepOffer, StepGoalsAndContext, StepCompetitors, StepReview];
   const CurrentStepComponent = StepComponents[currentStep - 1];
   const currentStepInfo = STEPS[currentStep - 1];
 
@@ -243,25 +237,22 @@ const NewBenchmark = () => {
               <StepOffer formData={formData} setFormData={setFormData} />
             )}
             {currentStep === 3 && (
-              <StepGoals formData={formData} setFormData={setFormData} />
+              <StepGoalsAndContext formData={formData} setFormData={setFormData} />
             )}
             {currentStep === 4 && (
               <StepCompetitors formData={formData} setFormData={setFormData} />
             )}
             {currentStep === 5 && (
-              <StepContext formData={formData} setFormData={setFormData} />
-            )}
-            {currentStep === 6 && (
-              <StepReview 
-                data={formData} 
-                onPayment={handlePayment} 
+              <StepReview
+                data={formData}
+                onPayment={handlePayment}
                 isProcessing={isProcessing}
               />
             )}
           </div>
 
           {/* Navigation */}
-          {currentStep < 6 && (
+          {currentStep < 5 && (
             <div className="flex justify-between items-center">
               <Button
                 variant="ghost"

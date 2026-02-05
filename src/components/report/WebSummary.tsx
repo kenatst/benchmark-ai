@@ -1,7 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Download, TrendingUp, Users, Target, MapPin, DollarSign, BarChart3, FileText, CheckCircle, ArrowRight, Sparkles, Loader2, FileSpreadsheet, Presentation } from 'lucide-react';
+import { Download, TrendingUp, Users, Target, MapPin, DollarSign, BarChart3, FileText, CheckCircle, ArrowRight, Sparkles, Loader2 } from 'lucide-react';
 import { ReportOutput, StandardReportOutput, ProReportOutput, AgencyReportOutput } from '@/types/report';
 
 interface WebSummaryProps {
@@ -67,19 +67,10 @@ export const WebSummary = ({ outputData, plan, pdfUrl, onDownload, isDownloading
     }
   };
 
-  // Document formats available per tier
+  // Document formats available
   const getDocumentFormats = () => {
-    if (isAgency) {
-      return [
-        { name: 'PDF', icon: FileText, available: true },
-        { name: 'Excel', icon: FileSpreadsheet, available: true },
-        { name: 'Slides', icon: Presentation, available: true },
-      ];
-    }
     return [
       { name: 'PDF', icon: FileText, available: true },
-      { name: 'Excel', icon: FileSpreadsheet, available: false },
-      { name: 'Slides', icon: Presentation, available: false },
     ];
   };
 

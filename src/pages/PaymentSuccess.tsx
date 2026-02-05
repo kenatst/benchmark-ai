@@ -326,7 +326,7 @@ const PaymentSuccess = () => {
   const getGenerationPhase = () => {
     if (serverStep) return serverStep;
     if (progress < 40) return 'Analyse de vos données...';
-    if (progress < 60) return 'Recherche concurrentielle...';
+    if (progress < 60) return 'Analyse stratégique en cours...';
     if (progress < 80) return 'Génération des recommandations...';
     return 'Finalisation du rapport...';
   };

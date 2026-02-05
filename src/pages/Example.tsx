@@ -220,7 +220,7 @@ const Example = () => {
                     + Aperçu marché, risques & checks, sources citées, annexes...
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Le rapport complet contient 4000-6000 mots avec toutes les analyses
+                    Le rapport complet contient toutes les analyses stratégiques détaillées
                   </p>
                 </div>
               </div>
@@ -235,7 +235,7 @@ const Example = () => {
             <div className="inline-flex flex-col sm:flex-row gap-4">
               <Link to="/app/new">
                 <Button size="lg" className="group">
-                  Générer mon benchmark — 4,99€
+                  Générer mon benchmark — 14,99€
                   <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
                 </Button>
               </Link>

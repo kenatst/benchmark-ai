@@ -67,9 +67,9 @@ const CheckoutPage = () => {
   };
 
   const planPrices: Record<string, string> = {
-    standard: '4,99€',
-    pro: '14,99€',
-    agency: '29€'
+    standard: '14,99€',
+    pro: '34,99€',
+    agency: '69,99€'
   };
 
   if (loading) {

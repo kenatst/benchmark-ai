@@ -14,21 +14,19 @@ const plans = [
   {
     name: "Standard",
     price: "14,99",
-    description: "Diagnostic & plan d'action essentiel",
+    description: "Diagnostic stratégique essentiel",
     icon: Zap,
     color: 'card-sky',
     features: [
-      { text: '2000-3000 mots', included: true },
-      { text: '3-5 concurrents (URLs fournis)', included: true },
-      { text: 'Sections stratégie basique', included: true },
-      { text: 'Messaging simple', included: true },
-      { text: 'Recommandations pricing', included: true },
+      { text: '3-5 concurrents analysés', included: true },
+      { text: 'Positionnement & recommandations pricing', included: true },
       { text: 'Plan d\'action 30/60/90 jours', included: true },
-      { text: 'Sources citées (si URLs fournis)', included: true },
+      { text: 'Multi-localisations comparées', included: true },
+      { text: 'Projections financières', included: true },
+      { text: 'Sources citées', included: true },
       { text: 'PDF standard', included: true },
-      { text: 'Recherche web automatique', included: false },
-      { text: 'Multi-localisations', included: false },
-      { text: 'Projections financières', included: false },
+      { text: 'Customer insights & white spaces', included: false },
+      { text: 'Analyse PESTEL/Porter/SWOT', included: false },
     ],
     cta: "Générer mon benchmark",
     popular: false
@@ -36,21 +34,19 @@ const plans = [
   {
     name: "Pro",
     price: "34,99",
-    description: "Collecte web automatique incluse",
+    description: "Intelligence compétitive approfondie",
     icon: Sparkles,
     color: 'card-lavender',
     features: [
-      { text: '4000-6000 mots', included: true },
-      { text: '5-10 concurrents (recherchés)', included: true },
-      { text: 'Sections stratégie intermédiaire', included: true },
-      { text: 'Positionnement + taglines', included: true },
-      { text: 'Analyse concurrentielle pricing', included: true },
-      { text: 'Plan d\'action avec preuves', included: true },
-      { text: '10-20 sources citées', included: true },
-      { text: 'PDF premium', included: true },
-      { text: 'Recherche web automatique', included: true },
+      { text: '5-10 concurrents (profils détaillés)', included: true },
+      { text: 'Positionnement + taglines + messaging', included: true },
+      { text: 'Analyse pricing concurrentielle', included: true },
+      { text: 'Customer insights & white spaces', included: true },
+      { text: 'Plan d\'action avec quick wins', included: true },
       { text: '1-2 marchés multi-localisations', included: true },
-      { text: 'Projections financières basiques', included: true },
+      { text: 'Projections financières', included: true },
+      { text: 'PDF premium', included: true },
+      { text: 'Analyse PESTEL/Porter/SWOT', included: false },
     ],
     cta: "Choisir Pro",
     popular: true
@@ -58,21 +54,19 @@ const plans = [
   {
     name: "Agence",
     price: "69,99",
-    description: "Multi-localisations & branding complet",
+    description: "Rapport institutionnel complet",
     icon: Crown,
     color: 'card-mint',
     features: [
-      { text: '8000-12000 mots', included: true },
       { text: '10-15 concurrents (deep dive)', included: true },
-      { text: 'Agency-grade (PESTEL, Porter...)', included: true },
-      { text: 'Stratégie complète brand', included: true },
-      { text: 'Modèle économique complet', included: true },
-      { text: 'Roadmap 12 mois phasé', included: true },
-      { text: '30-50 sources catégorisées', included: true },
-      { text: 'PDF + Excel + Slides deck', included: true },
-      { text: 'Recherche multi-sources approfondie', included: true },
+      { text: 'Agency-grade (PESTEL, Porter, SWOT)', included: true },
+      { text: 'Stratégie complète brand & pricing', included: true },
+      { text: 'Modèle économique + unit economics', included: true },
+      { text: 'Roadmap 12 mois phasée avec KPIs', included: true },
       { text: 'Analyse comparative multi-marchés', included: true },
-      { text: 'Scénarios + unit economics', included: true },
+      { text: '3 scénarios financiers', included: true },
+      { text: 'Sources catégorisées & auditées', included: true },
+      { text: 'PDF haute qualité', included: true },
     ],
     cta: "Choisir Agence",
     popular: false
@@ -82,23 +76,23 @@ const plans = [
 const faqs = [
   {
     question: 'Combien de temps faut-il pour générer un rapport ?',
-    answer: 'La plupart des rapports sont générés en moins de 2 minutes après avoir complété le questionnaire et le paiement. Les rapports Pro et Agence avec collecte web peuvent prendre jusqu\'à 5 minutes.'
+    answer: 'La plupart des rapports sont générés en 2-5 minutes après le paiement. Les rapports Agence avec plus de sections peuvent prendre un peu plus de temps.'
   },
   {
     question: 'Quelles informations dois-je fournir ?',
-    answer: 'Vous répondrez à des questions sur votre entreprise, secteur, localisation, pricing, différenciateurs, et optionnellement vos concurrents. Plus vous fournissez de détails, plus le rapport sera précis et actionnable.'
+    answer: 'Vous répondrez à des questions sur votre entreprise, secteur, localisation, pricing, différenciateurs, et vos concurrents. Plus vous fournissez de détails, plus le rapport sera précis et actionnable.'
   },
   {
     question: 'Quelle est la différence entre Standard et Pro ?',
-    answer: 'Le plan Standard analyse les concurrents que vous fournissez (URLs). Le plan Pro inclut une recherche web automatique pour découvrir vos concurrents, avec des sources citées et vérifiées dans votre rapport.'
+    answer: 'Le plan Standard offre un diagnostic stratégique essentiel avec 3-5 concurrents. Le plan Pro ajoute des profils concurrentiels détaillés (5-10), des customer insights, du messaging/taglines, et une analyse pricing approfondie.'
   },
   {
     question: 'Quel est le format du rapport ?',
-    answer: 'Standard : PDF. Pro : PDF premium haute qualité. Agence : PDF + fichier Excel avec données brutes + slides deck prêt pour présentation.'
+    answer: 'Tous les rapports sont livrés en PDF haute qualité, prêts à être présentés. Le niveau de détail et le nombre de sections varient selon la formule choisie.'
   },
   {
     question: 'Puis-je ajouter des URLs de concurrents ?',
-    answer: 'Oui ! Quand vous fournissez des URLs de concurrents, nous les analysons et les citons dans votre rapport. Nous n\'inventons jamais de sources.'
+    answer: 'Oui ! Quand vous fournissez des URLs de concurrents, nous les citons dans votre rapport. Plus vous en fournissez, plus l\'analyse sera riche.'
   },
   {
     question: 'Est-ce un conseil juridique ou financier ?',

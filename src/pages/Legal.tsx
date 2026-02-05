@@ -52,9 +52,9 @@ const Legal = () => {
                     Les tarifs sont indiqués en euros TTC. Trois formules sont proposées :
                   </p>
                   <ul className="list-disc list-inside text-muted-foreground space-y-2 ml-4">
-                    <li><strong>Standard</strong> : 4,99€ - Rapport de 2000-3000 mots, analyse de 3-5 concurrents</li>
-                    <li><strong>Pro</strong> : 14,99€ - Rapport de 4000-6000 mots, analyse de 5-10 concurrents, recherche web</li>
-                    <li><strong>Agence</strong> : 29€ - Rapport de 8000-12000 mots, analyse multi-marchés, exports multiples</li>
+                    <li><strong>Standard</strong> : 14,99€ - Analyse stratégique, 3-5 concurrents, PDF</li>
+                    <li><strong>Pro</strong> : 34,99€ - Intelligence compétitive approfondie, 5-10 concurrents, PDF premium</li>
+                    <li><strong>Agence</strong> : 69,99€ - Rapport institutionnel, 10-15 concurrents, analyse multi-marchés, PDF</li>
                   </ul>
                   <p className="text-muted-foreground mt-4">
                     Le paiement s'effectue en ligne par carte bancaire via la plateforme sécurisée Stripe. 
