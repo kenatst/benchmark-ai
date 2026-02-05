@@ -5,16 +5,16 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 // @ts-ignore - Deno import
 import { z } from "https://esm.sh/zod@3.23.8";
 
-// FORCE REDEPLOY: 2026-02-04 - Prompt optimization + truncation fix (cost -70%)
+// FORCE REDEPLOY: 2026-02-05 - Remove Perplexity, GPT-5.2 only, quality-first prompts
 // Import shared constants (eliminates CORS header duplication across 10+ functions)
 // @ts-ignore - Deno import
 import { corsHeaders, getAuthContext } from "../_shared.ts";
 
 // ============================================
-// GPT-5.2 MODEL - PRODUCTION ANALYSIS ENGINE
+// GPT-5.2 MODEL - SOLE ANALYSIS ENGINE
 // ============================================
-// API calls use GPT-5.2 via OpenAI /v1/responses endpoint
-// API key required: OPENAI_API_KEY environment variable
+// All analysis powered by GPT-5.2 via OpenAI /v1/responses endpoint
+// No external research APIs - GPT-5.2's training data is the knowledge base
 
 // ============================================
 // SUPPORTED LANGUAGES FOR REPORT GENERATION
@@ -33,7 +33,6 @@ type TierType = 'standard' | 'pro' | 'agency';
 
 // ============================================
 // ZOD SCHEMAS FOR GPT-5.2 OUTPUT VALIDATION
-// Ensures generated reports conform to expected structure before DB save
 // ============================================
 const ReportMetadataSchema = z.object({
   title: z.string(),
@@ -46,7 +45,6 @@ const ReportMetadataSchema = z.object({
   word_count: z.number().optional(),
 });
 
-// Shared fields across all tiers
 const BaseReportSchema = z.object({
   report_metadata: ReportMetadataSchema,
   executive_summary: z.object({
@@ -60,26 +58,22 @@ const BaseReportSchema = z.object({
   ])).optional(),
 }).passthrough();
 
-// Standard tier schema - basic report structure
 const StandardReportSchema = BaseReportSchema.extend({
   competitive_landscape: z.object({}).passthrough().optional(),
   positioning_strategy: z.object({}).passthrough().optional(),
 }).passthrough();
 
-// Pro tier schema - adds strategic analysis
 const ProReportSchema = StandardReportSchema.extend({
   market_opportunities: z.object({}).passthrough().optional(),
   go_to_market: z.object({}).passthrough().optional(),
 }).passthrough();
 
-// Agency tier schema - most comprehensive
 const AgencyReportSchema = ProReportSchema.extend({
   financial_projections: z.object({}).passthrough().optional(),
   risk_analysis: z.object({}).passthrough().optional(),
   implementation_roadmap: z.object({}).passthrough().optional(),
 }).passthrough();
 
-// Map tiers to their schemas
 const REPORT_SCHEMAS: Record<string, z.ZodSchema> = {
   standard: StandardReportSchema,
   pro: ProReportSchema,
@@ -87,418 +81,201 @@ const REPORT_SCHEMAS: Record<string, z.ZodSchema> = {
 };
 
 // ============================================
-// DOCUMENT FORMAT SPECIFICATIONS
+// PDF SPEC (for generate-pdf function)
 // ============================================
-// Configuration for institutional-grade PDF, Excel, and PowerPoint generation
-const GPT_SKILLS = {
-  // PDF Processing skill - comprehensive PDF manipulation
-  pdf: {
-    trigger: "PDF, .pdf, form, extract, merge, split",
-    capabilities: [
-      "Extract text and tables from PDF",
-      "Create new PDFs with institutional styling",
-      "Merge/split documents",
-      "Handle forms and annotations"
-    ],
-    institutionalSpec: {
-      colorPalette: {
-        primary: "#1a3a5c",     // Deep navy (McKinsey-inspired)
-        secondary: "#7c6b9c",   // Muted purple
-        accent: "#b89456",      // Gold accent
-        success: "#2d7a5a",     // Forest green
-        warning: "#b38f40",     // Amber
-        danger: "#9a4040",      // Wine red
-      },
-      typography: {
-        headingFont: "Helvetica Neue",
-        bodyFont: "Georgia",
-        monoFont: "Courier",
-      },
-      layout: {
-        margins: { top: 72, bottom: 72, left: 60, right: 60 },
-        headerHeight: 40,
-        footerHeight: 30,
-      }
-    }
+const PDF_SPEC = {
+  colorPalette: {
+    primary: "#1a3a5c",
+    secondary: "#7c6b9c",
+    accent: "#b89456",
+    success: "#2d7a5a",
+    warning: "#b38f40",
+    danger: "#9a4040",
   },
-
-  // Excel Spreadsheet skill - comprehensive .xlsx handling
-  xlsx: {
-    trigger: "Excel, spreadsheet, .xlsx, data table, budget, financial model, chart, graph, tabular data, xls",
-    capabilities: [
-      "Create multi-sheet workbooks",
-      "Formula support and calculations",
-      "Data formatting and cell styling",
-      "Charts and data visualization",
-      "Financial modeling with scenarios"
-    ],
-    sheets: {
-      agency: [
-        "Résumé Exécutif",
-        "Scoring Concurrents",
-        "Matrice Positionnement",
-        "Projections Financières (3 scénarios)",
-        "Unit Economics",
-        "Roadmap 12 mois",
-        "Budget Détaillé",
-        "Sources & Références"
-      ]
-    }
+  typography: {
+    headingFont: "Helvetica Neue",
+    bodyFont: "Georgia",
+    monoFont: "Courier",
   },
-
-  // PowerPoint skill - presentation creation
-  pptx: {
-    trigger: "PowerPoint, presentation, .pptx, slides, slide deck, pitch deck, ppt, slideshow, deck",
-    capabilities: [
-      "Create institutional-grade slide decks",
-      "McKinsey/BCG styling standards",
-      "Data visualization and charts",
-      "Consistent typography and colors"
-    ],
-    slides: {
-      agency: [
-        "Titre & Contexte",
-        "Résumé Exécutif (1 page)",
-        "Panorama Marché",
-        "Analyse Concurrentielle",
-        "Matrice de Positionnement",
-        "Analyse SWOT",
-        "Projections Financières",
-        "Roadmap 12 mois",
-        "Prochaines Étapes"
-      ]
-    }
-  },
-
-  // Word Document skill - comprehensive .docx handling
-  docx: {
-    trigger: "Word, document, .docx, report, letter, memo, manuscript, essay, paper, article, writeup, documentation",
-    capabilities: [
-      "Create formatted reports",
-      "Track changes support",
-      "Comments and annotations",
-      "Heading hierarchy and TOC",
-      "Image and chart embedding"
-    ]
+  layout: {
+    margins: { top: 72, bottom: 72, left: 60, right: 60 },
+    headerHeight: 40,
+    footerHeight: 30,
   }
 };
 
 // ============================================
-// TIER DOCUMENT DELIVERABLES
-// ============================================
-const TIER_DOCUMENTS = {
-  standard: {
-    outputs: ["pdf"],
-    pdfPages: "12-15 pages",
-    description: "PDF report with executive summary, competitor analysis, and action plan"
-  },
-  pro: {
-    outputs: ["pdf"],
-    pdfPages: "20-25 pages",
-    description: "PDF report with market intelligence, deep competitor profiles, and financial benchmarks"
-  },
-  agency: {
-    outputs: ["pdf"],
-    pdfPages: "40-50 pages",
-    description: "Complete institutional PDF report (Excel + Slides temporarily disabled)"
-  }
-};
-
-// ============================================
-// WORD TARGETS & SECTION PLANS (by tier)
+// SECTION PLANS (by tier) - NO WORD TARGETS
 // ============================================
 type SectionPlanItem = {
   key: string;
   label: string;
-  wordTarget: number;
   valueType: 'object' | 'array';
-};
-
-const WORD_TARGETS: Record<TierType, { min: number; target: number; max: number }> = {
-  standard: { min: 2000, target: 2400, max: 3000 },
-  pro: { min: 4000, target: 5000, max: 6000 },
-  agency: { min: 8000, target: 9500, max: 12000 },
 };
 
 const SECTION_PLANS: Record<TierType, SectionPlanItem[]> = {
   standard: [
-    { key: "executive_summary", label: "Résumé exécutif", wordTarget: 250, valueType: "object" },
-    { key: "market_context", label: "Contexte marché", wordTarget: 400, valueType: "object" },
-    { key: "competitive_landscape", label: "Analyse concurrentielle", wordTarget: 600, valueType: "object" },
-    { key: "positioning_recommendations", label: "Positionnement & messaging", wordTarget: 350, valueType: "object" },
-    { key: "pricing_strategy", label: "Stratégie pricing", wordTarget: 300, valueType: "object" },
-    { key: "go_to_market", label: "Go-to-market", wordTarget: 300, valueType: "object" },
-    { key: "action_plan", label: "Plan d'action 30/60/90", wordTarget: 200, valueType: "object" },
-    { key: "financial_projections_basic", label: "Projections financières light", wordTarget: 200, valueType: "object" },
-    { key: "multi_location_comparison", label: "Comparatif multi-localisations", wordTarget: 200, valueType: "object" },
-    { key: "risks_and_considerations", label: "Risques & considérations", wordTarget: 150, valueType: "object" },
-    { key: "assumptions_and_limitations", label: "Hypothèses & limites", wordTarget: 80, valueType: "array" },
-    { key: "next_steps_to_validate", label: "Prochaines validations", wordTarget: 60, valueType: "array" },
-    { key: "sources", label: "Sources", wordTarget: 60, valueType: "array" },
+    { key: "executive_summary", label: "Résumé exécutif", valueType: "object" },
+    { key: "market_context", label: "Contexte marché", valueType: "object" },
+    { key: "competitive_landscape", label: "Analyse concurrentielle", valueType: "object" },
+    { key: "positioning_recommendations", label: "Positionnement & messaging", valueType: "object" },
+    { key: "pricing_strategy", label: "Stratégie pricing", valueType: "object" },
+    { key: "go_to_market", label: "Go-to-market", valueType: "object" },
+    { key: "action_plan", label: "Plan d'action 30/60/90", valueType: "object" },
+    { key: "financial_projections_basic", label: "Projections financières", valueType: "object" },
+    { key: "multi_location_comparison", label: "Comparatif multi-localisations", valueType: "object" },
+    { key: "risks_and_considerations", label: "Risques & considérations", valueType: "object" },
+    { key: "assumptions_and_limitations", label: "Hypothèses & limites", valueType: "array" },
+    { key: "next_steps_to_validate", label: "Prochaines validations", valueType: "array" },
+    { key: "sources", label: "Sources", valueType: "array" },
   ],
   pro: [
-    { key: "executive_summary", label: "Résumé exécutif", wordTarget: 350, valueType: "object" },
-    { key: "market_context", label: "Contexte marché", wordTarget: 600, valueType: "object" },
-    { key: "market_intelligence", label: "Market intelligence", wordTarget: 600, valueType: "object" },
-    { key: "competitive_landscape", label: "Analyse concurrentielle", wordTarget: 900, valueType: "object" },
-    { key: "competitive_intelligence", label: "Competitive intelligence", wordTarget: 700, valueType: "object" },
-    { key: "customer_insights", label: "Customer insights", wordTarget: 450, valueType: "object" },
-    { key: "positioning_recommendations", label: "Positionnement & messaging", wordTarget: 450, valueType: "object" },
-    { key: "pricing_strategy", label: "Stratégie pricing", wordTarget: 450, valueType: "object" },
-    { key: "go_to_market", label: "Go-to-market", wordTarget: 350, valueType: "object" },
-    { key: "action_plan", label: "Plan d'action", wordTarget: 250, valueType: "object" },
-    { key: "financial_projections_basic", label: "Projections financières basiques", wordTarget: 250, valueType: "object" },
-    { key: "multi_location_comparison", label: "Comparatif multi-localisations", wordTarget: 250, valueType: "object" },
-    { key: "risks_and_considerations", label: "Risques & considérations", wordTarget: 200, valueType: "object" },
-    { key: "assumptions_and_limitations", label: "Hypothèses & limites", wordTarget: 120, valueType: "array" },
-    { key: "next_steps_to_validate", label: "Prochaines validations", wordTarget: 80, valueType: "array" },
-    { key: "sources", label: "Sources", wordTarget: 120, valueType: "array" },
+    { key: "executive_summary", label: "Résumé exécutif", valueType: "object" },
+    { key: "market_context", label: "Contexte marché", valueType: "object" },
+    { key: "market_intelligence", label: "Market intelligence", valueType: "object" },
+    { key: "competitive_landscape", label: "Analyse concurrentielle", valueType: "object" },
+    { key: "competitive_intelligence", label: "Competitive intelligence", valueType: "object" },
+    { key: "customer_insights", label: "Customer insights", valueType: "object" },
+    { key: "positioning_recommendations", label: "Positionnement & messaging", valueType: "object" },
+    { key: "pricing_strategy", label: "Stratégie pricing", valueType: "object" },
+    { key: "go_to_market", label: "Go-to-market", valueType: "object" },
+    { key: "action_plan", label: "Plan d'action", valueType: "object" },
+    { key: "financial_projections_basic", label: "Projections financières", valueType: "object" },
+    { key: "multi_location_comparison", label: "Comparatif multi-localisations", valueType: "object" },
+    { key: "risks_and_considerations", label: "Risques & considérations", valueType: "object" },
+    { key: "assumptions_and_limitations", label: "Hypothèses & limites", valueType: "array" },
+    { key: "next_steps_to_validate", label: "Prochaines validations", valueType: "array" },
+    { key: "sources", label: "Sources", valueType: "array" },
   ],
   agency: [
-    { key: "executive_summary", label: "Résumé exécutif", wordTarget: 600, valueType: "object" },
-    { key: "methodology", label: "Méthodologie", wordTarget: 500, valueType: "object" },
-    { key: "market_overview_detailed", label: "Panorama marché détaillé", wordTarget: 900, valueType: "object" },
-    { key: "territory_analysis", label: "Analyse territoriale", wordTarget: 700, valueType: "object" },
-    { key: "market_analysis", label: "Analyse marché (PESTEL/Porter)", wordTarget: 900, valueType: "object" },
-    { key: "competitive_intelligence", label: "Benchmark concurrentiel", wordTarget: 1200, valueType: "object" },
-    { key: "scoring_matrix", label: "Matrice de scoring", wordTarget: 600, valueType: "object" },
-    { key: "trends_analysis", label: "Tendances", wordTarget: 500, valueType: "object" },
-    { key: "swot_analysis", label: "SWOT", wordTarget: 400, valueType: "object" },
-    { key: "customer_intelligence", label: "Customer intelligence", wordTarget: 700, valueType: "object" },
-    { key: "strategic_recommendations", label: "Stratégie complète", wordTarget: 1200, valueType: "object" },
-    { key: "financial_projections", label: "Projections financières", wordTarget: 900, valueType: "object" },
-    { key: "detailed_roadmap", label: "Roadmap détaillée", wordTarget: 700, valueType: "object" },
-    { key: "implementation_roadmap", label: "Implementation roadmap", wordTarget: 500, valueType: "object" },
-    { key: "risk_register", label: "Risk register", wordTarget: 300, valueType: "array" },
-    { key: "appendices", label: "Annexes", wordTarget: 200, valueType: "object" },
-    { key: "multi_market_comparison", label: "Comparatif multi-marchés", wordTarget: 300, valueType: "object" },
-    { key: "assumptions_and_limitations", label: "Hypothèses & limites", wordTarget: 200, valueType: "array" },
-    { key: "sources", label: "Sources", wordTarget: 300, valueType: "array" },
+    { key: "executive_summary", label: "Résumé exécutif", valueType: "object" },
+    { key: "methodology", label: "Méthodologie", valueType: "object" },
+    { key: "market_overview_detailed", label: "Panorama marché détaillé", valueType: "object" },
+    { key: "territory_analysis", label: "Analyse territoriale", valueType: "object" },
+    { key: "market_analysis", label: "Analyse marché (PESTEL/Porter)", valueType: "object" },
+    { key: "competitive_intelligence", label: "Benchmark concurrentiel", valueType: "object" },
+    { key: "scoring_matrix", label: "Matrice de scoring", valueType: "object" },
+    { key: "trends_analysis", label: "Tendances", valueType: "object" },
+    { key: "swot_analysis", label: "SWOT", valueType: "object" },
+    { key: "customer_intelligence", label: "Customer intelligence", valueType: "object" },
+    { key: "strategic_recommendations", label: "Stratégie complète", valueType: "object" },
+    { key: "financial_projections", label: "Projections financières", valueType: "object" },
+    { key: "detailed_roadmap", label: "Roadmap détaillée", valueType: "object" },
+    { key: "implementation_roadmap", label: "Implementation roadmap", valueType: "object" },
+    { key: "risk_register", label: "Risk register", valueType: "array" },
+    { key: "appendices", label: "Annexes", valueType: "object" },
+    { key: "multi_market_comparison", label: "Comparatif multi-marchés", valueType: "object" },
+    { key: "assumptions_and_limitations", label: "Hypothèses & limites", valueType: "array" },
+    { key: "sources", label: "Sources", valueType: "array" },
   ],
 };
 
 // ============================================
-// TIER CONFIGURATION - INSTITUTIONAL GRADE
+// TIER CONFIGURATION - QUALITY-FIRST
 // ============================================
 const TIER_CONFIG = {
   standard: {
     max_tokens: 4000,
-    temperature: 0.3, // Allow creativity for recommendations
-    perplexity_searches: 4,
-    word_targets: WORD_TARGETS.standard,
+    temperature: 0.3,
     section_plan: SECTION_PLANS.standard,
-    // Lean system prompt used for SECTION-BY-SECTION generation (no deliverable specs)
     section_system_prompt: (lang: string) => `Tu es un DIRECTEUR ASSOCIÉ de cabinet de conseil stratégique (BCG/McKinsey alumni, 15+ ans).
 LANGUE: ${LANGUAGE_CONFIG[lang]?.name || 'Français'} - Rédige dans cette langue.
-MISSION: Produire UNE SECTION de benchmark concurrentiel de calibre C-Level.
-RÈGLES:
-- Retourne UNIQUEMENT du JSON valide, sans texte/markdown avant ou après.
-- Cite tes sources. Jamais inventer de données.
-- Si une donnée est inconnue: "non trouvé" ou "données non disponibles".
-- Style: direct, factuel, quantifié, actionnable.`,
-    system_prompt: (lang: string) => `Tu es un DIRECTEUR ASSOCIÉ de cabinet de conseil stratégique (BCG/McKinsey alumni, 15+ ans d'expérience).
+MISSION: Produire UNE SECTION d'un benchmark concurrentiel de calibre C-Level.
 
-LANGUE DE RAPPORT: ${LANGUAGE_CONFIG[lang]?.name || 'Français'} - TOUT le rapport doit être rédigé dans cette langue.
+PRINCIPES D'EXCELLENCE:
+- Chaque insight DOIT être SPÉCIFIQUE au secteur et à la géolocalisation du client.
+- Zéro généralité. Si tu ne sais pas → "données non disponibles" (jamais inventer).
+- Chaque recommandation = VERBE D'ACTION + CIBLE + MÉTRIQUE DE SUCCÈS.
+- Quantifie: fourchettes de prix, pourcentages, ordres de grandeur.
+- Style: direct, incisif, phrases courtes, assertions claires.
+- Retourne UNIQUEMENT du JSON valide, sans texte/markdown avant ou après.`,
+    system_prompt: (lang: string) => `Tu es un DIRECTEUR ASSOCIÉ de cabinet de conseil stratégique (BCG/McKinsey alumni, 15+ ans).
 
-═══════════════════════════════════════════════════════════════════════════════
-MISSION: PRODUIRE UN BENCHMARK CONCURRENTIEL EXÉCUTIF EN 48H
-Qualité attendue: Deck présentable à un C-Level sans modification.
-═══════════════════════════════════════════════════════════════════════════════
+LANGUE: ${LANGUAGE_CONFIG[lang]?.name || 'Français'} - TOUT le rapport doit être rédigé dans cette langue.
 
-╔══════════════════════════════════════════════════════════════════════════════╗
-║  CONTRAINTES DE CONTENU - STANDARD TIER (14.99€)                             ║
-╚══════════════════════════════════════════════════════════════════════════════╝
+MISSION: Produire un BENCHMARK CONCURRENTIEL de calibre C-Level.
+Qualité attendue: présentable à un comité de direction sans modification.
 
-→ LONGUEUR CIBLE: 2000-3000 mots de contenu substantiel (équivalent 12-15 pages PDF)
-→ CONCURRENTS: Analyser 3-5 concurrents (ceux fournis par l'utilisateur en priorité; compléter si <3)
-→ RECHERCHE WEB: AUTOMATIQUE (light) pour pricing + marché
-→ MULTI-LOCALISATIONS: 1-2 marchés comparables
-→ PROJECTIONS FINANCIÈRES: light (ordre de grandeur + hypothèses claires)
-→ SOURCES: Citer les URLs fournies + sources web pertinentes
-→ SECTIONS OBLIGATOIRES:
-  • Résumé Exécutif (headline + situation + opportunité + 3-5 points clés)
-  • Contexte Marché (vue secteur + spécificités locales + maturité + segments)
-  • Analyse Concurrentielle (intensité + profils concurrents + gaps + position)
-  • Recommandations Positionnement (cible + proposition valeur + taglines + messages)
-  • Stratégie Pricing (benchmarks + packages recommandés + quick wins)
-  • Comparatif Multi-Localisations (1-2 marchés)
-  • Projections Financières Light (ordre de grandeur + hypothèses)
-  • Go-to-Market (canaux prioritaires + contenu + partenariats)
-  • Plan d'Action 30/60/90 jours (actions + owners + outcomes)
+PRINCIPES NON-NÉGOCIABLES:
+1. SPÉCIFICITÉ: Chaque insight contextualisé au marché local et au secteur précis du client. Zéro généralité.
+2. QUANTIFICATION: Chaque affirmation accompagnée d'un ordre de grandeur (prix, %, ratio). Utilise ta connaissance du secteur.
+3. ACTION: Chaque recommandation = VERBE D'ACTION + CIBLE + MÉTRIQUE DE SUCCÈS.
+4. HONNÊTETÉ: Si une donnée est incertaine, indique-le. Jamais inventer. "Estimation basée sur..." ou "Données non disponibles".
+5. STYLE: Direct, incisif, sans bullshit corporate. Phrases courtes. Pas de conditionnel inutile.
 
-STANDARDS DE QUALITÉ NON-NÉGOCIABLES:
-
-1. ORIENTATION ACTION IMMÉDIATE
-   → Chaque recommandation = VERBE D'ACTION + CIBLE + MÉTRIQUE DE SUCCÈS
-   → Format: "[VERBE] [quoi] pour [atteindre X] d'ici [délai]"
-
-2. QUANTIFICATION SYSTÉMATIQUE
-   → Chaque insight DOIT inclure un IMPACT CHIFFRÉ (+X%, -Y€, xZ ROI)
-   → Pas d'affirmation sans data point de référence
-
-3. SPÉCIFICITÉ GÉOGRAPHIQUE & SECTORIELLE
-   → ZÉRO généralité - tout doit être contextualisé au marché local
-   → Prix et budgets en devise locale avec réalisme absolu
-
-4. TON & STYLE
-   → DIRECT, INCISIF, SANS BULLSHIT CORPORATE
-   → Phrases courtes. Assertions claires. Pas de conditionnel inutile.
-
-LIVRABLES ATTENDUS: JSON structuré prêt pour visualisation.
-RETOURNE UNIQUEMENT LE JSON VALIDE, sans texte avant/après.`,
+RETOURNE UNIQUEMENT LE JSON VALIDE.`,
   },
 
   pro: {
     max_tokens: 12000,
-    temperature: 0.25, // Strategic thinking for Pro tier
-    perplexity_searches: 10,
-    word_targets: WORD_TARGETS.pro,
+    temperature: 0.25,
     section_plan: SECTION_PLANS.pro,
-    // Lean system prompt used for SECTION-BY-SECTION generation (no deliverable specs)
     section_system_prompt: (lang: string) => `Tu es un PRINCIPAL de cabinet de conseil stratégique tier-1 (ex-McKinsey/BCG/Bain, 10+ ans).
 LANGUE: ${LANGUAGE_CONFIG[lang]?.name || 'Français'} - Rédige dans cette langue.
-MISSION: Produire UNE SECTION de rapport d'intelligence compétitive de calibre premium.
-RÈGLES:
-- Retourne UNIQUEMENT du JSON valide, sans texte/markdown avant ou après.
-- Utilise les données de recherche fournies. Cite tes sources systématiquement.
-- Jamais inventer de données. "non trouvé" si donnée absente.
-- Chaque affirmation sur un concurrent = source obligatoire.
-- Style: direct, factuel, quantifié, actionnable. Qualité Investment Committee.`,
+MISSION: Produire UNE SECTION d'un rapport d'intelligence compétitive de calibre Investment Committee.
+
+PRINCIPES D'EXCELLENCE:
+- Analyse en profondeur: ne survole pas. Décortique chaque dimension avec rigueur.
+- Chaque concurrent analysé = profil détaillé avec forces, faiblesses, positionnement, pricing connu.
+- Quantifie systématiquement: parts de marché estimées, fourchettes de CA, scoring digital.
+- Identifie les WHITE SPACES (opportunités non exploitées par la concurrence).
+- Si une donnée est incertaine: "estimation" ou "non disponible". Jamais inventer.
+- Style: factuel, quantifié, actionnable.
+- Retourne UNIQUEMENT du JSON valide, sans texte/markdown avant ou après.`,
     system_prompt: (lang: string) => `Tu es un PRINCIPAL de cabinet de conseil stratégique tier-1 (ex-McKinsey/BCG/Bain, 10+ ans).
 
-LANGUE DE RAPPORT: ${LANGUAGE_CONFIG[lang]?.name || 'Français'} - TOUT le rapport doit être rédigé dans cette langue.
+LANGUE: ${LANGUAGE_CONFIG[lang]?.name || 'Français'} - TOUT le rapport doit être rédigé dans cette langue.
 
-═══════════════════════════════════════════════════════════════════════════════
-MISSION: PRODUIRE UN RAPPORT D'INTELLIGENCE COMPÉTITIVE DE CALIBRE PREMIUM
-Basé sur des DONNÉES RÉELLES collectées via recherche web approfondie.
-Qualité attendue: Présentable à un Investment Committee / Board Advisor.
-═══════════════════════════════════════════════════════════════════════════════
+MISSION: Produire un RAPPORT D'INTELLIGENCE COMPÉTITIVE de calibre premium.
+Qualité attendue: présentable à un Investment Committee / Board Advisor.
 
-╔══════════════════════════════════════════════════════════════════════════════╗
-║  CONTRAINTES DE CONTENU - PRO TIER (34.99€)                                  ║
-╚══════════════════════════════════════════════════════════════════════════════╝
+PRINCIPES NON-NÉGOCIABLES:
+1. PROFONDEUR: Analyse chaque dimension en détail. Pas de survol. Décortique les dynamiques de marché.
+2. CONCURRENTS: Profils détaillés avec positionnement, pricing, forces/faiblesses, scoring digital 1-10.
+3. QUANTIFICATION: Parts de marché, fourchettes CA, TAM/SAM, benchmarks CAC/LTV sectoriels.
+4. WHITE SPACES: Identifie systématiquement les opportunités non exploitées par la concurrence.
+5. HONNÊTETÉ: Données incertaines = "estimation basée sur..." ou "non disponible". Jamais inventer.
+6. STYLE: Direct, factuel, quantifié. Qualité publication-ready.
 
-→ LONGUEUR CIBLE: 4000-6000 mots de contenu substantiel (équivalent 20-25 pages PDF)
-→ CONCURRENTS: Identifier et analyser 5-10 concurrents via recherche web
-→ SOURCES: 10-20 sources citées avec URLs (utiliser les données Perplexity fournies)
-→ SECTIONS OBLIGATOIRES (tout ce qui est dans Standard PLUS):
-  • Market Intelligence (tendances 2025-2026 + données marché local + sizing TAM/SAM)
-  • Competitive Intelligence approfondie (profils détaillés + scoring digital + matrice positionnement)
-  • Customer Insights (pain points + besoins non satisfaits + switching barriers)
-  • Pricing Table avec données concurrents réelles
-  • Projections financières basiques (benchmarks CAC/LTV sectoriels)
-  • Multi-localisation: analyse de 1-2 marchés géographiques comparés
-
-TU DISPOSES DE DONNÉES DE RECHERCHE WEB - UTILISE-LES INTENSIVEMENT:
-
-1. EXPLOITATION DES DONNÉES COLLECTÉES
-   → Les données Perplexity t'ont été fournies - CITE-LES SYSTÉMATIQUEMENT
-   → Chaque affirmation sur un concurrent = source obligatoire
-   → Prix, CA, funding, employés = données réelles ou "non trouvé" (jamais inventé)
-
-2. INTELLIGENCE COMPÉTITIVE ACTIONNABLE
-   → Pour CHAQUE concurrent: profil complet avec pricing réel trouvé
-   → Scoring digital (1-10) basé sur présence web, reviews, trafic
-   → Matrice de positionnement avec coordonnées X/Y exploitables
-
-3. MARKET INTELLIGENCE
-   → Tendances 2025-2026 avec sources (articles, études)
-   → Sizing du marché (TAM/SAM si trouvé, sinon estimation sourcée)
-   → Benchmarks CAC/LTV sectoriels avec comparables
-
-LIVRABLES: JSON structuré avec sources, données graphiques, et scoring.
 RETOURNE UNIQUEMENT LE JSON VALIDE.`,
   },
 
   agency: {
     max_tokens: 16000,
-    temperature: 0.2, // Analytical but allows creative recommendations
-    perplexity_searches: 16,
-    word_targets: WORD_TARGETS.agency,
+    temperature: 0.2,
     section_plan: SECTION_PLANS.agency,
-    // Lean system prompt used for SECTION-BY-SECTION generation (no deliverable specs)
     section_system_prompt: (lang: string) => `Tu es un SENIOR PARTNER d'un cabinet de conseil stratégique de rang mondial (20+ ans, Harvard MBA).
 LANGUE: ${LANGUAGE_CONFIG[lang]?.name || 'Français'} - Rédige dans cette langue.
 MISSION: Produire UNE SECTION d'un rapport d'intelligence stratégique de calibre institutionnel.
-RÈGLES:
-- Retourne UNIQUEMENT du JSON valide, sans texte/markdown avant ou après.
-- Utilise INTENSIVEMENT les données de recherche fournies. Cite systématiquement les sources.
-- Jamais inventer de données. "non trouvé" ou "données non disponibles" si absent.
-- Tout chiffre DOIT être sourcé (ou marqué comme estimation).
+
+PRINCIPES D'EXCELLENCE:
+- Rigueur méthodologique: frameworks obligatoires (Porter, PESTEL, SWOT) appliqués avec précision.
+- Profondeur d'analyse: chaque concurrent = deep dive (profil, positionnement, forces/faiblesses, pricing, menace).
+- Quantification systématique: scoring 1-10, fourchettes €, ratios, parts de marché estimées.
+- Analyse territoriale micro-locale: démographie, immobilier commercial, hubs, dynamiques de quartier.
+- 3 scénarios financiers: Conservative (-20%), Baseline, Optimistic (+30%) avec hypothèses explicites.
+- Hypothèses EXPLICITES et TESTABLES. Tout chiffre incertain = "estimation" + base de l'estimation.
+- Si donnée inconnue: "non disponible" (jamais inventer).
 - Dates absolues (ex: "janvier 2026") plutôt que "récemment".
-- Hypothèses EXPLICITES et TESTABLES.
-- Frameworks: Porter 5 Forces, PESTEL, SWOT si pertinent pour la section.
-- Style: institutionnel, rigoureux, quantifié, actionnable. Qualité publication-ready.`,
-    system_prompt: (lang: string) => `Tu es un SENIOR PARTNER d'un cabinet de conseil stratégique de rang mondial.
-Expérience: 20+ ans, dont 5+ en tant que Partner. Background: Harvard MBA, ex-McKinsey Director.
+- Retourne UNIQUEMENT du JSON valide, sans texte/markdown avant ou après.`,
+    system_prompt: (lang: string) => `Tu es un SENIOR PARTNER d'un cabinet de conseil stratégique de rang mondial (20+ ans, Harvard MBA).
 
-LANGUE DE RAPPORT: ${LANGUAGE_CONFIG[lang]?.name || 'Français'} - TOUT le rapport doit être rédigé dans cette langue.
+LANGUE: ${LANGUAGE_CONFIG[lang]?.name || 'Français'} - TOUT le rapport doit être rédigé dans cette langue.
 
-╔══════════════════════════════════════════════════════════════════════════════╗
-║  MISSION: RAPPORT D'INTELLIGENCE STRATÉGIQUE DE CALIBRE INSTITUTIONNEL      ║
-║  Standard: Benchmark consulting cabinet / organisme public                   ║
-║  Output: Qualité publication-ready 40+ pages, zéro révision nécessaire      ║
-╚══════════════════════════════════════════════════════════════════════════════╝
+MISSION: RAPPORT D'INTELLIGENCE STRATÉGIQUE DE CALIBRE INSTITUTIONNEL.
+Standard: Benchmark consulting cabinet / organisme public. Qualité publication-ready.
 
-╔══════════════════════════════════════════════════════════════════════════════╗
-║  CONTRAINTES DE CONTENU - AGENCY TIER (69.99€)                               ║
-╚══════════════════════════════════════════════════════════════════════════════╝
+PRINCIPES NON-NÉGOCIABLES:
+1. RIGUEUR MÉTHODOLOGIQUE: Frameworks Porter 5 Forces, PESTEL, SWOT appliqués avec précision et scoring.
+2. PROFONDEUR: 10-15 concurrents en deep dive. Profils exhaustifs. Matrice comparative avec scoring 0-10.
+3. TERRITORIAL: Analyse micro-locale (quartiers, démographie, immobilier commercial, hubs).
+4. FINANCIER: 3 scénarios (Conservative -20%, Baseline, Optimistic +30%). Unit Economics complets.
+5. STRATÉGIE: Brand essence, messaging hierarchy, tiering pricing, roadmap 12 mois phasé avec KPIs.
+6. HYPOTHÈSES: Explicites et testables. Tout chiffre incertain = "estimation basée sur..." + source.
+7. HONNÊTETÉ: Jamais inventer. "Non disponible" si inconnu. Distinguer "confirmé" vs "estimation".
+8. STYLE: Institutionnel, rigoureux, quantifié, actionnable.
 
-→ LONGUEUR CIBLE: 8000-12000 mots de contenu institutionnel (équivalent 40-50 pages PDF)
-→ CONCURRENTS: 10-15 concurrents en analyse approfondie (deep dive)
-→ SOURCES: 30-50 sources catégorisées (Données marché / Territoriales / Sectorielles)
-→ LIVRABLES: Ce rapport sera exporté en PDF
-→ FRAMEWORKS OBLIGATOIRES:
-  • Analyse PESTEL complète (Political, Economic, Social, Technological, Environmental, Legal)
-  • Porter 5 Forces avec scores 1-10 et analyse détaillée
-  • Analyse SWOT avec priorités stratégiques
-  • Matrice de scoring comparative avec analyse de sensibilité
-→ SECTIONS EXCLUSIVES AGENCY (en plus de tout ce qui est dans Pro):
-  • Méthodologie détaillée (scope, période, sources, critères, limitations)
-  • Panorama marché complet (key metrics sourcés, structure, segments)
-  • Analyse territoriale micro-locale (démographie, immobilier, hubs commerciaux)
-  • Benchmark concurrentiel avec profils exhaustifs
-  • Stratégie complète brand (essence, personnalité, voice, messaging hierarchy)
-  • Modèle économique complet (tiering, pricing, upsell)
-  • Projections financières 3 scénarios (Conservative -20%, Baseline, Optimistic +30%)
-  • Unit Economics (CAC, LTV, ratio, payback period, gross margin)
-  • Roadmap 12 mois phasé avec KPIs et budget par phase
-  • Annexes: glossaire, sources catégorisées, assumptions log, unknowns
-
-═══════════════════════════════════════════════════════════════════════════════
-CONTRAINTES ABSOLUES (MODE INSTITUTIONAL)
-═══════════════════════════════════════════════════════════════════════════════
-
-1. SOURCES ET PREUVES
-   ✓ UTILISER les données Perplexity fournies comme corpus de recherche
-   ✓ CITER systématiquement les sources (liens/citations) dans le champ sources
-   ✓ PRIVILÉGIER sources primaires: textes officiels, publications, rapports annuels
-   ✓ SIGNALER clairement hypothèses et limites
-   ✓ Tout chiffre DOIT être sourcé (ou marqué comme estimation)
-   ✓ Dates absolues (ex: "janvier 2026") plutôt que "récemment"
-
-2. RIGUEUR MÉTHODOLOGIQUE
-   ✓ Méthodologie reproductible et auditable
-   ✓ Frameworks obligatoires: Porter 5 Forces, PESTEL, SWOT
-   ✓ Hypothèses EXPLICITES et TESTABLES
-   ✓ Grille d'évaluation avec pondérations multiples (conservateur/équilibré/performance)
-   ✓ Matrice comparative avec scoring 0-10 + analyse de sensibilité
-
-3. PROFONDEUR D'ANALYSE
-   ✓ Panorama marché avec chiffres clés sourcés
-   ✓ Analyse territoriale micro-locale (quartiers, démographie, immobilier commercial)
-   ✓ Analyse comparative multi-marchés (1-3 zones pertinentes)
-   ✓ Benchmark concurrentiel détaillé avec profils complets
-   ✓ Tendances sectorielles catégorisées (produit/service/consommateur/surveillance)
-   ✓ 3 scenarios financiers: Conservative (-20%), Baseline, Optimistic (+30%)
-
-4. LIVRABLES STRUCTURÉS
-   ✓ Executive Summary avec indicateurs clés et recommandation principale
-   ✓ Roadmap 30/60/90 jours avec KPIs de validation
-   ✓ Budget prévisionnel détaillé
-   ✓ Annexes: glossaire, sources catégorisées, assumptions log, unknowns avec plan de validation
-
-RETOURNE UNIQUEMENT LE JSON VALIDE, sans texte avant/après.`,
+RETOURNE UNIQUEMENT LE JSON VALIDE.`,
   },
 } as const;
 
@@ -618,8 +395,6 @@ function extractJsonString(content: string): string {
   const trimmed = content.trim();
   if (!trimmed) return trimmed;
 
-  // Find the first JSON-looking start char.
-  // We prefer the earliest occurrence of either '{' or '['.
   const objIdx = trimmed.indexOf('{');
   const arrIdx = trimmed.indexOf('[');
 
@@ -664,12 +439,10 @@ function extractJsonString(content: string): string {
     else if (ch === closeChar) depth--;
 
     if (depth === 0 && i >= start) {
-      // Return the first complete JSON block.
       return trimmed.slice(start, i + 1);
     }
   }
 
-  // No balanced close found; return from start (likely truncated output).
   return trimmed.slice(start);
 }
 
@@ -740,302 +513,9 @@ async function updateProgress(
 }
 
 // ============================================
-// PERPLEXITY SEARCH FUNCTION
-// ============================================
-// Helper: retry logic for Perplexity searches
-async function searchWithPerplexity(
-  apiKey: string,
-  query: string,
-  context: string,
-  attempt = 1
-): Promise<{ content: string; citations: string[] }> {
-  const maxAttempts = 3;
-
-  try {
-    console.log(`[Search] Search attempt ${attempt}/${maxAttempts}: "${query.substring(0, 60)}..."`);
-
-    // 30-second timeout per search
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000);
-
-    const response = await fetch('https://api.perplexity.ai/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'sonar-pro',
-        messages: [
-          {
-            role: 'system',
-            content: `Tu es un analyste de recherche senior. Fournis des données FACTUELLES, QUANTIFIÉES et SOURCÉES.
-Contexte: ${context}
-IMPORTANT: Inclus des chiffres, URLs, noms, dates.`
-          },
-          { role: 'user', content: query }
-        ],
-        search_recency_filter: 'year',
-      }),
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      // Retry on transient errors (rate limit, server error)
-      if (response.status === 429 || response.status >= 500) {
-        if (attempt < maxAttempts) {
-          const waitTime = Math.pow(2, attempt - 1) * 5000; // 5s, 10s, 20s
-          console.log(`[Search] Transient error ${response.status}, retry in ${waitTime}ms...`);
-          await new Promise(resolve => setTimeout(resolve, waitTime));
-          return searchWithPerplexity(apiKey, query, context, attempt + 1);
-        }
-      }
-
-      const errorText = await response.text();
-      console.error(`[Search] Error ${response.status}:`, errorText);
-      throw new Error(`Search API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    console.log(`[Search] ✅ Search success: ${data.choices?.[0]?.message?.content?.length || 0} chars`);
-    return {
-      content: data.choices?.[0]?.message?.content || '',
-      citations: data.citations || []
-    };
-  } catch (error) {
-    console.error(`[Search] Attempt ${attempt} failed:`, error);
-
-    // Retry on timeout
-    if (error instanceof Error && error.name === 'AbortError') {
-      if (attempt < maxAttempts) {
-        console.log(`[Search] Timeout, retry...`);
-        await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 3000));
-        return searchWithPerplexity(apiKey, query, context, attempt + 1);
-      }
-    }
-
-    // Fallback: return empty result
-    return {
-      content: `Recherche échouée: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      citations: []
-    };
-  }
-}
-
-// ============================================
-// COMPREHENSIVE RESEARCH FUNCTION
-// ============================================
-async function conductResearch(
-  perplexityKey: string,
-  input: ReportInput,
-  tier: TierType,
-  reportId: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase: any
-): Promise<string> {
-  const tierConfig = TIER_CONFIG[tier];
-  const searchCount = tierConfig.perplexity_searches;
-
-  if ((searchCount as number) === 0) {
-    console.log(`[${reportId}] Standard tier - no web research`);
-    return "Aucune recherche web pour ce tier.";
-  }
-
-  const allResults: { query: string; content: string; citations: string[] }[] = [];
-  const context = `Analyse stratégique pour ${input.businessName} dans le secteur ${input.sector} à ${input.location.city}, ${input.location.country}`;
-
-  const queries: string[] = [];
-
-  if (tier === 'standard') {
-    const competitorNames = input.competitors?.map(c => c.name).join(', ') || 'principaux acteurs';
-    queries.push(`Prix et tarifs de ${competitorNames} dans le secteur ${input.sector} en ${input.location.country} 2024 2025`);
-    queries.push(`Taille marché ${input.sector} ${input.location.country} 2024 2025 estimation`);
-    queries.push(`Tendances clés ${input.sector} ${input.location.country} 2025`);
-    queries.push(`Comparatif localisation ${input.location.country} ${input.location.city} zones similaires ${input.sector}`);
-  }
-
-  if (tier === 'pro' || tier === 'agency') {
-    const competitorNames = input.competitors?.map(c => c.name).join(', ') || 'principaux acteurs';
-    queries.push(`Prix et tarifs de ${competitorNames} dans le secteur ${input.sector} en ${input.location.country} 2024 2025`);
-    queries.push(`Tendances marché ${input.sector} ${input.location.country} 2025 2026 croissance prévisions`);
-    queries.push(`Taille marché ${input.sector} ${input.location.country} TAM SAM milliards euros 2024 2025`);
-    queries.push(`Benchmarks CAC LTV coût acquisition client ${input.sector} SaaS B2B B2C 2024`);
-    queries.push(`${competitorNames} levée fonds employees chiffre affaires ${input.sector}`);
-    queries.push(`Avis clients et ratings ${input.sector} ${input.location.country} concurrents principaux`);
-    queries.push(`Trafic web estimé ${input.sector} ${input.location.country} concurrents`);
-    queries.push(`Comparatif pricing ${input.sector} ${input.location.country} offres budget premium`);
-    queries.push(`Barrières à l'entrée ${input.sector} ${input.location.country} réglementation`);
-    queries.push(`Segments de marché ${input.sector} ${input.location.country} segmentation clients`);
-  }
-
-  if (tier === 'agency') {
-    queries.push(`Analyse PESTEL ${input.sector} ${input.location.country} réglementation politique économie 2024 2025`);
-    queries.push(`Analyse Porter 5 forces ${input.sector} barrières entrée pouvoir négociation fournisseurs clients`);
-    queries.push(`Innovation technologique disruption ${input.sector} IA automatisation 2025 startups`);
-    queries.push(`Actualités récentes ${input.sector} ${input.location.country} acquisitions lancements 2024`);
-    queries.push(`Unit economics ${input.sector} marge brute gross margin payback period benchmarks`);
-    queries.push(`Données territoriales ${input.location.city} ${input.location.country} démographie revenu immobilier commercial`);
-    queries.push(`Comparatif multi-marchés ${input.sector} Europe tendances prix et marges`);
-    queries.push(`Benchmarks opérationnels ${input.sector} productivité coûts fixes variables`);
-    queries.push(`Tendances consommateurs ${input.sector} ${input.location.country} 2025`);
-    queries.push(`Part de marché acteurs clés ${input.sector} ${input.location.country}`);
-    queries.push(`Prix immobilier commercial ${input.location.city} ${input.location.country} zones clés`);
-  }
-
-  // ============================================
-  // PARALLEL PERPLEXITY SEARCHES (5-12x faster!)
-  // ============================================
-  const queriesToSearch = queries.slice(0, searchCount);
-
-  try {
-    console.log(`[${reportId}] Starting ${queriesToSearch.length} searches in PARALLEL...`);
-
-    // Run all searches concurrently
-    const searchPromises = queriesToSearch.map((query, i) => {
-      // Update progress every 3 searches
-      if (i % 3 === 0) {
-        updateProgress(supabase, reportId, `Recherches web (${i + 1}/${searchCount})...`, 15 + Math.floor((i / searchCount) * 20)).catch(() => { });
-      }
-
-      return searchWithPerplexity(perplexityKey, query, context)
-        .then(result => ({ query, ...result }))
-        .catch(error => ({
-          query,
-          content: `Recherche échouée: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          citations: []
-        }));
-    });
-
-    // Wait for ALL searches to complete
-    const results = await Promise.all(searchPromises);
-    allResults.push(...results);
-
-    console.log(`[${reportId}] ✅ All ${queriesToSearch.length} searches completed in parallel`);
-  } catch (error) {
-    console.error(`[${reportId}] Parallel search batch failed:`, error);
-  }
-
-  let researchDoc = `
-═══════════════════════════════════════════════════════════════════════════════
-DONNÉES DE RECHERCHE - ${new Date().toISOString().split('T')[0]}
-═══════════════════════════════════════════════════════════════════════════════
-
-`;
-
-  for (const result of allResults) {
-    researchDoc += `
-────────────────────────────────────────────────────────────────────────────────
-RECHERCHE: ${result.query}
-────────────────────────────────────────────────────────────────────────────────
-
-${result.content}
-
-SOURCES:
-${result.citations.map((c, i) => `[${i + 1}] ${c}`).join('\n') || 'Aucune source citée'}
-
-`;
-  }
-
-  return researchDoc;
-}
-
-// ============================================
-// RESEARCH DATA FILTERING PER SECTION
-// ============================================
-// Maps section keys to relevant research query keywords.
-// Only matching research blocks are sent to each section, cutting input tokens by 60-80%.
-const SECTION_RESEARCH_RELEVANCE: Record<string, string[]> = {
-  // Sections that need ALL research (summaries)
-  executive_summary: ["*"],
-  // Sections with targeted research needs
-  methodology: [],  // Meta section, no research needed
-  market_overview_detailed: ["Taille marché", "TAM SAM", "Tendances marché", "Segments de marché", "croissance"],
-  market_context: ["Taille marché", "TAM SAM", "Tendances marché", "Segments de marché", "croissance"],
-  territory_analysis: ["Données territoriales", "immobilier commercial", "démographie"],
-  market_analysis: ["PESTEL", "Porter", "Barrières", "Tendances marché", "réglementation"],
-  market_intelligence: ["Taille marché", "TAM SAM", "Tendances marché", "croissance", "Segments"],
-  competitive_intelligence: ["Prix et tarifs", "Avis clients", "ratings", "levée fonds", "employees", "chiffre affaires", "Trafic web"],
-  competitive_landscape: ["Prix et tarifs", "Avis clients", "ratings", "levée fonds", "Comparatif pricing"],
-  scoring_matrix: ["Prix et tarifs", "Avis clients", "ratings", "Comparatif pricing"],
-  trends_analysis: ["Tendances marché", "Innovation technologique", "disruption", "IA", "Actualités récentes"],
-  swot_analysis: ["Tendances marché", "Barrières", "Prix et tarifs", "Innovation", "PESTEL", "Porter"],
-  customer_intelligence: ["Avis clients", "ratings", "Segments de marché", "segmentation", "Benchmarks CAC LTV"],
-  customer_insights: ["Avis clients", "ratings", "Segments de marché", "segmentation"],
-  strategic_recommendations: ["Tendances marché", "Comparatif pricing", "Innovation", "Segments", "Benchmarks CAC"],
-  strategic_recommendations_detailed: ["Tendances marché", "Comparatif pricing", "Innovation", "Segments", "Benchmarks CAC", "immobilier"],
-  positioning_recommendations: ["Prix et tarifs", "Comparatif pricing", "Avis clients", "Segments"],
-  pricing_strategy: ["Prix et tarifs", "Comparatif pricing", "Benchmarks CAC LTV"],
-  go_to_market: ["Segments de marché", "Benchmarks CAC LTV", "Tendances marché", "Trafic web"],
-  financial_projections: ["Benchmarks CAC LTV", "Unit economics", "marge brute", "Taille marché"],
-  financial_projections_basic: ["Benchmarks CAC LTV", "Unit economics", "Taille marché"],
-  detailed_roadmap: ["Benchmarks CAC LTV", "Innovation technologique"],
-  implementation_roadmap: ["Innovation technologique", "Benchmarks CAC"],
-  action_plan: ["Tendances marché", "Innovation"],
-  risk_register: ["Barrières", "réglementation", "Tendances marché"],
-  risks_and_considerations: ["Barrières", "réglementation", "Tendances marché"],
-  multi_market_comparison: ["Comparatif multi-marchés", "Tendances marché", "Taille marché"],
-  appendices: [],  // Will pull from sources already in other sections
-  assumptions_and_limitations: [],
-  next_steps_to_validate: [],
-  sources: ["*"],
-};
-
-/**
- * Filters research data to only include blocks relevant to a specific section.
- * Each research block starts with "────" separator containing the query.
- * Returns filtered research string or full data for "*" sections.
- */
-function filterResearchForSection(fullResearchData: string, sectionKey: string): string {
-  if (!fullResearchData || fullResearchData.length < 100) return fullResearchData;
-
-  const relevanceKeys = SECTION_RESEARCH_RELEVANCE[sectionKey];
-
-  // If section wants all research or is not mapped, send everything
-  if (!relevanceKeys || relevanceKeys.includes("*")) return fullResearchData;
-
-  // If section needs no research, return minimal header
-  if (relevanceKeys.length === 0) {
-    return "\n(Données de recherche non nécessaires pour cette section.)\n";
-  }
-
-  // Split research into blocks by the separator pattern
-  const blocks = fullResearchData.split(/(?=────────────────────────────────────────────────────────────────────────────────\nRECHERCHE:)/);
-
-  const relevantBlocks: string[] = [];
-  // Keep the header (first block with date)
-  if (blocks.length > 0 && blocks[0].includes("DONNÉES DE RECHERCHE")) {
-    relevantBlocks.push(blocks[0].trim());
-  }
-
-  // Filter blocks by matching query text against relevance keywords
-  for (let i = 1; i < blocks.length; i++) {
-    const block = blocks[i];
-    const queryLine = block.split('\n').find(l => l.startsWith('RECHERCHE:')) || block.substring(0, 200);
-    const queryLower = queryLine.toLowerCase();
-
-    const isRelevant = relevanceKeys.some(keyword =>
-      queryLower.includes(keyword.toLowerCase())
-    );
-
-    if (isRelevant) {
-      relevantBlocks.push(block.trim());
-    }
-  }
-
-  if (relevantBlocks.length <= 1) {
-    // Only header, no relevant research found
-    return "\n(Aucune donnée de recherche directement pertinente pour cette section.)\n";
-  }
-
-  return relevantBlocks.join("\n\n");
-}
-
-// ============================================
 // PROMPT BUILDERS
 // ============================================
-function buildReportBrief(input: ReportInput, plan: TierType, researchData: string): string {
+function buildReportBrief(input: ReportInput, plan: TierType): string {
   const competitorsList = input.competitors?.length > 0
     ? input.competitors.map((c, i) => {
       let line = `${i + 1}. ${c.name}`;
@@ -1064,13 +544,10 @@ function buildReportBrief(input: ReportInput, plan: TierType, researchData: stri
   const reportLang = input.reportLanguage || 'fr';
   const langName = LANGUAGE_CONFIG[reportLang]?.name || 'Français';
 
-  let prompt = `
-╔══════════════════════════════════════════════════════════════════════════════╗
-║  BRIEF CLIENT - DEMANDE DE BENCHMARK CONCURRENTIEL                           ║
-║  LANGUE DU RAPPORT: ${langName.toUpperCase().padEnd(55)}║
-╚══════════════════════════════════════════════════════════════════════════════╝
-
-IMPORTANT: Rédige TOUT le rapport en ${langName}.
+  return `
+BRIEF CLIENT - BENCHMARK CONCURRENTIEL
+LANGUE DU RAPPORT: ${langName.toUpperCase()}
+Rédige TOUT le rapport en ${langName}.
 
 <business_context>
 ENTREPRISE: ${input.businessName}
@@ -1079,23 +556,23 @@ Secteur: ${input.sector}${input.sectorDetails ? ` (${input.sectorDetails})` : ""
 Localisation: ${input.location?.city}, ${input.location?.country}
 Cible: ${input.targetCustomers?.type} - ${input.targetCustomers?.persona}
 
-${input.businessMaturity ? `Stade de maturité: ${maturityLabels[input.businessMaturity] || input.businessMaturity}` : ""}
+${input.businessMaturity ? `Maturité: ${maturityLabels[input.businessMaturity] || input.businessMaturity}` : ""}
 ${input.annualRevenue ? `CA annuel: ${input.annualRevenue}€` : ""}
-${input.teamSize ? `Taille équipe: ${input.teamSize}` : ""}
+${input.teamSize ? `Équipe: ${input.teamSize}` : ""}
 </business_context>
 
 <offer>
 CE QU'ILS VENDENT:
 ${input.whatYouSell}
 
-${input.uniqueValueProposition ? `USP (Proposition de valeur unique):\n"${input.uniqueValueProposition}"` : ""}
+${input.uniqueValueProposition ? `USP: "${input.uniqueValueProposition}"` : ""}
 
-Fourchette de prix: ${input.priceRange?.min}€ - ${input.priceRange?.max}€
-${input.businessModel ? `Modèle économique: ${modelLabels[input.businessModel] || input.businessModel}` : ""}
-${input.grossMargin ? `Marge brute estimée: ${input.grossMargin}%` : ""}
+Prix: ${input.priceRange?.min}€ - ${input.priceRange?.max}€
+${input.businessModel ? `Modèle: ${modelLabels[input.businessModel] || input.businessModel}` : ""}
+${input.grossMargin ? `Marge brute: ${input.grossMargin}%` : ""}
 
-Points forts revendiqués: ${input.differentiators?.join(", ") || "Non spécifiés"}
-Canaux d'acquisition actuels: ${input.acquisitionChannels?.join(", ") || "Non spécifiés"}
+Points forts: ${input.differentiators?.join(", ") || "Non spécifiés"}
+Canaux d'acquisition: ${input.acquisitionChannels?.join(", ") || "Non spécifiés"}
 </offer>
 
 <competitors count="${input.competitors?.length || 0}">
@@ -1104,40 +581,20 @@ ${input.competitorAdvantage ? `\nPOURQUOI ILS PERDENT face aux concurrents:\n${i
 </competitors>
 
 <objectives>
-Objectifs (par ordre de priorité): ${input.goalPriorities?.join(" > ") || input.goals?.join(", ") || "Analyse complète"}
-${input.successMetrics ? `Métriques de succès attendues: ${input.successMetrics}` : ""}
+Objectifs: ${input.goalPriorities?.join(" > ") || input.goals?.join(", ") || "Analyse complète"}
+${input.successMetrics ? `Métriques de succès: ${input.successMetrics}` : ""}
 </objectives>
 
 <constraints>
 Budget: ${input.budgetLevel}
 Timeline: ${input.timeline}
-Ton souhaité: ${input.tonePreference}
-${input.notes ? `Notes additionnelles: ${input.notes}` : ""}
+Ton: ${input.tonePreference}
+${input.notes ? `Notes: ${input.notes}` : ""}
 </constraints>`;
-
-  // Only append research data if non-empty (in section-by-section mode, research is filtered and appended separately)
-  if (researchData && researchData.length > 50) {
-    prompt += `
-
-${researchData}
-
-═══════════════════════════════════════════════════════════════════════════════
-INSTRUCTIONS CRITIQUES POUR L'UTILISATION DES DONNÉES DE RECHERCHE
-═══════════════════════════════════════════════════════════════════════════════
-
-1. CITE SYSTÉMATIQUEMENT les données trouvées dans le champ "sources" du JSON
-2. Pour les prix concurrents: utilise UNIQUEMENT les données trouvées ou indique "non trouvé"
-3. Pour le sizing marché: cite la source exacte (Statista, étude sectorielle, etc.)
-4. JAMAIS inventer de données - mieux vaut "données non disponibles" que des chiffres faux
-5. Distingue clairement: "confirmé par recherche" vs "estimation basée sur..."
-`;
-  }
-
-  return prompt;
 }
 
-function buildUserPrompt(input: ReportInput, plan: TierType, researchData: string): string {
-  return `${buildReportBrief(input, plan, researchData)}${getJsonSchema(plan)}`;
+function buildUserPrompt(input: ReportInput, plan: TierType): string {
+  return `${buildReportBrief(input, plan)}${getJsonSchema(plan)}`;
 }
 
 function getJsonSchema(plan: TierType): string {
@@ -1146,141 +603,125 @@ function getJsonSchema(plan: TierType): string {
 
 <json_schema>
 {
-  "report_metadata": { "title": "string", "generated_date": "YYYY-MM-DD", "business_name": "string", "sector": "string", "location": "string", "tier": "agency", "sources_count": number, "word_count": number },
-  
-  "executive_summary": { 
-    "one_page_summary": "string (500 mots max, style consulting institutionnel)", 
-    "situation_actuelle": "string", 
-    "opportunite_principale": "string", 
-    "strategic_recommendation": "string (recommandation principale en 2-3 phrases)", 
-    "investment_required": "string (ex: 300 000 - 400 000 €)", 
-    "expected_roi": "string (ex: 24-36 mois)", 
+  "report_metadata": { "title": "string", "generated_date": "YYYY-MM-DD", "business_name": "string", "sector": "string", "location": "string", "tier": "agency", "sources_count": number },
+
+  "executive_summary": {
+    "one_page_summary": "string (synthèse dense, style consulting institutionnel)",
+    "situation_actuelle": "string",
+    "opportunite_principale": "string",
+    "strategic_recommendation": "string (recommandation principale en 2-3 phrases)",
+    "investment_required": "string (ex: 300 000 - 400 000 €)",
+    "expected_roi": "string (ex: 24-36 mois)",
     "key_profitability_indicators": [{ "indicator": "string", "value": "string" }],
-    "critical_success_factors": ["string"], 
-    "key_metrics_to_track": ["string"], 
-    "urgency_assessment": { "level": "Critique/Élevé/Modéré", "rationale": "string", "window_of_opportunity": "string" } 
+    "critical_success_factors": ["string"],
+    "key_metrics_to_track": ["string"],
+    "urgency_assessment": { "level": "Critique/Élevé/Modéré", "rationale": "string", "window_of_opportunity": "string" }
   },
-  
+
   "methodology": {
-    "scope": "Zone géographique et périmètre exact de l'analyse",
+    "scope": "Zone géographique et périmètre exact",
     "period": "Période d'analyse (ex: données 2024-2026)",
-    "segments_analyzed": ["string - segments de marché analysés"],
-    "primary_sources": ["string - sources primaires/officielles (INSEE, études sectorielles, etc.)"],
-    "secondary_sources": ["string - sources secondaires (presse, observatoires, etc.)"],
+    "segments_analyzed": ["string"],
+    "primary_sources": ["string"],
+    "secondary_sources": ["string"],
     "evaluation_criteria": [{ "dimension": "string", "weight_conservative": "string %", "weight_balanced": "string %", "weight_performance": "string %" }],
-    "limitations": ["string - biais et limites identifiés"]
+    "limitations": ["string"]
   },
-  
+
   "market_overview_detailed": {
     "key_metrics": [{ "indicator": "string", "value": "string avec unité", "source": "string" }],
-    "market_structure": { 
-      "overview": "string - description de la structure concurrentielle", 
-      "leaders": [{ "name": "string", "detail": "string (parts de marché, CA, etc.)" }], 
-      "independents_share": "string" 
+    "market_structure": {
+      "overview": "string",
+      "leaders": [{ "name": "string", "detail": "string" }],
+      "independents_share": "string"
     },
     "market_segments": [{ "segment": "string", "price_avg": "string", "margin": "string", "examples": "string" }],
     "sources": "string"
   },
-  
+
   "territory_analysis": {
-    "location_name": "string (ex: Paris 15ème arrondissement)",
+    "location_name": "string",
     "demographics": [{ "indicator": "string", "value": "string" }],
     "real_estate": [{ "indicator": "string", "value": "string" }],
     "commercial_hubs": [{ "name": "string", "description": "string", "priority": "high/medium/low" }],
     "local_competitors": [{ "name": "string", "rating": "string", "specialty": "string" }],
-    "opportunities": ["string - niches/opportunités locales"],
+    "opportunities": ["string"],
     "sources": "string"
   },
-  
-  "market_analysis": { 
-    "market_sizing": { "total_addressable_market": "string avec €", "serviceable_addressable_market": "string avec €", "serviceable_obtainable_market": "string avec €", "methodology": "string" }, 
-    "market_dynamics": { "growth_rate": "string %", "maturity_stage": "string", "key_drivers": ["string"], "headwinds": ["string"], "inflection_points": ["string"] }, 
-    "pestel_analysis": { "political": ["string"], "economic": ["string"], "social": ["string"], "technological": ["string"], "environmental": ["string"], "legal": ["string"] }, 
-    "porter_five_forces": { "competitive_rivalry": { "score": 1-10, "analysis": "string" }, "supplier_power": { "score": 1-10, "analysis": "string" }, "buyer_power": { "score": 1-10, "analysis": "string" }, "threat_of_substitution": { "score": 1-10, "analysis": "string" }, "threat_of_new_entry": { "score": 1-10, "analysis": "string" }, "overall_attractiveness": "string", "strategic_implications": "string" } 
+
+  "market_analysis": {
+    "market_sizing": { "total_addressable_market": "string avec €", "serviceable_addressable_market": "string avec €", "serviceable_obtainable_market": "string avec €", "methodology": "string" },
+    "market_dynamics": { "growth_rate": "string %", "maturity_stage": "string", "key_drivers": ["string"], "headwinds": ["string"], "inflection_points": ["string"] },
+    "pestel_analysis": { "political": ["string"], "economic": ["string"], "social": ["string"], "technological": ["string"], "environmental": ["string"], "legal": ["string"] },
+    "porter_five_forces": { "competitive_rivalry": { "score": 1-10, "analysis": "string" }, "supplier_power": { "score": 1-10, "analysis": "string" }, "buyer_power": { "score": 1-10, "analysis": "string" }, "threat_of_substitution": { "score": 1-10, "analysis": "string" }, "threat_of_new_entry": { "score": 1-10, "analysis": "string" }, "overall_attractiveness": "string", "strategic_implications": "string" }
   },
-  
-  "competitive_intelligence": { 
-    "competition_landscape_overview": "string", 
-    "competitors_deep_dive": [{ "name": "string", "profile": { "size": "string", "growth_trajectory": "string" }, "positioning": { "value_prop": "string", "target_segment": "string" }, "offering": { "products_services": ["string"], "pricing_model": "string" }, "strengths": ["string"], "weaknesses": ["string"], "threat_level": "Élevé/Moyen/Faible", "opportunities_vs_them": "string" }], 
-    "competitive_positioning_maps": { "primary_map": { "x_axis": "Prix", "y_axis": "Qualité Perçue", "competitors_plotted": [{ "name": "string", "x": 1-10, "y": 1-10 }], "your_current_position": { "x": 1-10, "y": 1-10 }, "recommended_position": { "x": 1-10, "y": 1-10 }, "rationale": "string" } }, 
-    "unmet_customer_needs": [{ "need": "string", "evidence": "string", "how_to_address": "string" }] 
+
+  "competitive_intelligence": {
+    "competition_landscape_overview": "string",
+    "competitors_deep_dive": [{ "name": "string", "profile": { "size": "string", "growth_trajectory": "string" }, "positioning": { "value_prop": "string", "target_segment": "string" }, "offering": { "products_services": ["string"], "pricing_model": "string" }, "strengths": ["string"], "weaknesses": ["string"], "threat_level": "Élevé/Moyen/Faible", "opportunities_vs_them": "string" }],
+    "competitive_positioning_maps": { "primary_map": { "x_axis": "Prix", "y_axis": "Qualité Perçue", "competitors_plotted": [{ "name": "string", "x": 1-10, "y": 1-10 }], "your_current_position": { "x": 1-10, "y": 1-10 }, "recommended_position": { "x": 1-10, "y": 1-10 }, "rationale": "string" } },
+    "unmet_customer_needs": [{ "need": "string", "evidence": "string", "how_to_address": "string" }]
   },
-  
+
   "scoring_matrix": {
-    "criteria": ["string - critères d'évaluation"],
+    "criteria": ["string"],
     "competitors": [{ "name": "string", "scores": { "critere1": 1-10, "critere2": 1-10 }, "total": number }],
     "sensitivity_analysis": [{ "model": "Conservateur/Équilibré/Performance", "rankings": ["1er", "2ème", "3ème"] }],
     "interpretation": "string"
   },
-  
+
   "trends_analysis": {
     "period": "string (ex: 2025-2026)",
     "categories": [{ "category": "string", "icon": "product/service/consumer/watch", "trends": ["string"] }],
     "key_insights": ["string"]
   },
-  
+
   "swot_analysis": { "strengths": ["string"], "weaknesses": ["string"], "opportunities": ["string"], "threats": ["string"], "strategic_priorities": "string" },
-  
+
   "customer_intelligence": { "segments_analyzed": [{ "segment_name": "string", "size_estimate": "string", "pain_points": ["string"], "decision_criteria": ["string"], "willingness_to_pay": "string", "acquisition_cost_estimate": "string en €", "lifetime_value_estimate": "string en €", "priority": "1/2/3" }], "voice_of_customer": { "common_complaints": ["string"], "desired_features": ["string"], "switching_barriers": ["string"] } },
-  
-  "strategic_recommendations_detailed": {
-    "positioning_options": [{ 
-      "id": "option_a/option_b/option_c", 
-      "name": "string", 
-      "type": "conservative/balanced/ambitious", 
-      "description": "string", 
-      "differentiators": ["string"], 
-      "target_ticket": "string en €" 
-    }],
-    "location_recommendations": [{ "priority": 1-3, "name": "string", "rationale": ["string"], "estimated_rent": "string" }],
-    "recommended_surface": "string (ex: 60-100 m²)",
-    "budget_rent": "string (ex: 3 000-5 000€/mois)",
-    "economic_model": [{ "indicator": "string", "target": "string" }],
-    "attention_points": [{ "point": "string", "impact": "string" }]
-  },
-  
+
   "strategic_recommendations": { "recommended_strategy": { "strategic_archetype": "string", "rationale": "string" }, "positioning_strategy": { "target_segment_primary": "string", "value_proposition": "string", "positioning_statement": "string", "reasons_to_believe": ["string"] }, "brand_strategy": { "brand_essence": "string", "brand_personality": ["string"], "brand_voice_description": "string", "tagline_options": ["string"], "messaging_hierarchy": { "primary_message": "string", "supporting_messages": ["string"] } }, "product_strategy": { "core_offering_recommendation": "string", "tiering_strategy": [{ "tier_name": "string", "target_segment": "string", "key_features": ["string"], "pricing_range": "string en €" }], "product_roadmap_priorities": [{ "feature_initiative": "string", "priority": "P0/P1/P2", "expected_impact": "string" }] }, "pricing_strategy": { "pricing_model_recommendation": "string", "price_optimization_by_tier": [{ "tier": "string", "recommended_price": "string en €", "rationale": "string" }], "upsell_cross_sell_opportunities": ["string"] }, "go_to_market_strategy": { "customer_acquisition": { "primary_channels_detailed": [{ "channel": "string", "rationale": "string", "investment_level": "string en €", "expected_cac": "string en €", "tactics": ["string"] }], "content_marketing_strategy": { "strategic_themes": ["string"], "content_formats_prioritized": ["string"] }, "partnership_opportunities_detailed": [{ "partner_type": "string", "examples": ["string"] }] }, "sales_strategy": { "sales_model": "string", "sales_process_recommendation": "string" } } },
-  
-  "financial_projections": { 
-    "investment_required": { "total_12_months": number, "breakdown": [{ "category": "string", "amount": number, "rationale": "string" }] }, 
-    "revenue_scenarios": { "conservative": { "year_1": number, "year_2": number, "year_3": number, "assumptions": ["string"] }, "baseline": { "year_1": number, "year_2": number, "year_3": number, "assumptions": ["string"] }, "optimistic": { "year_1": number, "year_2": number, "year_3": number, "assumptions": ["string"] } }, 
-    "unit_economics": { "customer_acquisition_cost": number, "lifetime_value": number, "ltv_cac_ratio": number, "payback_period_months": number, "gross_margin_percent": number, "comparison_to_benchmarks": "string" } 
+
+  "financial_projections": {
+    "investment_required": { "total_12_months": number, "breakdown": [{ "category": "string", "amount": number, "rationale": "string" }] },
+    "revenue_scenarios": { "conservative": { "year_1": number, "year_2": number, "year_3": number, "assumptions": ["string"] }, "baseline": { "year_1": number, "year_2": number, "year_3": number, "assumptions": ["string"] }, "optimistic": { "year_1": number, "year_2": number, "year_3": number, "assumptions": ["string"] } },
+    "unit_economics": { "customer_acquisition_cost": number, "lifetime_value": number, "ltv_cac_ratio": number, "payback_period_months": number, "gross_margin_percent": number, "comparison_to_benchmarks": "string" }
   },
-  
+
   "detailed_roadmap": {
-    "phases": [{ 
-      "phase": "string (J1-J30/J31-J60/J61-J90)", 
-      "timeline": "string", 
-      "title": "string", 
-      "tasks": ["string"], 
-      "kpis": ["string - KPIs de validation"] 
+    "phases": [{
+      "phase": "string (J1-J30/J31-J60/J61-J90)",
+      "timeline": "string",
+      "title": "string",
+      "tasks": ["string"],
+      "kpis": ["string"]
     }],
     "kpi_targets": [{ "indicator": "string", "target_m6": "string", "target_m12": "string" }],
     "budget_breakdown": [{ "category": "string", "amount": "string" }],
     "total_budget": "string (ex: 230 000 - 485 000 €)",
-    "recommended_equity": "string (ex: 30% minimum = 70 000-145 000€)"
+    "recommended_equity": "string"
   },
-  
+
   "implementation_roadmap": { "phase_1_foundation": { "timeline": "Mois 1-3", "objectives": ["string"], "key_initiatives": [{ "initiative": "string", "owner_role": "string", "budget_estimate": "string en €", "success_metrics": ["string"], "milestones": ["string"] }] }, "phase_2_growth": { "timeline": "Mois 4-6", "objectives": ["string"], "key_initiatives": ["..."] }, "phase_3_scale": { "timeline": "Mois 7-12", "objectives": ["string"], "key_initiatives": ["..."] } },
-  
+
   "risk_register": [{ "risk": "string", "impact": "Élevé/Moyen/Faible", "probability": "Élevé/Moyen/Faible", "mitigation": "string", "contingency": "string" }],
-  
+
   "multi_market_comparison": { "markets": [{ "market": "string", "why_selected": "string", "key_differences": ["string"], "opportunity_score": "1-10" }], "recommendation": "string" },
-  
+
   "appendices": {
     "glossary": [{ "term": "string", "definition": "string" }],
-    "sources_by_category": [{ "category": "string (Données marché/Données territoriales/Sources sectorielles)", "sources": ["string"] }],
+    "sources_by_category": [{ "category": "string", "sources": ["string"] }],
     "assumptions": [{ "assumption": "string", "validation_plan": "string" }],
-    "unknowns": [{ "item": "string - ce que nous ne savons pas encore", "how_to_find": "string" }],
-    "validation_plan": ["string - actions pour réduire l'incertitude"]
+    "unknowns": [{ "item": "string", "how_to_find": "string" }],
+    "validation_plan": ["string"]
   },
-  
+
   "assumptions_and_limitations": ["string"],
   "sources": [{ "title": "string", "url": "string" }]
 }
 </json_schema>
 
-Génère le rapport AGENCY-GRADE INSTITUTIONNEL complet (25+ pages équivalent). RETOURNE UNIQUEMENT LE JSON.`;
+Génère le rapport AGENCY-GRADE INSTITUTIONNEL complet. Sois EXHAUSTIF et SPÉCIFIQUE. RETOURNE UNIQUEMENT LE JSON.`;
   }
 
   if (plan === "pro") {
@@ -1288,27 +729,27 @@ Génère le rapport AGENCY-GRADE INSTITUTIONNEL complet (25+ pages équivalent).
 
 <json_schema>
 {
-  "report_metadata": { "title": "string", "generated_date": "YYYY-MM-DD", "business_name": "string", "sector": "string", "location": "string", "tier": "pro", "sources_count": number, "word_count": number },
+  "report_metadata": { "title": "string", "generated_date": "YYYY-MM-DD", "business_name": "string", "sector": "string", "location": "string", "tier": "pro", "sources_count": number },
   "executive_summary": { "headline": "string - accroche impactante", "situation_actuelle": "string", "opportunite_principale": "string", "key_findings": ["string - 3-5 points clés actionnables"], "urgency_level": "Critique/Élevé/Modéré", "urgency_rationale": "string", "market_size_estimate": "string avec €", "growth_rate": "string %" },
   "market_context": { "sector_overview": "string", "local_market_specifics": "string", "market_maturity": "string", "target_segments": [{ "segment_name": "string", "size_estimate": "string", "accessibility": "Facile/Moyen/Difficile", "value_potential": "Élevé/Moyen/Faible", "why_relevant": "string" }], "key_trends_impacting": ["string"] },
   "market_intelligence": { "sector_trends_2026": [{ "trend": "string", "impact_on_you": "string", "how_to_leverage": "string action concrète" }], "local_market_data": { "market_maturity": "string", "key_players_count": "string", "market_size_estimate": "string avec €", "growth_rate": "string %", "insights": ["string"] } },
-  "competitive_landscape": { "competition_intensity": "Élevée/Moyenne/Faible", "competitors_analyzed": [{ "name": "string", "website": "string", "type": "Direct/Indirect/Substitut", "positioning": "string", "pricing_found": "string en € - trouvé via web search", "strengths": ["string"], "weaknesses": ["string"], "threat_level": "Élevé/Moyen/Faible" }], "competitive_gaps": ["string - opportunités non exploitées"], "your_current_position": "string", "differentiation_opportunities": [{ "angle": "string", "feasibility": "Facile/Moyen/Difficile", "impact": "Élevé/Moyen/Faible", "description": "string" }] },
-  "competitive_intelligence": { "deep_competitor_profiles": [{ "name": "string", "positioning": "string", "digital_presence_score": 1-10, "strengths": ["string"], "weaknesses": ["string"], "threat_level": "Élevé/Moyen/Faible" }], "competitive_matrix": { "axes": { "x_axis": "Prix", "y_axis": "Qualité Perçue" }, "positions": [{ "competitor": "string", "x": 1-10, "y": 1-10 }] }, "white_spaces": ["string - opportunités de marché vides"] },
-  "customer_insights": { "pain_points_identified": [{ "pain_point": "string", "evidence": "string - source web", "opportunity": "string" }], "unmet_needs": ["string"], "switching_barriers": ["string"], "decision_criteria": ["string par ordre d'importance"] },
-  "positioning_recommendations": { "recommended_positioning": "string", "rationale": "string", "target_audience_primary": "string", "value_proposition": "string", "tagline_suggestions": ["string - 3 options mémorables"], "key_messages": ["string"], "messaging_dos": ["string"], "messaging_donts": ["string"], "differentiation_score": { "current": 1-10, "potential": 1-10, "gap_to_close": "string" } },
-  "pricing_strategy": { "current_assessment": "string", "market_benchmarks": { "budget_tier": "string en €", "mid_tier": "string en €", "premium_tier": "string en €" }, "competitor_pricing_table": [{ "competitor": "string", "offer": "string", "price": "string en €" }], "recommended_pricing": [{ "package_name": "string", "suggested_price": "string en €", "what_includes": ["string"], "rationale": "string" }], "quick_wins": ["string - gains rapides pricing"], "upsell_opportunities": ["string"] },
-  "go_to_market": { "priority_channels": [{ "channel": "string", "priority": "1/2/3", "why": "string", "first_action": "string - action concrète J+1", "expected_cac": "string en €", "expected_timeline": "string" }], "content_strategy": { "topics_to_own": ["string"], "content_gaps": ["string"], "content_formats": ["string"], "thought_leadership_opportunities": ["string"] }, "partnership_opportunities": ["string avec noms concrets"] },
-  "action_plan": { "now_7_days": [{ "action": "string commençant par verbe", "owner": "string rôle", "outcome": "string résultat attendu" }], "days_8_30": [{ "action": "string", "owner": "string", "outcome": "string" }], "days_31_90": [{ "action": "string", "owner": "string", "outcome": "string" }], "quick_wins_with_proof": [{ "action": "string", "why_now": "string", "expected_impact": "string chiffré" }] },
+  "competitive_landscape": { "competition_intensity": "Élevée/Moyenne/Faible", "competitors_analyzed": [{ "name": "string", "website": "string", "type": "Direct/Indirect/Substitut", "positioning": "string", "pricing_found": "string en €", "strengths": ["string"], "weaknesses": ["string"], "threat_level": "Élevé/Moyen/Faible" }], "competitive_gaps": ["string"], "your_current_position": "string", "differentiation_opportunities": [{ "angle": "string", "feasibility": "Facile/Moyen/Difficile", "impact": "Élevé/Moyen/Faible", "description": "string" }] },
+  "competitive_intelligence": { "deep_competitor_profiles": [{ "name": "string", "positioning": "string", "digital_presence_score": 1-10, "strengths": ["string"], "weaknesses": ["string"], "threat_level": "Élevé/Moyen/Faible" }], "competitive_matrix": { "axes": { "x_axis": "Prix", "y_axis": "Qualité Perçue" }, "positions": [{ "competitor": "string", "x": 1-10, "y": 1-10 }] }, "white_spaces": ["string"] },
+  "customer_insights": { "pain_points_identified": [{ "pain_point": "string", "evidence": "string", "opportunity": "string" }], "unmet_needs": ["string"], "switching_barriers": ["string"], "decision_criteria": ["string par ordre d'importance"] },
+  "positioning_recommendations": { "recommended_positioning": "string", "rationale": "string", "target_audience_primary": "string", "value_proposition": "string", "tagline_suggestions": ["string - 3 options"], "key_messages": ["string"], "messaging_dos": ["string"], "messaging_donts": ["string"], "differentiation_score": { "current": 1-10, "potential": 1-10, "gap_to_close": "string" } },
+  "pricing_strategy": { "current_assessment": "string", "market_benchmarks": { "budget_tier": "string en €", "mid_tier": "string en €", "premium_tier": "string en €" }, "competitor_pricing_table": [{ "competitor": "string", "offer": "string", "price": "string en €" }], "recommended_pricing": [{ "package_name": "string", "suggested_price": "string en €", "what_includes": ["string"], "rationale": "string" }], "quick_wins": ["string"], "upsell_opportunities": ["string"] },
+  "go_to_market": { "priority_channels": [{ "channel": "string", "priority": "1/2/3", "why": "string", "first_action": "string", "expected_cac": "string en €", "expected_timeline": "string" }], "content_strategy": { "topics_to_own": ["string"], "content_gaps": ["string"], "content_formats": ["string"], "thought_leadership_opportunities": ["string"] }, "partnership_opportunities": ["string"] },
+  "action_plan": { "now_7_days": [{ "action": "string commençant par verbe", "owner": "string rôle", "outcome": "string" }], "days_8_30": [{ "action": "string", "owner": "string", "outcome": "string" }], "days_31_90": [{ "action": "string", "owner": "string", "outcome": "string" }], "quick_wins_with_proof": [{ "action": "string", "why_now": "string", "expected_impact": "string chiffré" }] },
   "financial_projections_basic": { "revenue_range": "string en €", "assumptions": ["string"], "kpi_targets": ["string"] },
   "multi_location_comparison": { "markets": [{ "market": "string", "key_differences": ["string"], "opportunity_score": "1-10" }], "recommended_market": "string", "rationale": "string" },
   "risks_and_considerations": { "market_risks": ["string"], "competitive_threats": ["string"], "regulatory_considerations": ["string"] },
   "assumptions_and_limitations": ["string"],
-  "next_steps_to_validate": ["string - hypothèses à tester"],
+  "next_steps_to_validate": ["string"],
   "sources": [{ "title": "string", "url": "string" }]
 }
 </json_schema>
 
-Génère le rapport PREMIUM complet. RETOURNE UNIQUEMENT LE JSON.`;
+Génère le rapport PREMIUM complet. Sois EXHAUSTIF et SPÉCIFIQUE. RETOURNE UNIQUEMENT LE JSON.`;
   }
 
   // Standard tier
@@ -1316,7 +757,7 @@ Génère le rapport PREMIUM complet. RETOURNE UNIQUEMENT LE JSON.`;
 
 <json_schema>
 {
-  "report_metadata": { "title": "string", "generated_date": "YYYY-MM-DD", "business_name": "string", "sector": "string", "location": "string", "tier": "standard", "sources_count": number, "word_count": number },
+  "report_metadata": { "title": "string", "generated_date": "YYYY-MM-DD", "business_name": "string", "sector": "string", "location": "string", "tier": "standard", "sources_count": number },
   "executive_summary": { "headline": "string - accroche impactante max 15 mots", "situation_actuelle": "string", "opportunite_principale": "string", "key_findings": ["string - 3-5 points clés"], "urgency_level": "Critique/Élevé/Modéré", "urgency_rationale": "string" },
   "market_context": { "sector_overview": "string", "local_market_specifics": "string", "market_maturity": "Émergent/En croissance/Mature/Saturé", "target_segments": [{ "segment_name": "string", "size_estimate": "string", "accessibility": "Facile/Moyen/Difficile", "value_potential": "Élevé/Moyen/Faible", "why_relevant": "string" }], "key_trends_impacting": ["string"] },
   "competitive_landscape": { "competition_intensity": "Élevée/Moyenne/Faible", "competitors_analyzed": [{ "name": "string", "type": "Direct/Indirect/Substitut", "positioning": "string", "strengths": ["string max 3"], "weaknesses": ["string max 3"], "price_range": "string en €", "differentiation": "string", "threat_level": "Élevé/Moyen/Faible" }], "competitive_gaps": ["string"], "your_current_position": "string", "differentiation_opportunities": [{ "angle": "string", "feasibility": "Facile/Moyen/Difficile", "impact": "Élevé/Moyen/Faible", "description": "string" }] },
@@ -1333,17 +774,38 @@ Génère le rapport PREMIUM complet. RETOURNE UNIQUEMENT LE JSON.`;
 }
 </json_schema>
 
-Génère le rapport de benchmark. RETOURNE UNIQUEMENT LE JSON.`;
+Génère le rapport de benchmark complet. Sois SPÉCIFIQUE au secteur et à la localisation. RETOURNE UNIQUEMENT LE JSON.`;
 }
 
 // ============================================
-// SECTION GENERATION (multi-pass)
+// SECTION GENERATION
 // ============================================
-function estimateMaxTokens(wordTarget: number, tierMaxTokens: number): number {
-  // JSON outputs need more tokens than plain text due to keys, brackets, nested structures, sources.
-  // Using 5x multiplier (was 3x) to prevent truncation which is the #1 failure mode.
-  const estimate = Math.ceil(wordTarget * 5);
-  return Math.min(tierMaxTokens, Math.max(1500, estimate));
+function estimateMaxTokens(sectionKey: string, tierMaxTokens: number): number {
+  // Large sections that need more room
+  const largeSections = new Set([
+    'competitive_intelligence', 'strategic_recommendations', 'market_analysis',
+    'financial_projections', 'executive_summary', 'competitive_landscape',
+    'market_overview_detailed', 'customer_intelligence', 'detailed_roadmap',
+    'implementation_roadmap', 'territory_analysis',
+  ]);
+  // Medium sections
+  const mediumSections = new Set([
+    'market_context', 'market_intelligence', 'scoring_matrix', 'trends_analysis',
+    'swot_analysis', 'positioning_recommendations', 'pricing_strategy',
+    'go_to_market', 'action_plan', 'customer_insights', 'multi_market_comparison',
+    'multi_location_comparison', 'risk_register', 'appendices',
+  ]);
+
+  let estimate: number;
+  if (largeSections.has(sectionKey)) {
+    estimate = Math.min(tierMaxTokens, 8000);
+  } else if (mediumSections.has(sectionKey)) {
+    estimate = Math.min(tierMaxTokens, 4000);
+  } else {
+    estimate = Math.min(tierMaxTokens, 2000);
+  }
+
+  return Math.max(1500, estimate);
 }
 
 function buildSectionPrompt(
@@ -1352,8 +814,8 @@ function buildSectionPrompt(
   existingSection?: unknown
 ): string {
   const expandNote = existingSection
-    ? `OBJECTIF: ÉTENDRE la section existante pour atteindre ~${section.wordTarget} mots, sans supprimer d'information.`
-    : `OBJECTIF: Générer la section complète (~${section.wordTarget} mots).`;
+    ? `OBJECTIF: ENRICHIR et APPROFONDIR la section existante. Ajouter des détails, des chiffres, des exemples concrets. Ne supprimer aucune information existante.`
+    : `OBJECTIF: Générer la section complète avec un niveau de détail INSTITUTIONNEL.`;
 
   const existingJson = existingSection
     ? `\nSECTION_EXISTANTE_JSON:\n${JSON.stringify({ [section.key]: existingSection })}\n`
@@ -1363,14 +825,17 @@ function buildSectionPrompt(
 ${reportBrief}
 
 <section_instructions>
-SECTION: ${section.label} (${section.key})
+SECTION À PRODUIRE: ${section.label} (clé JSON: "${section.key}")
 ${expandNote}
-CONTRAINTES:
-- Répondre UNIQUEMENT en JSON valide.
-- Le JSON doit contenir UNE SEULE clé racine: "${section.key}".
-- Si une donnée est inconnue: écrire "non trouvé" ou "données non disponibles".
-- Citer les sources disponibles dans le champ "sources" si pertinent.
-- Respecte strictement la structure attendue pour cette section.
+
+QUALITÉ ATTENDUE:
+- Sois EXHAUSTIF: couvre chaque dimension en profondeur.
+- Sois SPÉCIFIQUE: chaque insight doit être contextualisé au secteur et à la localisation du client.
+- Sois QUANTIFIÉ: fourchettes de prix, pourcentages, scores, ordres de grandeur.
+- Sois HONNÊTE: si une donnée est incertaine, dis-le. "Estimation" ou "non disponible" - jamais inventer.
+- Sois ACTIONNABLE: chaque recommandation = action concrète + résultat attendu.
+
+FORMAT: Retourne UNIQUEMENT un JSON valide avec UNE SEULE clé racine: "${section.key}".
 </section_instructions>
 ${existingJson}`.trim();
 }
@@ -1380,25 +845,18 @@ async function repairSectionJson(
   section: SectionPlanItem,
   brokenJson: string
 ): Promise<unknown> {
-  // NOTE: We intentionally do NOT use `text.format` structured outputs here.
-  // OpenAI's JSON schema subset requires `additionalProperties: false` for all objects,
-  // and our current section schemas are not strict enough (causing 400 invalid_json_schema).
-  // A deterministic "repair to valid JSON" prompt is more reliable than failing hard.
-
   const systemPrompt = `Tu es un assistant de correction JSON.
 Objectif: retourner un JSON STRICTEMENT VALIDE.
 Contraintes:
 - Retourne UNIQUEMENT du JSON, sans backticks, sans texte.
 - Le JSON DOIT contenir UNE SEULE clé racine: "${section.key}".
-- Si une valeur est inconnue: utilise "non trouvé".
-- Si la structure est incertaine, conserve au maximum les champs existants (ne supprime pas d'infos).`;
+- Si une valeur est inconnue: utilise "non disponible".
+- Conserve au maximum les champs existants.`;
 
-  // Limit broken JSON sent to repair to avoid huge prompts (keep first 8000 chars)
   const truncatedBroken = brokenJson.length > 8000 ? brokenJson.substring(0, 8000) + "\n...(tronqué)" : brokenJson;
-  const userPrompt = `JSON À RÉPARER (peut contenir du texte/markdown/erreurs):\n${truncatedBroken}\n\nRÉPARE ET RETOURNE UNIQUEMENT LE JSON VALIDE.`;
+  const userPrompt = `JSON À RÉPARER:\n${truncatedBroken}\n\nRÉPARE ET RETOURNE UNIQUEMENT LE JSON VALIDE.`;
 
-  // Proportional repair tokens: at least 2000, up to wordTarget * 4
-  const repairTokens = Math.max(2000, Math.min(8000, section.wordTarget * 4));
+  const repairTokens = Math.max(2000, Math.min(8000, Math.ceil(brokenJson.length / 3)));
 
   const content = await callGPT52(
     apiKey,
@@ -1417,10 +875,8 @@ Contraintes:
 function isJsonTruncated(content: string): boolean {
   const trimmed = content.trim();
   if (!trimmed) return true;
-  // Quick check: does it end with a closing brace/bracket?
   const lastChar = trimmed[trimmed.length - 1];
   if (lastChar !== '}' && lastChar !== ']') return true;
-  // Deeper check: count open/close braces
   let depth = 0;
   let inString = false;
   let escape = false;
@@ -1448,11 +904,11 @@ async function generateSection(
   existingSection?: unknown
 ): Promise<unknown> {
   const userPrompt = buildSectionPrompt(reportBrief, section, existingSection);
-  const maxTokens = estimateMaxTokens(section.wordTarget, tierConfig.max_tokens);
+  const maxTokens = estimateMaxTokens(section.key, tierConfig.max_tokens);
 
   let content: string;
   try {
-    console.log(`[Section] Calling GPT-5.2 for section: ${section.key} (${maxTokens} max tokens, prompt: ${userPrompt.length} chars, sysPrompt: ${systemPrompt.length} chars)...`);
+    console.log(`[Section] Calling GPT-5.2 for section: ${section.key} (${maxTokens} max tokens, prompt: ${userPrompt.length} chars)...`);
     content = await callGPT52(
       apiKey,
       systemPrompt,
@@ -1466,7 +922,7 @@ async function generateSection(
     if (isJsonTruncated(content)) {
       const retryTokens = Math.min(tierConfig.max_tokens, maxTokens * 2);
       if (retryTokens > maxTokens) {
-        console.warn(`[Section] Output appears TRUNCATED for ${section.key}. Retrying with ${retryTokens} tokens (was ${maxTokens})...`);
+        console.warn(`[Section] Output TRUNCATED for ${section.key}. Retrying with ${retryTokens} tokens (was ${maxTokens})...`);
         content = await callGPT52(
           apiKey,
           systemPrompt,
@@ -1497,6 +953,7 @@ async function generateSection(
 
 function normalizeSources(value: unknown): Array<{ title: string; url: string }> {
   if (!Array.isArray(value)) return [];
+
   const normalized: Array<{ title: string; url: string }> = [];
 
   for (const item of value) {
@@ -1550,8 +1007,6 @@ async function callGPT52(
   userPrompt: string,
   maxTokens: number,
   temperature: number,
-  // Responses API: structured output format is configured via `text.format` (NOT `response_format`).
-  // https://platform.openai.com/docs/guides/structured-outputs
   textFormat?: {
     type: "json_schema";
     name: string;
@@ -1567,9 +1022,7 @@ async function callGPT52(
   let lastError: Error | null = null;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    // Create an AbortController for timeout
-    // GPT-5.2 needs time for complex analysis, allow up to 10 minutes
-    const timeoutMs = 600000; // 10 minutes for full generation
+    const timeoutMs = 600000; // 10 minutes
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
       console.error(`[Analysis] Request timeout after ${timeoutMs / 1000}s (attempt ${attempt})`);
@@ -1577,7 +1030,7 @@ async function callGPT52(
     }, timeoutMs);
 
     try {
-      console.log(`[Analysis] >>> Calling OpenAI /v1/responses (attempt ${attempt}/${maxRetries}, textFormat: ${textFormat ? 'yes' : 'no'})...`);
+      console.log(`[Analysis] >>> Calling OpenAI /v1/responses (attempt ${attempt}/${maxRetries})...`);
       const response = await fetch("https://api.openai.com/v1/responses", {
         method: "POST",
         headers: {
@@ -1620,37 +1073,31 @@ async function callGPT52(
         const errorText = await response.text();
         console.error(`[Analysis] API error ${response.status} (attempt ${attempt}):`, errorText);
 
-        // Rate limit - retry with exponential backoff
         if (response.status === 429) {
-          const waitTime = Math.pow(2, attempt - 1) * 60000; // 60s, 120s, 240s
+          const waitTime = Math.pow(2, attempt - 1) * 60000;
           console.log(`[Analysis] Rate limited. Waiting ${waitTime / 1000}s before retry ${attempt}/${maxRetries}...`);
-
           if (attempt < maxRetries) {
             await new Promise(resolve => setTimeout(resolve, waitTime));
             continue;
           }
-          lastError = new Error("Rate limit exceeded after all retries. Please try again in a few minutes.");
+          lastError = new Error("Rate limit exceeded after all retries.");
           break;
         }
 
-        // Overloaded - retry with backoff
         if (response.status === 503) {
-          const waitTime = Math.pow(2, attempt - 1) * 30000; // 30s, 60s, 120s
-          console.log(`[Analysis] Service unavailable (${response.status}). Waiting ${waitTime / 1000}s before retry ${attempt}/${maxRetries}...`);
-
+          const waitTime = Math.pow(2, attempt - 1) * 30000;
+          console.log(`[Analysis] Service unavailable. Waiting ${waitTime / 1000}s...`);
           if (attempt < maxRetries) {
             await new Promise(resolve => setTimeout(resolve, waitTime));
             continue;
           }
-          lastError = new Error("Service unavailable after all retries. Please retry later.");
+          lastError = new Error("Service unavailable after all retries.");
           break;
         }
 
-        // 5xx errors - transient, retry with backoff
         if (response.status >= 500) {
-          const waitTime = Math.pow(2, attempt - 1) * 30000; // 30s, 60s, 120s
-          console.log(`[Analysis] Server error ${response.status}. Waiting ${waitTime / 1000}s before retry ${attempt}/${maxRetries}...`);
-
+          const waitTime = Math.pow(2, attempt - 1) * 30000;
+          console.log(`[Analysis] Server error ${response.status}. Waiting ${waitTime / 1000}s...`);
           if (attempt < maxRetries) {
             await new Promise(resolve => setTimeout(resolve, waitTime));
             continue;
@@ -1667,7 +1114,6 @@ async function callGPT52(
       const data = await response.json();
       console.log(`[Analysis] Response received from GPT-5.2`);
 
-      // Extract content from GPT-5.2 response
       const content = extractTextFromResponse(data);
 
       if (!content) {
@@ -1702,33 +1148,19 @@ async function callGPT52(
 async function runGenerationAsync(
   reportId: string,
   inputData: ReportInput,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   plan: TierType,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabaseAdmin: any
 ) {
   try {
     // @ts-ignore - Deno runtime
-    // Support both secret names to avoid breakage across environments.
-    // Preferred: OPEN_AI_API_KEY (already configured in Lovable Cloud secrets)
-    // Legacy/Docs: OPENAI_API_KEY
-    // @ts-ignore - Deno runtime
     const GPT52_API_KEY = Deno.env.get("OPEN_AI_API_KEY") ?? Deno.env.get("OPENAI_API_KEY");
     if (!GPT52_API_KEY) {
       throw new Error("OPEN_AI_API_KEY (or OPENAI_API_KEY) is not configured (required for GPT-5.2)");
     }
 
-    // @ts-ignore - Deno runtime
-    const PERPLEXITY_API_KEY = Deno.env.get("PERPLEXITY_API_KEY");
-
-    const tierConfig = TIER_CONFIG[plan];
-    if (tierConfig.perplexity_searches > 0 && !PERPLEXITY_API_KEY) {
-      console.warn(`[${reportId}] ⚠️ PERPLEXITY_API_KEY missing - continuing WITHOUT web research. Report quality will be reduced.`);
-      await updateProgress(supabaseAdmin, reportId, "Recherche web indisponible - génération sans données web...", 8);
-    }
     let reportLang = inputData.reportLanguage || 'fr';
 
-    // VALIDATION: Ensure language is supported
     if (!LANGUAGE_CONFIG[reportLang]) {
       console.warn(`[${reportId}] Unsupported language: ${reportLang}, defaulting to French`);
       reportLang = 'fr';
@@ -1738,9 +1170,7 @@ async function runGenerationAsync(
     console.log(`[${reportId}] Starting report generation`);
     console.log(`[${reportId}] Tier: ${plan} | Model: GPT-5.2 | Language: ${reportLang}`);
 
-    // IMPORTANT UX/STATE: if the report previously failed, a user-triggered retry must
-    // switch it back to processing immediately (otherwise the UI can keep showing “failed”
-    // while the async generation is actually running).
+    // Reset status to processing (handles retry from failed state)
     await supabaseAdmin
       .from('reports')
       .update({
@@ -1751,45 +1181,23 @@ async function runGenerationAsync(
       } as Record<string, unknown>)
       .eq('id', reportId);
 
-    // Step 1: Conduct Perplexity research
-    await updateProgress(supabaseAdmin, reportId, "Lancement des recherches...", 10);
+    // Step 1: Build report brief (GPT-5.2 uses its own knowledge - no external research)
+    await updateProgress(supabaseAdmin, reportId, "Analyse du brief client...", 10);
+    const reportBrief = buildReportBrief(inputData, plan);
+    const tierConfig = TIER_CONFIG[plan];
+    const sectionSystemPrompt = tierConfig.section_system_prompt(reportLang);
 
-    let researchData = "";
-    if (tierConfig.perplexity_searches > 0 && PERPLEXITY_API_KEY) {
-      researchData = await conductResearch(
-        PERPLEXITY_API_KEY,
-        inputData,
-        plan,
-        reportId,
-        supabaseAdmin
-      );
-      console.log(`[${reportId}] Research completed: ${researchData.length} chars`);
-    }
+    console.log(`[${reportId}] Brief: ${reportBrief.length} chars`);
+    console.log(`[${reportId}] Section system prompt: ${sectionSystemPrompt.length} chars`);
 
-    // Step 2: Build report brief (WITHOUT research data - it will be filtered per section)
-    await updateProgress(supabaseAdmin, reportId, "Préparation du brief...", 30);
-    const reportBriefBase = buildReportBrief(inputData, plan, ""); // Base brief without research
-    const fullSystemPrompt = tierConfig.system_prompt(reportLang);
-
-    // Use lean section system prompt for section-by-section generation (strips PDF/Excel/PPT specs)
-    const sectionSystemPrompt = (tierConfig as any).section_system_prompt
-      ? (tierConfig as any).section_system_prompt(reportLang)
-      : fullSystemPrompt;
-
-    console.log(`[${reportId}] Brief (base, no research): ${reportBriefBase.length} chars`);
-    console.log(`[${reportId}] Full system prompt: ${fullSystemPrompt.length} chars`);
-    console.log(`[${reportId}] Section system prompt: ${sectionSystemPrompt.length} chars (saved ${fullSystemPrompt.length - sectionSystemPrompt.length} chars per call)`);
-    console.log(`[${reportId}] Research data: ${researchData.length} chars`);
-    console.log(`[${reportId}] GPT-5.2 API key present: ${!!GPT52_API_KEY} (length: ${GPT52_API_KEY.length})`);
-
-    // Step 3: Generate sections (multi-pass) with per-section filtered research
-    await updateProgress(supabaseAdmin, reportId, "Génération des sections...", 45);
+    // Step 2: Generate sections one by one
+    await updateProgress(supabaseAdmin, reportId, "Génération des sections...", 15);
     const sections = tierConfig.section_plan as SectionPlanItem[];
     const outputSections: Record<string, unknown> = {};
     let sectionFailures = 0;
 
-    const startProgress = 45;
-    const endProgress = 85;
+    const startProgress = 15;
+    const endProgress = 90;
     const progressStep = Math.max(1, Math.floor((endProgress - startProgress) / Math.max(sections.length, 1)));
 
     console.log(`[${reportId}] Starting ${sections.length} section generation...`);
@@ -1797,29 +1205,15 @@ async function runGenerationAsync(
     for (let i = 0; i < sections.length; i++) {
       const section = sections[i];
       const stepProgress = startProgress + (i * progressStep);
+
       await updateProgress(supabaseAdmin, reportId, `Section: ${section.label}...`, Math.min(stepProgress, endProgress));
-
-      // Filter research data to only include blocks relevant to this section
-      const filteredResearch = filterResearchForSection(researchData, section.key);
-      const sectionBrief = reportBriefBase + (filteredResearch.length > 50 ? `\n\n${filteredResearch}\n\n═══════════════════════════════════════════════════════════════════════════════
-INSTRUCTIONS CRITIQUES POUR L'UTILISATION DES DONNÉES DE RECHERCHE
-═══════════════════════════════════════════════════════════════════════════════
-
-1. CITE SYSTÉMATIQUEMENT les données trouvées dans le champ "sources" du JSON
-2. Pour les prix concurrents: utilise UNIQUEMENT les données trouvées ou indique "non trouvé"
-3. Pour le sizing marché: cite la source exacte (Statista, étude sectorielle, etc.)
-4. JAMAIS inventer de données - mieux vaut "données non disponibles" que des chiffres faux
-5. Distingue clairement: "confirmé par recherche" vs "estimation basée sur..."
-` : "");
-
-      console.log(`[${reportId}] Section ${section.key}: filtered research ${filteredResearch.length} chars (full was ${researchData.length})`);
 
       try {
         const sectionResult = await generateSection(
           GPT52_API_KEY,
           sectionSystemPrompt,
           tierConfig,
-          sectionBrief,
+          reportBrief,
           section
         );
 
@@ -1838,60 +1232,12 @@ INSTRUCTIONS CRITIQUES POUR L'UTILISATION DES DONNÉES DE RECHERCHE
 
     console.log(`[${reportId}] Section generation done. Failures: ${sectionFailures}/${sections.length}`);
 
-    // If ALL sections failed, the API is completely unreachable - abort
+    // If ALL sections failed, the API is unreachable - abort
     if (sectionFailures >= sections.length) {
       throw new Error(`All ${sections.length} sections failed to generate. GPT-5.2 API may be unreachable or misconfigured.`);
     }
 
-    // Step 4: Expansion pass if under minimum word count
-    let passesUsed = 1;
-    let currentWordCount = countWordsInObject(outputSections);
-    const minWords = tierConfig.word_targets.min;
-
-    for (let pass = 0; pass < 2 && currentWordCount < minWords; pass++) {
-      passesUsed += 1;
-      const sectionsToExpand = sections.filter((section) => {
-        const sectionValue = outputSections[section.key];
-        const sectionWords = countWordsInObject(sectionValue);
-        return sectionWords < section.wordTarget * 0.8;
-      });
-
-      if (sectionsToExpand.length === 0) break;
-
-      await updateProgress(supabaseAdmin, reportId, "Extension des sections...", 88);
-
-      for (let i = 0; i < sectionsToExpand.length; i++) {
-        const section = sectionsToExpand[i];
-        // Heartbeat to prevent "stuck" UX and to make stale-processing detection accurate.
-        const p = 88 + Math.min(6, Math.floor((i / Math.max(1, sectionsToExpand.length)) * 6));
-        await updateProgress(supabaseAdmin, reportId, `Extension: ${section.label}...`, p);
-
-        // Use filtered research for expansion too
-        const filteredResearch = filterResearchForSection(researchData, section.key);
-        const sectionBrief = reportBriefBase + (filteredResearch.length > 50 ? `\n\n${filteredResearch}` : "");
-
-        try {
-          const expanded = await generateSection(
-            GPT52_API_KEY,
-            sectionSystemPrompt,
-            tierConfig,
-            sectionBrief,
-            section,
-            outputSections[section.key]
-          );
-          if (expanded && typeof expanded === 'object' && (section.key in (expanded as Record<string, unknown>))) {
-            outputSections[section.key] = (expanded as Record<string, unknown>)[section.key];
-          }
-        } catch (expandError) {
-          console.warn(`[${reportId}] Expansion failed for ${section.key}:`, expandError instanceof Error ? expandError.message : expandError);
-        }
-      }
-
-      currentWordCount = countWordsInObject(outputSections);
-    }
-    console.log(`[${reportId}] Expansion passes used: ${passesUsed}`);
-
-    // Step 5: Assemble report metadata + normalize sources
+    // Step 3: Assemble report metadata + normalize sources
     const userSources = buildUserSources(inputData);
     const modelSources = normalizeSources(outputSections.sources);
     const mergedSources = mergeSources(modelSources, userSources);
@@ -1912,17 +1258,17 @@ INSTRUCTIONS CRITIQUES POUR L'UTILISATION DES DONNÉES DE RECHERCHE
       ...outputSections,
     };
 
-    // VALIDATION: Validate against tier-specific schema
+    // Validate against tier-specific schema
     const schema = REPORT_SCHEMAS[plan];
     const validationResult = schema.safeParse(outputData);
     if (!validationResult.success) {
       console.warn(`[${reportId}] Schema validation failed for ${plan} tier:`, validationResult.error.errors);
-      console.log(`[${reportId}] Proceeding with unvalidated data (will be logged for monitoring)`);
+      console.log(`[${reportId}] Proceeding with unvalidated data`);
     } else {
       outputData = validationResult.data as Record<string, unknown>;
     }
 
-    // Step 5: Update report with output
+    // Step 4: Update report with output
     const { error: updateError } = await supabaseAdmin
       .from("reports")
       .update({
@@ -1937,9 +1283,9 @@ INSTRUCTIONS CRITIQUES POUR L'UTILISATION DES DONNÉES DE RECHERCHE
     if (updateError) throw updateError;
 
     console.log(`[${reportId}] ✅ Report generated successfully`);
-    console.log(`[${reportId}] Tier: ${plan} | Sources: ${(outputData as any)?.sources?.length || 0}`);
+    console.log(`[${reportId}] Tier: ${plan} | Word count: ${countWordsInObject(outputSections)} | Sources: ${mergedSources.length}`);
 
-    // Step 6: Generate PDF document only (Excel + Slides disabled for now)
+    // Step 5: Generate PDF
     await updateProgress(supabaseAdmin, reportId, "Génération du PDF...", 95);
 
     // @ts-ignore - Deno runtime
@@ -1951,7 +1297,6 @@ INSTRUCTIONS CRITIQUES POUR L'UTILISATION DES DONNÉES DE RECHERCHE
       "Authorization": `Bearer ${serviceRoleKey}`,
     };
 
-    // Generate PDF only
     try {
       const pdfResponse = await fetch(`${supabaseUrl}/functions/v1/generate-pdf`, {
         method: "POST",
@@ -1969,7 +1314,7 @@ INSTRUCTIONS CRITIQUES POUR L'UTILISATION DES DONNÉES DE RECHERCHE
       reportLog(reportId, 'WARN', 'Document Generation', `PDF generation error: ${pdfErr instanceof Error ? pdfErr.message : 'unknown'}`);
     }
 
-    // Final update - mark as ready
+    // Final update
     await supabaseAdmin
       .from("reports")
       .update({
@@ -1979,7 +1324,7 @@ INSTRUCTIONS CRITIQUES POUR L'UTILISATION DES DONNÉES DE RECHERCHE
       } as Record<string, unknown>)
       .eq("id", reportId);
 
-    reportLog(reportId, 'SUCCESS', 'Report Generation', `PDF generated for ${plan} tier`);
+    reportLog(reportId, 'SUCCESS', 'Report Generation', `Report generated for ${plan} tier`);
 
   } catch (error: unknown) {
     console.error(`[${reportId}] Generation error:`, error);
@@ -2047,6 +1392,7 @@ serve(async (req: Request) => {
     }
 
     const forbiddenStatuses = new Set(["draft", "abandoned"]);
+
     if (forbiddenStatuses.has(String(report.status))) {
       throw new Error("Report not eligible for generation");
     }
@@ -2055,8 +1401,6 @@ serve(async (req: Request) => {
      if (report.status === "processing") {
        const canForceStart = authContext.authType === 'service_role' && (report.processing_progress ?? 0) <= 5;
 
-       // If a run is "stuck" (no updates for a while), allow a user-triggered restart.
-       // This prevents permanent lockout when the background task gets killed (shutdown/timeouts).
        const updatedAtMs = (() => {
          const raw = (report as any)?.updated_at;
          const d = raw ? new Date(raw) : null;
@@ -2109,7 +1453,6 @@ serve(async (req: Request) => {
     }
 
     // Start generation in background (don't await)
-    // Use EdgeRuntime.waitUntil to keep the function running
     const generationPromise = runGenerationAsync(reportId, inputData, plan, supabaseAdmin);
 
     // @ts-ignore - EdgeRuntime is available in Deno Deploy
@@ -2117,7 +1460,6 @@ serve(async (req: Request) => {
       // @ts-ignore
       EdgeRuntime.waitUntil(generationPromise);
     } else {
-      // Fallback: just don't await, let it run
       generationPromise.catch(err => console.error("Background generation error:", err));
     }
 
