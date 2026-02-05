@@ -544,53 +544,62 @@ function buildReportBrief(input: ReportInput, plan: TierType): string {
   const reportLang = input.reportLanguage || 'fr';
   const langName = LANGUAGE_CONFIG[reportLang]?.name || 'Français';
 
-  return `
-BRIEF CLIENT - BENCHMARK CONCURRENTIEL
-LANGUE DU RAPPORT: ${langName.toUpperCase()}
-Rédige TOUT le rapport en ${langName}.
+  // Build context lines conditionally (skip empty optional fields to save tokens)
+  const contextLines: string[] = [
+    `ENTREPRISE: ${input.businessName}`,
+    input.website ? `Site web: ${input.website}` : '',
+    `Secteur: ${input.sector}${input.sectorDetails ? ` (${input.sectorDetails})` : ''}`,
+    `Localisation: ${input.location?.city}, ${input.location?.country}`,
+    `Cible: ${input.targetCustomers?.type} - ${input.targetCustomers?.persona}`,
+    input.businessMaturity ? `Maturité: ${maturityLabels[input.businessMaturity] || input.businessMaturity}` : '',
+    input.annualRevenue ? `CA annuel: ${input.annualRevenue}€` : '',
+    input.teamSize ? `Équipe: ${input.teamSize}` : '',
+  ].filter(Boolean);
 
-<business_context>
-ENTREPRISE: ${input.businessName}
-${input.website ? `Site web: ${input.website}` : "Pas de site web"}
-Secteur: ${input.sector}${input.sectorDetails ? ` (${input.sectorDetails})` : ""}
-Localisation: ${input.location?.city}, ${input.location?.country}
-Cible: ${input.targetCustomers?.type} - ${input.targetCustomers?.persona}
+  const offerLines: string[] = [
+    input.whatYouSell,
+    input.uniqueValueProposition ? `USP: "${input.uniqueValueProposition}"` : '',
+    `Prix: ${input.priceRange?.min}€ - ${input.priceRange?.max}€`,
+    input.businessModel ? `Modèle: ${modelLabels[input.businessModel] || input.businessModel}` : '',
+    input.grossMargin ? `Marge brute: ${input.grossMargin}%` : '',
+    input.differentiators?.length > 0 ? `Points forts: ${input.differentiators.join(", ")}` : '',
+    input.acquisitionChannels?.length > 0 ? `Canaux: ${input.acquisitionChannels.join(", ")}` : '',
+  ].filter(Boolean);
 
-${input.businessMaturity ? `Maturité: ${maturityLabels[input.businessMaturity] || input.businessMaturity}` : ""}
-${input.annualRevenue ? `CA annuel: ${input.annualRevenue}€` : ""}
-${input.teamSize ? `Équipe: ${input.teamSize}` : ""}
-</business_context>
+  const objectiveLines: string[] = [
+    `Objectifs: ${input.goalPriorities?.join(" > ") || input.goals?.join(", ") || "Analyse complète"}`,
+    input.successMetrics ? `Métriques: ${input.successMetrics}` : '',
+  ].filter(Boolean);
+
+  const constraintLines: string[] = [
+    input.budgetLevel ? `Budget: ${input.budgetLevel}` : '',
+    input.timeline ? `Timeline: ${input.timeline}` : '',
+    input.tonePreference ? `Ton: ${input.tonePreference}` : '',
+    input.notes ? `Notes: ${input.notes}` : '',
+  ].filter(Boolean);
+
+  return `BRIEF CLIENT - BENCHMARK CONCURRENTIEL
+LANGUE: ${langName.toUpperCase()}
+
+<business>
+${contextLines.join("\n")}
+</business>
 
 <offer>
-CE QU'ILS VENDENT:
-${input.whatYouSell}
-
-${input.uniqueValueProposition ? `USP: "${input.uniqueValueProposition}"` : ""}
-
-Prix: ${input.priceRange?.min}€ - ${input.priceRange?.max}€
-${input.businessModel ? `Modèle: ${modelLabels[input.businessModel] || input.businessModel}` : ""}
-${input.grossMargin ? `Marge brute: ${input.grossMargin}%` : ""}
-
-Points forts: ${input.differentiators?.join(", ") || "Non spécifiés"}
-Canaux d'acquisition: ${input.acquisitionChannels?.join(", ") || "Non spécifiés"}
+${offerLines.join("\n")}
 </offer>
 
 <competitors count="${input.competitors?.length || 0}">
-${competitorsList}
-${input.competitorAdvantage ? `\nPOURQUOI ILS PERDENT face aux concurrents:\n${input.competitorAdvantage}` : ""}
+${competitorsList}${input.competitorAdvantage ? `\nFaiblesses vs concurrents: ${input.competitorAdvantage}` : ''}
 </competitors>
 
 <objectives>
-Objectifs: ${input.goalPriorities?.join(" > ") || input.goals?.join(", ") || "Analyse complète"}
-${input.successMetrics ? `Métriques de succès: ${input.successMetrics}` : ""}
-</objectives>
+${objectiveLines.join("\n")}
+</objectives>${constraintLines.length > 0 ? `
 
 <constraints>
-Budget: ${input.budgetLevel}
-Timeline: ${input.timeline}
-Ton: ${input.tonePreference}
-${input.notes ? `Notes: ${input.notes}` : ""}
-</constraints>`;
+${constraintLines.join("\n")}
+</constraints>` : ''}`;
 }
 
 function buildUserPrompt(input: ReportInput, plan: TierType): string {
