@@ -6,4 +6,6 @@ if (!stripePublishableKey) {
   console.error('VITE_STRIPE_PUBLISHABLE_KEY is not set. Stripe payments will not work.');
 }
 
-export const stripePromise = loadStripe(stripePublishableKey);
+export const stripePromise = stripePublishableKey
+  ? loadStripe(stripePublishableKey)
+  : Promise.resolve(null);

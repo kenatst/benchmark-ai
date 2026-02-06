@@ -178,5 +178,6 @@ export const useReports = () => {
     refetchReport,
     deleteReport,
     refetch: fetchReports,
+    fetchReports,
   };
 };
