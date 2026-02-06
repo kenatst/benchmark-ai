@@ -28,7 +28,7 @@ export const Hero = () => {
 
           {/* Subheadline */}
           <p className="opacity-0-initial animate-fade-up stagger-2 text-lg sm:text-xl md:text-2xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed font-medium">
-            Analyse concurrentielle, strategie tarifaire et plan d'action&nbsp;&mdash; un rapport de qualite cabinet-conseil, genere instantanement par <span className="text-foreground font-bold">GPT-5.2</span>.
+            Analyse concurrentielle, strategie tarifaire et plan d'action&nbsp;&mdash; un rapport de qualite cabinet-conseil, genere par <span className="text-foreground font-bold">IA de pointe</span>.
           </p>
 
           {/* CTAs */}

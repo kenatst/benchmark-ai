@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Download, TrendingUp, Users, Target, MapPin, DollarSign, BarChart3, FileText, CheckCircle, ArrowRight, Sparkles, Loader2, AlertTriangle, Lightbulb, Zap } from 'lucide-react';
 import { ReportOutput, StandardReportOutput, ProReportOutput, AgencyReportOutput } from '@/types/report';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Legend, ScatterChart, Scatter, ZAxis, Cell } from 'recharts';
 
 interface WebSummaryProps {
   outputData: ReportOutput;
@@ -182,6 +183,216 @@ export const WebSummary = ({ outputData, plan, pdfUrl, onDownload, isDownloading
         )}
       </div>
 
+      {/* Competitive Positioning Chart (Scatter) */}
+      {(() => {
+        // Build scatter data from competitive positioning maps (Agency) or competitive_intelligence (Pro)
+        const positioningMap = isAgency
+          ? agencyData.competitive_intelligence?.competitive_positioning_maps?.primary_map
+          : isPro
+            ? (proData as Record<string, unknown>).competitive_intelligence && ((proData as Record<string, unknown>).competitive_intelligence as Record<string, unknown>)?.competitive_matrix
+            : null;
+        const scatterData: Array<{ name: string; x: number; y: number; isYou?: boolean }> = [];
+
+        if (positioningMap && typeof positioningMap === 'object') {
+          const mapAny = positioningMap as Record<string, unknown>;
+          // Agency format
+          if (Array.isArray(mapAny.competitors_plotted)) {
+            for (const c of mapAny.competitors_plotted as Array<Record<string, unknown>>) {
+              scatterData.push({ name: String(c.name || ''), x: Number(c.x || 5), y: Number(c.y || 5) });
+            }
+          }
+          // Pro format
+          if (Array.isArray(mapAny.positions)) {
+            for (const c of mapAny.positions as Array<Record<string, unknown>>) {
+              scatterData.push({ name: String(c.competitor || ''), x: Number(c.x || 5), y: Number(c.y || 5) });
+            }
+          }
+          if (mapAny.your_current_position && typeof mapAny.your_current_position === 'object') {
+            const pos = mapAny.your_current_position as Record<string, unknown>;
+            scatterData.push({ name: 'Vous', x: Number(pos.x || 5), y: Number(pos.y || 5), isYou: true });
+          }
+        }
+
+        const CHART_COLORS = ['#7c6b9c', '#b89456', '#2d7a5a', '#9a4040', '#1a3a5c', '#b38f40'];
+
+        if (scatterData.length > 0) {
+          return (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Target className="w-5 h-5 text-primary" />
+                  Carte de Positionnement Concurrentiel
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <ScatterChart margin={{ top: 10, right: 30, bottom: 20, left: 10 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis type="number" dataKey="x" domain={[0, 10]} name="Prix" label={{ value: 'Prix →', position: 'bottom', offset: 0, style: { fontSize: 12 } }} tick={{ fontSize: 11 }} />
+                    <YAxis type="number" dataKey="y" domain={[0, 10]} name="Qualite" label={{ value: 'Qualite →', angle: -90, position: 'insideLeft', style: { fontSize: 12 } }} tick={{ fontSize: 11 }} />
+                    <ZAxis range={[200, 400]} />
+                    <Tooltip
+                      content={({ payload }) => {
+                        if (payload && payload.length > 0) {
+                          const d = payload[0].payload as { name: string; x: number; y: number };
+                          return (
+                            <div className="bg-card border rounded-lg p-2 shadow-lg text-xs">
+                              <p className="font-bold">{d.name}</p>
+                              <p>Prix: {d.x}/10 | Qualite: {d.y}/10</p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <Scatter data={scatterData} name="Concurrents">
+                      {scatterData.map((entry, index) => (
+                        <Cell key={index} fill={entry.isYou ? '#2d7a5a' : CHART_COLORS[index % CHART_COLORS.length]} strokeWidth={entry.isYou ? 3 : 1} stroke={entry.isYou ? '#2d7a5a' : '#fff'} />
+                      ))}
+                    </Scatter>
+                  </ScatterChart>
+                </ResponsiveContainer>
+                <div className="flex flex-wrap gap-2 mt-2 justify-center">
+                  {scatterData.map((d, i) => (
+                    <span key={i} className="text-[10px] flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full inline-block" style={{ background: d.isYou ? '#2d7a5a' : CHART_COLORS[i % CHART_COLORS.length] }} />
+                      {d.name}
+                    </span>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        }
+        return null;
+      })()}
+
+      {/* Competitor Threat Level Chart (Bar) */}
+      {competitors.length > 0 && (() => {
+        const threatData = competitors.slice(0, 8).map((comp) => {
+          const c = comp as Record<string, unknown>;
+          const name = String(c.name || 'N/A');
+          const threat = String(c.threat_level || '');
+          const threatScore = threat.toLowerCase().includes('lev') ? 9 : threat.toLowerCase().includes('moy') ? 6 : 3;
+          return { name: name.length > 12 ? name.slice(0, 12) + '...' : name, menace: threatScore, original: threat };
+        });
+        return (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <BarChart3 className="w-5 h-5 text-coral-foreground" />
+                Niveau de Menace des Concurrents
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={threatData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="name" tick={{ fontSize: 10 }} angle={-20} textAnchor="end" height={60} />
+                  <YAxis domain={[0, 10]} tick={{ fontSize: 11 }} label={{ value: 'Menace', angle: -90, position: 'insideLeft', style: { fontSize: 11 } }} />
+                  <Tooltip
+                    content={({ payload }) => {
+                      if (payload && payload.length > 0) {
+                        const d = payload[0].payload as { name: string; menace: number; original: string };
+                        return (
+                          <div className="bg-card border rounded-lg p-2 shadow-lg text-xs">
+                            <p className="font-bold">{d.name}</p>
+                            <p>Niveau: {d.original} ({d.menace}/10)</p>
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                  <Bar dataKey="menace" radius={[4, 4, 0, 0]}>
+                    {threatData.map((entry, index) => (
+                      <Cell key={index} fill={entry.menace >= 8 ? '#9a4040' : entry.menace >= 5 ? '#b38f40' : '#2d7a5a'} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        );
+      })()}
+
+      {/* Porter 5 Forces Radar (Agency) */}
+      {isAgency && agencyData.market_analysis?.porter_five_forces && (() => {
+        const porter = agencyData.market_analysis.porter_five_forces as Record<string, unknown>;
+        const radarData = [
+          { subject: 'Rivalite', score: Number((porter.competitive_rivalry as Record<string, unknown>)?.score || 0) },
+          { subject: 'Fournisseurs', score: Number((porter.supplier_power as Record<string, unknown>)?.score || 0) },
+          { subject: 'Acheteurs', score: Number((porter.buyer_power as Record<string, unknown>)?.score || 0) },
+          { subject: 'Substituts', score: Number((porter.threat_of_substitution as Record<string, unknown>)?.score || 0) },
+          { subject: 'Entrants', score: Number((porter.threat_of_new_entry as Record<string, unknown>)?.score || 0) },
+        ];
+        if (radarData.every(d => d.score === 0)) return null;
+        return (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <TrendingUp className="w-5 h-5 text-sky-foreground" />
+                5 Forces de Porter
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <RadarChart data={radarData}>
+                  <PolarGrid stroke="#e5e7eb" />
+                  <PolarAngleAxis dataKey="subject" tick={{ fontSize: 11 }} />
+                  <PolarRadiusAxis domain={[0, 10]} tick={{ fontSize: 10 }} />
+                  <Radar name="Score" dataKey="score" stroke="#1a3a5c" fill="#7c6b9c" fillOpacity={0.4} strokeWidth={2} />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                </RadarChart>
+              </ResponsiveContainer>
+              {typeof porter.overall_attractiveness === 'string' && (
+                <p className="text-xs text-muted-foreground mt-2 text-center italic">{porter.overall_attractiveness}</p>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })()}
+
+      {/* Financial Projections Chart (Agency) */}
+      {isAgency && agencyData.financial_projections?.revenue_scenarios && (() => {
+        const scenarios = agencyData.financial_projections.revenue_scenarios as Record<string, unknown>;
+        const conservative = scenarios.conservative as Record<string, unknown> | undefined;
+        const baseline = scenarios.baseline as Record<string, unknown> | undefined;
+        const optimistic = scenarios.optimistic as Record<string, unknown> | undefined;
+        if (!conservative && !baseline && !optimistic) return null;
+        const chartData = [
+          { name: 'Annee 1', conservateur: Number(conservative?.year_1 || 0), base: Number(baseline?.year_1 || 0), optimiste: Number(optimistic?.year_1 || 0) },
+          { name: 'Annee 2', conservateur: Number(conservative?.year_2 || 0), base: Number(baseline?.year_2 || 0), optimiste: Number(optimistic?.year_2 || 0) },
+          { name: 'Annee 3', conservateur: Number(conservative?.year_3 || 0), base: Number(baseline?.year_3 || 0), optimiste: Number(optimistic?.year_3 || 0) },
+        ];
+        if (chartData.every(d => d.conservateur === 0 && d.base === 0 && d.optimiste === 0)) return null;
+        const formatEur = (v: number) => v >= 1000000 ? `${(v / 1000000).toFixed(1)}M` : v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v);
+        return (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <DollarSign className="w-5 h-5 text-mint-foreground" />
+                Projections Financieres (3 Scenarios)
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 10 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                  <YAxis tickFormatter={(v) => `${formatEur(v)}€`} tick={{ fontSize: 10 }} />
+                  <Tooltip formatter={(value: number) => [`${value.toLocaleString()} €`, '']} />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  <Bar dataKey="conservateur" name="Conservateur" fill="#b38f40" radius={[2, 2, 0, 0]} />
+                  <Bar dataKey="base" name="Base" fill="#1a3a5c" radius={[2, 2, 0, 0]} />
+                  <Bar dataKey="optimiste" name="Optimiste" fill="#2d7a5a" radius={[2, 2, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        );
+      })()}
+
       {/* Competitors Table (show real data) */}
       {competitors.length > 0 && (
         <Card>
@@ -274,6 +485,43 @@ export const WebSummary = ({ outputData, plan, pdfUrl, onDownload, isDownloading
           </CardContent>
         </Card>
       )}
+
+      {/* Pricing Comparison Chart */}
+      {pricingStrategy?.competitor_pricing_table && Array.isArray((pricingStrategy as Record<string, unknown>).competitor_pricing_table) && (pricingStrategy as Record<string, unknown>).competitor_pricing_table && (() => {
+        const table = (pricingStrategy as Record<string, unknown>).competitor_pricing_table as Array<Record<string, unknown>>;
+        if (!table || table.length === 0) return null;
+        const pricingData = table.slice(0, 6).map((row) => {
+          const priceStr = String(row.price || '0');
+          const numericPrice = parseFloat(priceStr.replace(/[^0-9.,]/g, '').replace(',', '.')) || 0;
+          return {
+            name: String(row.competitor || '').slice(0, 15),
+            prix: numericPrice,
+            offre: String(row.offer || ''),
+          };
+        }).filter(d => d.prix > 0);
+        if (pricingData.length === 0) return null;
+        return (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <DollarSign className="w-5 h-5 text-mint-foreground" />
+                Comparatif Tarifaire Concurrents
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={pricingData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                  <YAxis tickFormatter={(v) => `${v}€`} tick={{ fontSize: 10 }} />
+                  <Tooltip formatter={(value: number) => [`${value} €`, 'Prix']} />
+                  <Bar dataKey="prix" name="Prix" fill="#7c6b9c" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {/* Pricing Strategy */}
       {pricingStrategy && pricingStrategy.recommended_pricing && pricingStrategy.recommended_pricing.length > 0 && (
