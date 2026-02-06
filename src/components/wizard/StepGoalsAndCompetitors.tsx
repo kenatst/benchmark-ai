@@ -38,22 +38,22 @@ const SECTOR_COMPETITORS: Record<string, Array<{ name: string; type: 'direct' | 
   ],
   'Healthcare': [
     { name: 'Doctolib', type: 'direct' },
-    { name: 'Cliniques privees', type: 'indirect' },
-    { name: 'Teleconsultation', type: 'substitute' },
+    { name: 'Cliniques privées', type: 'indirect' },
+    { name: 'Téléconsultation', type: 'substitute' },
   ],
   'Finance': [
     { name: 'Banques traditionnelles', type: 'direct' },
-    { name: 'Neobanques', type: 'indirect' },
+    { name: 'Néobanques', type: 'indirect' },
     { name: 'Crypto/DeFi', type: 'substitute' },
   ],
   'Education': [
     { name: 'Coursera', type: 'direct' },
-    { name: 'Universites', type: 'indirect' },
+    { name: 'Universités', type: 'indirect' },
     { name: 'YouTube Learning', type: 'substitute' },
   ],
   'Real Estate': [
     { name: 'SeLoger', type: 'direct' },
-    { name: 'Agents independants', type: 'indirect' },
+    { name: 'Agents indépendants', type: 'indirect' },
     { name: 'Vente directe', type: 'substitute' },
   ],
   'Manufacturing': [
@@ -74,7 +74,7 @@ const SECTOR_COMPETITORS: Record<string, Array<{ name: string; type: 'direct' | 
 };
 
 const DEFAULT_COMPETITORS = [
-  { name: 'Leader du marche', type: 'direct' as const },
+  { name: 'Leader du marché', type: 'direct' as const },
   { name: 'Nouvel entrant digital', type: 'indirect' as const },
   { name: 'Solution alternative', type: 'substitute' as const },
 ];
@@ -211,7 +211,7 @@ export const StepGoalsAndCompetitors = ({ formData, setFormData }: StepGoalsAndC
               onValueChange={(value) => updateData({ reportLanguage: value })}
             >
               <SelectTrigger className="h-11">
-                <SelectValue placeholder="Selectionnez la langue" />
+                <SelectValue placeholder="Sélectionnez la langue" />
               </SelectTrigger>
               <SelectContent>
                 {REPORT_LANGUAGES.map((lang) => (
@@ -397,13 +397,13 @@ export const StepGoalsAndCompetitors = ({ formData, setFormData }: StepGoalsAndC
         {/* Notes */}
         <div className="space-y-2 pt-2">
           <Label htmlFor="notes" className="text-sm font-medium">
-            Contexte supplementaire <span className="text-xs text-muted-foreground font-normal">(optionnel)</span>
+            Contexte supplémentaire <span className="text-xs text-muted-foreground font-normal">(optionnel)</span>
           </Label>
           <Textarea
             id="notes"
             value={formData.notes || ''}
             onChange={(e) => updateData({ notes: e.target.value })}
-            placeholder="Defis specifiques, contraintes, contexte particulier..."
+            placeholder="Défis spécifiques, contraintes, contexte particulier..."
             rows={2}
             className="resize-none"
           />

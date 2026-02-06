@@ -50,7 +50,7 @@ const NewBenchmark = () => {
   // Redirect to auth if not logged in
   useEffect(() => {
     if (!authLoading && !user) {
-      toast.error('Veuillez vous connecter pour creer un benchmark');
+      toast.error('Veuillez vous connecter pour créer un benchmark');
       navigate('/auth');
     }
   }, [user, authLoading, navigate]);
@@ -58,7 +58,7 @@ const NewBenchmark = () => {
   // Handle payment cancelled
   useEffect(() => {
     if (searchParams.get('payment') === 'cancelled') {
-      toast.error('Paiement annule');
+      toast.error('Paiement annulé');
     }
   }, [searchParams]);
 
@@ -90,11 +90,11 @@ const NewBenchmark = () => {
     switch (step) {
       case 1:
         if (!formData.businessName) return 'Entrez le nom de votre entreprise';
-        if (!formData.sector) return 'Selectionnez votre secteur';
-        if (!formData.whatYouSell) return 'Decrivez ce que vous vendez';
+        if (!formData.sector) return 'Sélectionnez votre secteur';
+        if (!formData.whatYouSell) return 'Décrivez ce que vous vendez';
         return '';
       case 2:
-        if (formData.goals.length === 0) return 'Selectionnez au moins un objectif';
+        if (formData.goals.length === 0) return 'Sélectionnez au moins un objectif';
         return '';
       default:
         return '';
@@ -142,7 +142,7 @@ const NewBenchmark = () => {
       navigate(`/checkout?reportId=${report.id}&plan=${plan}`);
     } catch (error) {
       console.error('Payment error:', error);
-      toast.error('Erreur lors de la creation du paiement. Veuillez reessayer.');
+      toast.error('Erreur lors de la création du paiement. Veuillez réessayer.');
       setIsProcessing(false);
     }
   };
@@ -205,7 +205,7 @@ const NewBenchmark = () => {
               {currentStepInfo.title}
             </h1>
             <p className="text-muted-foreground">
-              Etape {currentStep} sur {STEPS.length}
+              Étape {currentStep} sur {STEPS.length}
             </p>
           </div>
 

@@ -18,7 +18,7 @@ export const Navbar = () => {
   }, []);
 
   const navItems = [
-    { label: 'PRODUIT', href: '#product' },
+    { label: 'PRODUIT', href: '/#product' },
     { label: 'TARIFS', href: '/pricing' },
     { label: 'MES RAPPORTS', href: '/app/reports' },
     { label: 'À PROPOS', href: '/about' },
@@ -39,25 +39,29 @@ export const Navbar = () => {
 
         {/* Nav Links */}
         <div className="hidden md:flex items-center">
-          {navItems.map((item) => (
-            item.href.startsWith('#') && isLandingPage ? (
-              <a
-                key={item.label}
-                href={item.href}
-                className="px-3 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors tracking-wide whitespace-nowrap"
-              >
-                {item.label}
-              </a>
-            ) : (
+          {navItems.map((item) => {
+            const isAnchor = item.href.includes('#');
+            if (isAnchor && isLandingPage) {
+              return (
+                <a
+                  key={item.label}
+                  href={item.href.replace('/', '')}
+                  className="px-3 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors tracking-wide whitespace-nowrap"
+                >
+                  {item.label}
+                </a>
+              );
+            }
+            return (
               <Link
                 key={item.label}
-                to={item.href.startsWith('#') ? '/' + item.href : item.href}
+                to={item.href}
                 className="px-3 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors tracking-wide whitespace-nowrap"
               >
                 {item.label}
               </Link>
-            )
-          ))}
+            );
+          })}
         </div>
 
         {/* Right section */}
@@ -95,7 +99,7 @@ export const Navbar = () => {
             {navItems.map((item) => (
               <Link
                 key={item.label}
-                to={item.href.startsWith('#') ? '/' + item.href : item.href}
+                to={item.href}
                 className="px-4 py-3 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors text-sm font-semibold rounded-xl tracking-wide"
                 onClick={() => setIsOpen(false)}
               >

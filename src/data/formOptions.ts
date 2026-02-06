@@ -30,22 +30,22 @@ export const ACQUISITION_CHANNELS = [
 
 export const BENCHMARK_GOALS = [
   { id: 'competitors', label: 'Carte concurrentielle', description: 'Identifier et analyser vos concurrents' },
-  { id: 'pricing', label: 'Strategie tarifaire', description: 'Optimiser vos prix et packages' },
-  { id: 'positioning', label: 'Positionnement & messaging', description: 'Differencier votre marque' },
-  { id: 'gtm', label: 'Plan go-to-market', description: 'Planifier votre entree sur le marche' },
-  { id: 'risks', label: 'Risques & conformite', description: 'Identifier les defis potentiels' },
-  { id: 'growth', label: 'Opportunites de croissance', description: 'Trouver de nouveaux leviers de revenu' }
+  { id: 'pricing', label: 'Stratégie tarifaire', description: 'Optimiser vos prix et packages' },
+  { id: 'positioning', label: 'Positionnement & messaging', description: 'Différencier votre marque' },
+  { id: 'gtm', label: 'Plan go-to-market', description: 'Planifier votre entrée sur le marché' },
+  { id: 'risks', label: 'Risques & conformité', description: 'Identifier les défis potentiels' },
+  { id: 'growth', label: 'Opportunités de croissance', description: 'Trouver de nouveaux leviers de revenu' }
 ];
 
 export const DIFFERENTIATORS = [
   'Prix',
-  'Qualite',
-  'Rapidite',
+  'Qualité',
+  'Rapidité',
   'Service client',
   'Technologie',
   'Expertise locale',
-  'Specialisation',
-  'Experience',
+  'Spécialisation',
+  'Expérience',
   'Garantie',
   'Sur-mesure'
 ];

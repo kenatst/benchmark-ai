@@ -137,13 +137,14 @@ serve(async (req) => {
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     } else {
+      console.log(`[VerifyPayment] Payment not completed. Status: ${session.payment_status}`);
       return new Response(
         JSON.stringify({
           success: false,
           paymentStatus: session.payment_status,
           error: "Payment not completed",
         }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
   } catch (error: unknown) {
