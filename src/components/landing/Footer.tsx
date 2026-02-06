@@ -82,7 +82,7 @@ export const Footer = () => {
 
         <div className="flex flex-col md:flex-row justify-between items-center pt-8 border-t border-border gap-4">
           <p className="text-sm text-muted-foreground">
-            © 2025 BenchmarkAI. Tous droits réservés.
+            © 2026 BenchmarkAI. Tous droits réservés.
           </p>
           <div className="flex items-center gap-6 text-sm text-muted-foreground">
             <span>Fait avec ❤️ en France</span>

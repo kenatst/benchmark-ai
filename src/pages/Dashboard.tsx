@@ -11,11 +11,22 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { toast } from 'sonner';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuthContext();
-  const { reports, isLoading, deleteReport, triggerGeneration, fetchReports } = useReports();
+  const { reports, isLoading, deleteReport, triggerGeneration, refetch: fetchReports } = useReports();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [retryingId, setRetryingId] = useState<string | null>(null);
 
@@ -26,18 +37,17 @@ const Dashboard = () => {
   }, [user, authLoading, navigate]);
 
   const readyReports = reports.filter(r => r.status === 'ready').length;
-  const processingReports = reports.filter(r => r.status === 'processing').length;
 
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'ready':
-        return <Badge className="bg-mint/10 text-mint-foreground border-mint/20">Pret</Badge>;
+        return <Badge className="bg-mint/10 text-mint-foreground border-mint/20">Prêt</Badge>;
       case 'processing':
         return <Badge className="bg-chart-4/10 text-chart-4 border-chart-4/20 gap-1"><Loader2 className="w-3 h-3 animate-spin" />En cours</Badge>;
       case 'paid':
-        return <Badge className="bg-sky/10 text-sky-foreground border-sky/20">Paye</Badge>;
+        return <Badge className="bg-sky/10 text-sky-foreground border-sky/20">Payé</Badge>;
       case 'failed':
-        return <Badge className="bg-destructive/10 text-destructive border-destructive/20">Echoue</Badge>;
+        return <Badge className="bg-destructive/10 text-destructive border-destructive/20">Échoué</Badge>;
       default:
         return <Badge variant="secondary">Brouillon</Badge>;
     }
@@ -57,13 +67,16 @@ const Dashboard = () => {
   const handleDelete = async (e: React.MouseEvent, reportId: string) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!window.confirm('Supprimer ce rapport ?')) return;
 
     setDeletingId(reportId);
     try {
-      await deleteReport(reportId);
-      toast.success('Rapport supprime');
-      fetchReports();
+      const success = await deleteReport(reportId);
+      if (success) {
+        toast.success('Rapport supprimé');
+        fetchReports();
+      } else {
+        toast.error('Erreur lors de la suppression');
+      }
     } catch {
       toast.error('Erreur lors de la suppression');
     } finally {
@@ -78,7 +91,7 @@ const Dashboard = () => {
     setRetryingId(reportId);
     try {
       await triggerGeneration(reportId);
-      toast.success('Generation relancee');
+      toast.success('Génération relancée');
       navigate(`/app/reports/${reportId}`);
     } catch {
       toast.error('Erreur lors de la relance');
@@ -121,7 +134,7 @@ const Dashboard = () => {
               <CardHeader className="pb-2">
                 <CardDescription className="flex items-center gap-2">
                   <BarChart3 className="w-4 h-4" />
-                  Rapports generes
+                  Rapports générés
                 </CardDescription>
                 <CardTitle className="text-3xl">{readyReports}</CardTitle>
               </CardHeader>
@@ -137,14 +150,14 @@ const Dashboard = () => {
             </Card>
             <Card>
               <CardHeader className="pb-2">
-                <CardDescription>Economies estimees</CardDescription>
+                <CardDescription>Économies estimées</CardDescription>
                 <CardTitle className="text-3xl text-primary">
-                  {(readyReports * 2000).toLocaleString()}EUR+
+                  {(readyReports * 2000).toLocaleString('fr-FR')}€+
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-xs text-muted-foreground">
-                  vs. etude de cabinet-conseil traditionnelle
+                  vs. étude de cabinet-conseil traditionnelle
                 </p>
               </CardContent>
             </Card>
@@ -152,7 +165,7 @@ const Dashboard = () => {
 
           {/* Reports List */}
           <div>
-            <h2 className="text-xl font-semibold text-foreground mb-4">Rapports recents</h2>
+            <h2 className="text-xl font-semibold text-foreground mb-4">Rapports récents</h2>
 
             {isLoading ? (
               <div className="text-center py-12 text-muted-foreground flex items-center justify-center gap-2">
@@ -165,10 +178,10 @@ const Dashboard = () => {
                   <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                   <h3 className="font-semibold text-foreground mb-2">Aucun rapport</h3>
                   <p className="text-muted-foreground text-sm mb-4">
-                    Generez votre premier benchmark en 3 etapes
+                    Générez votre premier benchmark en 3 étapes
                   </p>
                   <Link to="/app/new">
-                    <Button>Generer mon benchmark</Button>
+                    <Button>Générer mon benchmark</Button>
                   </Link>
                 </CardContent>
               </Card>
@@ -206,7 +219,7 @@ const Dashboard = () => {
                             {getStatusBadge(report.status)}
 
                             {/* Action buttons */}
-                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="flex items-center gap-1 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                               {report.status === 'failed' && (
                                 <Button
                                   variant="ghost"
@@ -218,19 +231,44 @@ const Dashboard = () => {
                                   <RefreshCw className={`w-3.5 h-3.5 ${retryingId === report.id ? 'animate-spin' : ''}`} />
                                 </Button>
                               )}
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                                onClick={(e) => handleDelete(e, report.id)}
-                                disabled={deletingId === report.id}
-                              >
-                                {deletingId === report.id ? (
-                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                ) : (
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                )}
-                              </Button>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                    }}
+                                    disabled={deletingId === report.id}
+                                  >
+                                    {deletingId === report.id ? (
+                                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    ) : (
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    )}
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Supprimer ce rapport ?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Cette action est irréversible. Le rapport "{inputData?.businessName || 'Rapport'}" sera définitivement supprimé.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Annuler</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={(e) => handleDelete(e, report.id)}
+                                      disabled={deletingId === report.id}
+                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    >
+                                      {deletingId === report.id ? 'Suppression...' : 'Supprimer'}
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
                             </div>
                           </div>
                         </CardContent>

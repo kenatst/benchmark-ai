@@ -5,7 +5,7 @@ import { Footer } from '@/components/landing/Footer';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { FileText, Clock, Plus, Trash2 } from 'lucide-react';
+import { FileText, Clock, Plus, Trash2, Loader2 } from 'lucide-react';
 import { useReports } from '@/hooks/useReports';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { format } from 'date-fns';
@@ -38,7 +38,7 @@ const Reports = () => {
 
   const handleDelete = async (reportId: string) => {
     setDeletingId(reportId);
-    
+
     const success = await deleteReport(reportId);
     if (success) {
       toast.success('Rapport supprimé');
@@ -74,7 +74,7 @@ const Reports = () => {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Navbar />
-      
+
       <main className="flex-1 pt-24 pb-8">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
@@ -91,7 +91,8 @@ const Reports = () => {
           </div>
 
           {isLoading ? (
-            <div className="text-center py-12 text-muted-foreground">
+            <div className="text-center py-12 text-muted-foreground flex items-center justify-center gap-2">
+              <Loader2 className="w-5 h-5 animate-spin" />
               Chargement...
             </div>
           ) : reports.length === 0 ? (
@@ -110,55 +111,59 @@ const Reports = () => {
           ) : (
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {reports.map((report) => (
-                <Link key={report.id} to={`/app/reports/${report.id}`}>
-                  <Card className="h-full hover:border-primary/30 transition-colors cursor-pointer group relative">
-                    <CardContent className="p-6">
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                          <FileText className="w-5 h-5 text-primary" />
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {getStatusBadge(report.status)}
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                <Card key={report.id} className="h-full hover:border-primary/30 transition-colors group relative">
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between mb-4">
+                      <Link to={`/app/reports/${report.id}`} className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <FileText className="w-5 h-5 text-primary" />
+                      </Link>
+                      <div className="flex items-center gap-2">
+                        {getStatusBadge(report.status)}
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                              }}
+                            >
+                              {deletingId === report.id ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="w-4 h-4" />
+                              )}
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Supprimer ce rapport ?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Cette action est irréversible. Le rapport "{(report.input_data as { businessName?: string })?.businessName || 'Rapport'}" sera définitivement supprimé.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Annuler</AlertDialogCancel>
+                              <AlertDialogAction
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
+                                  handleDelete(report.id);
                                 }}
+                                disabled={deletingId === report.id}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                               >
-                                <Trash2 className="w-4 h-4 text-muted-foreground hover:text-destructive" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent onClick={(e) => e.stopPropagation()}>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Supprimer ce rapport ?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Cette action est irréversible. Le rapport sera définitivement supprimé.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Annuler</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    handleDelete(report.id);
-                                  }}
-                                  disabled={deletingId === report.id}
-                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                >
-                                  {deletingId === report.id ? 'Suppression...' : 'Supprimer'}
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </div>
+                                {deletingId === report.id ? 'Suppression...' : 'Supprimer'}
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </div>
-                      <h3 className="font-semibold text-foreground mb-1">
+                    </div>
+                    <Link to={`/app/reports/${report.id}`} className="block">
+                      <h3 className="font-semibold text-foreground mb-1 hover:text-primary transition-colors">
                         {(report.input_data as { businessName?: string })?.businessName || 'Rapport'}
                       </h3>
                       <p className="text-sm text-muted-foreground mb-4">
@@ -168,9 +173,9 @@ const Reports = () => {
                         <Clock className="w-3 h-3" />
                         {format(new Date(report.created_at), 'd MMM yyyy', { locale: fr })}
                       </div>
-                    </CardContent>
-                  </Card>
-                </Link>
+                    </Link>
+                  </CardContent>
+                </Card>
               ))}
             </div>
           )}
