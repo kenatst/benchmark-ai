@@ -189,7 +189,7 @@ export const WebSummary = ({ outputData, plan, pdfUrl, onDownload, isDownloading
         const positioningMap = isAgency
           ? agencyData.competitive_intelligence?.competitive_positioning_maps?.primary_map
           : isPro
-            ? (proData as Record<string, unknown>).competitive_intelligence && ((proData as Record<string, unknown>).competitive_intelligence as Record<string, unknown>)?.competitive_matrix
+            ? (proData as unknown as Record<string, unknown>).competitive_intelligence && ((proData as unknown as Record<string, unknown>).competitive_intelligence as Record<string, unknown>)?.competitive_matrix
             : null;
         const scatterData: Array<{ name: string; x: number; y: number; isYou?: boolean }> = [];
 
@@ -487,8 +487,8 @@ export const WebSummary = ({ outputData, plan, pdfUrl, onDownload, isDownloading
       )}
 
       {/* Pricing Comparison Chart */}
-      {pricingStrategy?.competitor_pricing_table && Array.isArray((pricingStrategy as Record<string, unknown>).competitor_pricing_table) && (pricingStrategy as Record<string, unknown>).competitor_pricing_table && (() => {
-        const table = (pricingStrategy as Record<string, unknown>).competitor_pricing_table as Array<Record<string, unknown>>;
+      {(pricingStrategy as unknown as Record<string, unknown>)?.competitor_pricing_table && Array.isArray((pricingStrategy as unknown as Record<string, unknown>).competitor_pricing_table) && (() => {
+        const table = (pricingStrategy as unknown as Record<string, unknown>).competitor_pricing_table as Array<Record<string, unknown>>;
         if (!table || table.length === 0) return null;
         const pricingData = table.slice(0, 6).map((row) => {
           const priceStr = String(row.price || '0');
