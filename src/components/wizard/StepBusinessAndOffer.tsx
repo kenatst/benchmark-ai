@@ -4,7 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
-import { SECTORS, COUNTRIES, BUSINESS_MATURITY, DIFFERENTIATORS, BUSINESS_MODELS } from '@/data/formOptions';
+import { SECTORS, COUNTRIES, BUSINESS_MATURITY, BUSINESS_MODELS } from '@/data/formOptions';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Building2, Globe, MapPin, Users, Package, DollarSign, Sparkles, Layers } from 'lucide-react';
 
@@ -14,15 +14,6 @@ interface StepBusinessAndOfferProps {
 }
 
 export const StepBusinessAndOffer = ({ formData, setFormData }: StepBusinessAndOfferProps) => {
-  const toggleDifferentiator = (diff: string) => {
-    setFormData(prev => ({
-      ...prev,
-      differentiators: prev.differentiators.includes(diff)
-        ? prev.differentiators.filter(d => d !== diff)
-        : [...prev.differentiators, diff]
-    }));
-  };
-
   return (
     <div className="space-y-10">
       {/* ────── SECTION 1: YOUR BUSINESS ────── */}
@@ -283,27 +274,6 @@ export const StepBusinessAndOffer = ({ formData, setFormData }: StepBusinessAndO
             </div>
           </div>
 
-          {/* Differentiators */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">
-              Vos points forts <span className="text-xs text-muted-foreground font-normal">- max 3</span>
-            </Label>
-            <div className="flex flex-wrap gap-2">
-              {DIFFERENTIATORS.map((diff) => (
-                <Button
-                  key={diff}
-                  type="button"
-                  variant={formData.differentiators.includes(diff) ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => toggleDifferentiator(diff)}
-                  disabled={formData.differentiators.length >= 3 && !formData.differentiators.includes(diff)}
-                  className="text-xs h-8"
-                >
-                  {diff}
-                </Button>
-              ))}
-            </div>
-          </div>
         </div>
       </div>
     </div>

@@ -175,7 +175,7 @@ const SECTION_PLANS: Record<TierType, SectionPlanItem[]> = {
 // ============================================
 const TIER_CONFIG = {
   standard: {
-    max_tokens: 4000,
+    max_tokens: 16000,
     temperature: 0.3,
     section_plan: SECTION_PLANS.standard,
     section_system_prompt: (lang: string) => `Tu es un DIRECTEUR ASSOCIÉ de cabinet de conseil stratégique (BCG/McKinsey alumni, 15+ ans).
@@ -208,7 +208,7 @@ RETOURNE UNIQUEMENT LE JSON VALIDE.`,
   },
 
   pro: {
-    max_tokens: 12000,
+    max_tokens: 32000,
     temperature: 0.25,
     section_plan: SECTION_PLANS.pro,
     section_system_prompt: (lang: string) => `Tu es un PRINCIPAL de cabinet de conseil stratégique tier-1 (ex-McKinsey/BCG/Bain, 10+ ans).
@@ -242,7 +242,7 @@ RETOURNE UNIQUEMENT LE JSON VALIDE.`,
   },
 
   agency: {
-    max_tokens: 16000,
+    max_tokens: 32000,
     temperature: 0.2,
     section_plan: SECTION_PLANS.agency,
     section_system_prompt: (lang: string) => `Tu es un SENIOR PARTNER d'un cabinet de conseil stratégique de rang mondial (20+ ans, Harvard MBA).
@@ -796,7 +796,7 @@ function estimateMaxTokens(sectionKey: string, tierMaxTokens: number): number {
     'competitive_intelligence', 'strategic_recommendations', 'market_analysis',
     'financial_projections', 'executive_summary', 'competitive_landscape',
     'market_overview_detailed', 'customer_intelligence', 'detailed_roadmap',
-    'implementation_roadmap', 'territory_analysis',
+    'implementation_roadmap', 'territory_analysis', 'methodology',
   ]);
   // Medium sections
   const mediumSections = new Set([
@@ -808,14 +808,14 @@ function estimateMaxTokens(sectionKey: string, tierMaxTokens: number): number {
 
   let estimate: number;
   if (largeSections.has(sectionKey)) {
-    estimate = Math.min(tierMaxTokens, 8000);
+    estimate = Math.min(tierMaxTokens, 16000);
   } else if (mediumSections.has(sectionKey)) {
-    estimate = Math.min(tierMaxTokens, 4000);
+    estimate = Math.min(tierMaxTokens, 8000);
   } else {
-    estimate = Math.min(tierMaxTokens, 2000);
+    estimate = Math.min(tierMaxTokens, 4000);
   }
 
-  return Math.max(1500, estimate);
+  return Math.max(3000, estimate);
 }
 
 function buildSectionPrompt(
@@ -919,30 +919,17 @@ async function generateSection(
   let content: string;
   try {
     console.log(`[Section] Calling GPT-5.2 for section: ${section.key} (${maxTokens} max tokens, prompt: ${userPrompt.length} chars)...`);
+    // Use json_object format to guarantee valid JSON output - NO repair loop needed
     content = await callGPT52(
       apiKey,
       systemPrompt,
       userPrompt,
       maxTokens,
-      tierConfig.temperature
+      tierConfig.temperature,
+      undefined, // use default json_object format
+      2 // max 2 retries for network errors only
     );
     console.log(`[Section] GPT-5.2 responded for ${section.key}: ${content.length} chars`);
-
-    // TRUNCATION DETECTION: If output looks truncated, retry with 2x tokens
-    if (isJsonTruncated(content)) {
-      const retryTokens = Math.min(tierConfig.max_tokens, maxTokens * 2);
-      if (retryTokens > maxTokens) {
-        console.warn(`[Section] Output TRUNCATED for ${section.key}. Retrying with ${retryTokens} tokens (was ${maxTokens})...`);
-        content = await callGPT52(
-          apiKey,
-          systemPrompt,
-          userPrompt,
-          retryTokens,
-          tierConfig.temperature
-        );
-        console.log(`[Section] Retry responded for ${section.key}: ${content.length} chars, truncated: ${isJsonTruncated(content)}`);
-      }
-    }
   } catch (apiError) {
     console.error(`[Section] GPT-5.2 API call FAILED for ${section.key}:`, apiError instanceof Error ? apiError.message : apiError);
     return { [section.key]: section.valueType === 'array' ? [] : {} };
@@ -950,14 +937,10 @@ async function generateSection(
 
   try {
     return safeJsonParse(content);
-  } catch (error) {
-    console.warn(`[Section] JSON parse failed for ${section.key}. Attempting repair...`, error);
-    try {
-      return repairSectionJson(apiKey, section, content);
-    } catch (repairError) {
-      console.error(`[Section] Repair failed for ${section.key}:`, repairError);
-      return { [section.key]: section.valueType === 'array' ? [] : {} };
-    }
+  } catch {
+    // json_object mode should prevent this, but fallback gracefully
+    console.warn(`[Section] JSON parse failed for ${section.key}. Using empty fallback.`);
+    return { [section.key]: section.valueType === 'array' ? [] : {} };
   }
 }
 
@@ -1061,18 +1044,20 @@ async function callGPT52(
           ],
           temperature: temperature,
           max_output_tokens: effectiveMaxTokens,
-          ...(textFormat
+          text: textFormat
             ? {
-              text: {
-                format: {
-                  type: "json_schema",
-                  name: textFormat.name,
-                  strict: textFormat.strict,
-                  schema: textFormat.schema,
-                },
+              format: {
+                type: "json_schema",
+                name: textFormat.name,
+                strict: textFormat.strict,
+                schema: textFormat.schema,
               },
             }
-            : {}),
+            : {
+              format: {
+                type: "json_object",
+              },
+            },
         }),
         signal: controller.signal,
       });
@@ -1084,7 +1069,7 @@ async function callGPT52(
         console.error(`[Analysis] API error ${response.status} (attempt ${attempt}):`, errorText);
 
         if (response.status === 429) {
-          const waitTime = Math.pow(2, attempt - 1) * 60000;
+          const waitTime = Math.pow(2, attempt - 1) * 10000;
           console.log(`[Analysis] Rate limited. Waiting ${waitTime / 1000}s before retry ${attempt}/${maxRetries}...`);
           if (attempt < maxRetries) {
             await new Promise(resolve => setTimeout(resolve, waitTime));
@@ -1210,33 +1195,42 @@ async function runGenerationAsync(
     const endProgress = 90;
     const progressStep = Math.max(1, Math.floor((endProgress - startProgress) / Math.max(sections.length, 1)));
 
-    console.log(`[${reportId}] Starting ${sections.length} section generation...`);
+    console.log(`[${reportId}] Starting ${sections.length} section generation (batched parallel)...`);
 
-    for (let i = 0; i < sections.length; i++) {
-      const section = sections[i];
+    // Process sections in parallel batches of 3 for much faster generation
+    const BATCH_SIZE = 3;
+    for (let i = 0; i < sections.length; i += BATCH_SIZE) {
+      const batch = sections.slice(i, i + BATCH_SIZE);
+      const batchLabels = batch.map(s => s.label).join(', ');
       const stepProgress = startProgress + (i * progressStep);
 
-      await updateProgress(supabaseAdmin, reportId, `Section: ${section.label}...`, Math.min(stepProgress, endProgress));
+      await updateProgress(supabaseAdmin, reportId, `Sections: ${batchLabels}...`, Math.min(stepProgress, endProgress));
 
-      try {
-        const sectionResult = await generateSection(
-          GPT52_API_KEY,
-          sectionSystemPrompt,
-          tierConfig,
-          reportBrief,
-          section
-        );
+      const batchResults = await Promise.allSettled(
+        batch.map(section =>
+          generateSection(
+            GPT52_API_KEY,
+            sectionSystemPrompt,
+            tierConfig,
+            reportBrief,
+            section
+          )
+        )
+      );
 
-        if (sectionResult && typeof sectionResult === 'object' && (section.key in (sectionResult as Record<string, unknown>))) {
-          outputSections[section.key] = (sectionResult as Record<string, unknown>)[section.key];
+      for (let j = 0; j < batch.length; j++) {
+        const section = batch[j];
+        const result = batchResults[j];
+
+        if (result.status === 'fulfilled' && result.value && typeof result.value === 'object' && (section.key in (result.value as Record<string, unknown>))) {
+          outputSections[section.key] = (result.value as Record<string, unknown>)[section.key];
         } else {
+          if (result.status === 'rejected') {
+            console.error(`[${reportId}] Section ${section.key} crashed:`, result.reason);
+          }
           outputSections[section.key] = section.valueType === 'array' ? [] : {};
           sectionFailures++;
         }
-      } catch (sectionError) {
-        console.error(`[${reportId}] Section ${section.key} crashed:`, sectionError instanceof Error ? sectionError.message : sectionError);
-        outputSections[section.key] = section.valueType === 'array' ? [] : {};
-        sectionFailures++;
       }
     }
 
