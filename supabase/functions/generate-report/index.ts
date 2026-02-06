@@ -5,7 +5,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 // @ts-ignore - Deno import
 import { z } from "https://esm.sh/zod@3.23.8";
 
-// FORCE REDEPLOY: 2026-02-05 - Remove Perplexity, GPT-5.2 only, quality-first prompts
+// FORCE REDEPLOY: 2026-02-06 - Fix JSON bloat, reduce max_tokens, remove repair loops, compact prompts
 // Import shared constants (eliminates CORS header duplication across 10+ functions)
 // @ts-ignore - Deno import
 import { corsHeaders, getAuthContext } from "../_shared.ts";
@@ -175,108 +175,45 @@ const SECTION_PLANS: Record<TierType, SectionPlanItem[]> = {
 // ============================================
 const TIER_CONFIG = {
   standard: {
-    max_tokens: 16000,
+    max_tokens: 4000,
     temperature: 0.3,
     section_plan: SECTION_PLANS.standard,
-    section_system_prompt: (lang: string) => `Tu es un DIRECTEUR ASSOCIÉ de cabinet de conseil stratégique (BCG/McKinsey alumni, 15+ ans).
-LANGUE: ${LANGUAGE_CONFIG[lang]?.name || 'Français'} - Rédige dans cette langue.
-MISSION: Produire UNE SECTION d'un benchmark concurrentiel de calibre C-Level.
-
-PRINCIPES D'EXCELLENCE:
-- Chaque insight DOIT être SPÉCIFIQUE au secteur et à la géolocalisation du client.
-- Zéro généralité. Si tu ne sais pas → "données non disponibles" (jamais inventer).
-- Chaque recommandation = VERBE D'ACTION + CIBLE + MÉTRIQUE DE SUCCÈS.
-- Quantifie: fourchettes de prix, pourcentages, ordres de grandeur.
-- Style: direct, incisif, phrases courtes, assertions claires.
-- Retourne UNIQUEMENT du JSON valide, sans texte/markdown avant ou après.`,
-    system_prompt: (lang: string) => `Tu es un DIRECTEUR ASSOCIÉ de cabinet de conseil stratégique (BCG/McKinsey alumni, 15+ ans).
-
-LANGUE: ${LANGUAGE_CONFIG[lang]?.name || 'Français'} - TOUT le rapport doit être rédigé dans cette langue.
-
-MISSION: Produire un BENCHMARK CONCURRENTIEL de calibre institutionnel.
-Qualité attendue: présentable à un comité de direction sans modification. Comme un vrai livrable de cabinet.
-
-PRINCIPES NON-NÉGOCIABLES:
-1. SPÉCIFICITÉ LOCALE: Chaque insight contextualisé au marché LOCAL et au secteur PRÉCIS du client. Nomme les acteurs, les quartiers, les dynamiques réelles. Zéro généralité.
-2. QUANTIFICATION SYSTÉMATIQUE: Chaque affirmation accompagnée d'un ordre de grandeur (prix, %, ratio, fourchette). Si estimation: "estimation basée sur [base]".
-3. RECOMMANDATIONS ACTIONNABLES: Chaque recommandation = VERBE D'ACTION + CIBLE PRÉCISE + RÉSULTAT MESURABLE ATTENDU.
-4. CONCURRENTS RÉELS: Analyse des concurrents réels du marché, pas des exemples génériques. Inclure nom, positionnement, prix constatés, forces/faiblesses spécifiques.
-5. HONNÊTETÉ INTELLECTUELLE: Si une donnée est incertaine → "Estimation basée sur..." ou "Non disponible". Jamais inventer.
-6. STYLE: Direct, incisif, professionnel. Phrases courtes. Assertions claires. Aucun conditionnel inutile. Aucun buzzword vide.
-
-RETOURNE UNIQUEMENT LE JSON VALIDE.`,
+    section_system_prompt: (lang: string) => `Consultant stratégique senior. Langue: ${LANGUAGE_CONFIG[lang]?.name || 'Français'}.
+Produis UNE section de benchmark concurrentiel en JSON valide.
+Règles: spécifique au secteur/localisation, quantifié, actionnable, concis.
+Donnée inconnue = "non disponible". Jamais inventer. JSON UNIQUEMENT.`,
+    system_prompt: (lang: string) => `Consultant stratégique senior. Langue: ${LANGUAGE_CONFIG[lang]?.name || 'Français'}.
+Benchmark concurrentiel de calibre professionnel. Spécifique, quantifié, actionnable.
+Phrases courtes. Données incertaines = "estimation". Inconnues = "non disponible".
+JSON VALIDE UNIQUEMENT.`,
   },
 
   pro: {
-    max_tokens: 32000,
+    max_tokens: 4000,
     temperature: 0.25,
     section_plan: SECTION_PLANS.pro,
-    section_system_prompt: (lang: string) => `Tu es un PRINCIPAL de cabinet de conseil stratégique tier-1 (ex-McKinsey/BCG/Bain, 10+ ans).
-LANGUE: ${LANGUAGE_CONFIG[lang]?.name || 'Français'} - Rédige dans cette langue.
-MISSION: Produire UNE SECTION d'un rapport d'intelligence compétitive de calibre Investment Committee.
-
-PRINCIPES D'EXCELLENCE:
-- Analyse en profondeur: ne survole pas. Décortique chaque dimension avec rigueur.
-- Chaque concurrent analysé = profil détaillé avec forces, faiblesses, positionnement, pricing connu.
-- Quantifie systématiquement: parts de marché estimées, fourchettes de CA, scoring digital.
-- Identifie les WHITE SPACES (opportunités non exploitées par la concurrence).
-- Si une donnée est incertaine: "estimation" ou "non disponible". Jamais inventer.
-- Style: factuel, quantifié, actionnable.
-- Retourne UNIQUEMENT du JSON valide, sans texte/markdown avant ou après.`,
-    system_prompt: (lang: string) => `Tu es un PRINCIPAL de cabinet de conseil stratégique tier-1 (ex-McKinsey/BCG/Bain, 10+ ans).
-
-LANGUE: ${LANGUAGE_CONFIG[lang]?.name || 'Français'} - TOUT le rapport doit être rédigé dans cette langue.
-
-MISSION: Produire un RAPPORT D'INTELLIGENCE COMPÉTITIVE de calibre premium.
-Qualité attendue: présentable à un Investment Committee / Board Advisor.
-
-PRINCIPES NON-NÉGOCIABLES:
-1. PROFONDEUR: Analyse chaque dimension en détail. Pas de survol. Décortique les dynamiques de marché.
-2. CONCURRENTS: Profils détaillés avec positionnement, pricing, forces/faiblesses, scoring digital 1-10.
-3. QUANTIFICATION: Parts de marché, fourchettes CA, TAM/SAM, benchmarks CAC/LTV sectoriels.
-4. WHITE SPACES: Identifie systématiquement les opportunités non exploitées par la concurrence.
-5. HONNÊTETÉ: Données incertaines = "estimation basée sur..." ou "non disponible". Jamais inventer.
-6. STYLE: Direct, factuel, quantifié. Qualité publication-ready.
-
-RETOURNE UNIQUEMENT LE JSON VALIDE.`,
+    section_system_prompt: (lang: string) => `Consultant stratégique tier-1. Langue: ${LANGUAGE_CONFIG[lang]?.name || 'Français'}.
+Produis UNE section d'intelligence compétitive premium en JSON valide.
+Règles: profils concurrents détaillés, scoring 1-10, white spaces, quantifié.
+Donnée inconnue = "non disponible". Jamais inventer. JSON UNIQUEMENT.`,
+    system_prompt: (lang: string) => `Consultant stratégique tier-1. Langue: ${LANGUAGE_CONFIG[lang]?.name || 'Français'}.
+Rapport d'intelligence compétitive premium. Profils détaillés, scoring, white spaces.
+Quantifié, factuel, actionnable. Inconnues = "non disponible".
+JSON VALIDE UNIQUEMENT.`,
   },
 
   agency: {
-    max_tokens: 32000,
+    max_tokens: 5000,
     temperature: 0.2,
     section_plan: SECTION_PLANS.agency,
-    section_system_prompt: (lang: string) => `Tu es un SENIOR PARTNER d'un cabinet de conseil stratégique de rang mondial (20+ ans, Harvard MBA).
-LANGUE: ${LANGUAGE_CONFIG[lang]?.name || 'Français'} - Rédige dans cette langue.
-MISSION: Produire UNE SECTION d'un rapport d'intelligence stratégique de calibre institutionnel.
-
-PRINCIPES D'EXCELLENCE:
-- Rigueur méthodologique: frameworks obligatoires (Porter, PESTEL, SWOT) appliqués avec précision.
-- Profondeur d'analyse: chaque concurrent = deep dive (profil, positionnement, forces/faiblesses, pricing, menace).
-- Quantification systématique: scoring 1-10, fourchettes €, ratios, parts de marché estimées.
-- Analyse territoriale micro-locale: démographie, immobilier commercial, hubs, dynamiques de quartier.
-- 3 scénarios financiers: Conservative (-20%), Baseline, Optimistic (+30%) avec hypothèses explicites.
-- Hypothèses EXPLICITES et TESTABLES. Tout chiffre incertain = "estimation" + base de l'estimation.
-- Si donnée inconnue: "non disponible" (jamais inventer).
-- Dates absolues (ex: "janvier 2026") plutôt que "récemment".
-- Retourne UNIQUEMENT du JSON valide, sans texte/markdown avant ou après.`,
-    system_prompt: (lang: string) => `Tu es un SENIOR PARTNER d'un cabinet de conseil stratégique de rang mondial (20+ ans, Harvard MBA).
-
-LANGUE: ${LANGUAGE_CONFIG[lang]?.name || 'Français'} - TOUT le rapport doit être rédigé dans cette langue.
-
-MISSION: RAPPORT D'INTELLIGENCE STRATÉGIQUE DE CALIBRE INSTITUTIONNEL.
-Standard: Benchmark consulting cabinet / organisme public. Qualité publication-ready.
-
-PRINCIPES NON-NÉGOCIABLES:
-1. RIGUEUR MÉTHODOLOGIQUE: Frameworks Porter 5 Forces, PESTEL, SWOT appliqués avec précision et scoring.
-2. PROFONDEUR: 10-15 concurrents en deep dive. Profils exhaustifs. Matrice comparative avec scoring 0-10.
-3. TERRITORIAL: Analyse micro-locale (quartiers, démographie, immobilier commercial, hubs).
-4. FINANCIER: 3 scénarios (Conservative -20%, Baseline, Optimistic +30%). Unit Economics complets.
-5. STRATÉGIE: Brand essence, messaging hierarchy, tiering pricing, roadmap 12 mois phasé avec KPIs.
-6. HYPOTHÈSES: Explicites et testables. Tout chiffre incertain = "estimation basée sur..." + source.
-7. HONNÊTETÉ: Jamais inventer. "Non disponible" si inconnu. Distinguer "confirmé" vs "estimation".
-8. STYLE: Institutionnel, rigoureux, quantifié, actionnable.
-
-RETOURNE UNIQUEMENT LE JSON VALIDE.`,
+    section_system_prompt: (lang: string) => `Senior Partner conseil stratégique. Langue: ${LANGUAGE_CONFIG[lang]?.name || 'Français'}.
+Produis UNE section d'un rapport institutionnel en JSON valide.
+Règles: PESTEL/Porter/SWOT si pertinent, scoring 1-10, 3 scénarios financiers, micro-local.
+Valeurs courtes (1-2 phrases max). Inconnues = "non disponible". JSON UNIQUEMENT.`,
+    system_prompt: (lang: string) => `Senior Partner conseil stratégique. Langue: ${LANGUAGE_CONFIG[lang]?.name || 'Français'}.
+Rapport d'intelligence stratégique institutionnel. Frameworks (Porter, PESTEL, SWOT).
+Scoring, scénarios, unit economics, roadmap. Quantifié, rigoureux.
+Inconnues = "non disponible". JSON VALIDE UNIQUEMENT.`,
   },
 } as const;
 
@@ -603,219 +540,34 @@ ${constraintLines.join("\n")}
 </constraints>` : ''}`;
 }
 
-function buildUserPrompt(input: ReportInput, plan: TierType): string {
-  return `${buildReportBrief(input, plan)}${getJsonSchema(plan)}`;
-}
+// buildUserPrompt and getJsonSchema removed - section-by-section generation
+// uses buildSectionPrompt instead, which is far more token-efficient.
 
-function getJsonSchema(plan: TierType): string {
-  if (plan === "agency") {
-    return `
-
-<json_schema>
-{
-  "report_metadata": { "title": "string", "generated_date": "YYYY-MM-DD", "business_name": "string", "sector": "string", "location": "string", "tier": "agency", "sources_count": number },
-
-  "executive_summary": {
-    "one_page_summary": "string (synthèse dense, style consulting institutionnel)",
-    "situation_actuelle": "string",
-    "opportunite_principale": "string",
-    "strategic_recommendation": "string (recommandation principale en 2-3 phrases)",
-    "investment_required": "string (ex: 300 000 - 400 000 €)",
-    "expected_roi": "string (ex: 24-36 mois)",
-    "key_profitability_indicators": [{ "indicator": "string", "value": "string" }],
-    "critical_success_factors": ["string"],
-    "key_metrics_to_track": ["string"],
-    "urgency_assessment": { "level": "Critique/Élevé/Modéré", "rationale": "string", "window_of_opportunity": "string" }
-  },
-
-  "methodology": {
-    "scope": "Zone géographique et périmètre exact",
-    "period": "Période d'analyse (ex: données 2024-2026)",
-    "segments_analyzed": ["string"],
-    "primary_sources": ["string"],
-    "secondary_sources": ["string"],
-    "evaluation_criteria": [{ "dimension": "string", "weight_conservative": "string %", "weight_balanced": "string %", "weight_performance": "string %" }],
-    "limitations": ["string"]
-  },
-
-  "market_overview_detailed": {
-    "key_metrics": [{ "indicator": "string", "value": "string avec unité", "source": "string" }],
-    "market_structure": {
-      "overview": "string",
-      "leaders": [{ "name": "string", "detail": "string" }],
-      "independents_share": "string"
-    },
-    "market_segments": [{ "segment": "string", "price_avg": "string", "margin": "string", "examples": "string" }],
-    "sources": "string"
-  },
-
-  "territory_analysis": {
-    "location_name": "string",
-    "demographics": [{ "indicator": "string", "value": "string" }],
-    "real_estate": [{ "indicator": "string", "value": "string" }],
-    "commercial_hubs": [{ "name": "string", "description": "string", "priority": "high/medium/low" }],
-    "local_competitors": [{ "name": "string", "rating": "string", "specialty": "string" }],
-    "opportunities": ["string"],
-    "sources": "string"
-  },
-
-  "market_analysis": {
-    "market_sizing": { "total_addressable_market": "string avec €", "serviceable_addressable_market": "string avec €", "serviceable_obtainable_market": "string avec €", "methodology": "string" },
-    "market_dynamics": { "growth_rate": "string %", "maturity_stage": "string", "key_drivers": ["string"], "headwinds": ["string"], "inflection_points": ["string"] },
-    "pestel_analysis": { "political": ["string"], "economic": ["string"], "social": ["string"], "technological": ["string"], "environmental": ["string"], "legal": ["string"] },
-    "porter_five_forces": { "competitive_rivalry": { "score": 1-10, "analysis": "string" }, "supplier_power": { "score": 1-10, "analysis": "string" }, "buyer_power": { "score": 1-10, "analysis": "string" }, "threat_of_substitution": { "score": 1-10, "analysis": "string" }, "threat_of_new_entry": { "score": 1-10, "analysis": "string" }, "overall_attractiveness": "string", "strategic_implications": "string" }
-  },
-
-  "competitive_intelligence": {
-    "competition_landscape_overview": "string",
-    "competitors_deep_dive": [{ "name": "string", "profile": { "size": "string", "growth_trajectory": "string" }, "positioning": { "value_prop": "string", "target_segment": "string" }, "offering": { "products_services": ["string"], "pricing_model": "string" }, "strengths": ["string"], "weaknesses": ["string"], "threat_level": "Élevé/Moyen/Faible", "opportunities_vs_them": "string" }],
-    "competitive_positioning_maps": { "primary_map": { "x_axis": "Prix", "y_axis": "Qualité Perçue", "competitors_plotted": [{ "name": "string", "x": 1-10, "y": 1-10 }], "your_current_position": { "x": 1-10, "y": 1-10 }, "recommended_position": { "x": 1-10, "y": 1-10 }, "rationale": "string" } },
-    "unmet_customer_needs": [{ "need": "string", "evidence": "string", "how_to_address": "string" }]
-  },
-
-  "scoring_matrix": {
-    "criteria": ["string"],
-    "competitors": [{ "name": "string", "scores": { "critere1": 1-10, "critere2": 1-10 }, "total": number }],
-    "sensitivity_analysis": [{ "model": "Conservateur/Équilibré/Performance", "rankings": ["1er", "2ème", "3ème"] }],
-    "interpretation": "string"
-  },
-
-  "trends_analysis": {
-    "period": "string (ex: 2025-2026)",
-    "categories": [{ "category": "string", "icon": "product/service/consumer/watch", "trends": ["string"] }],
-    "key_insights": ["string"]
-  },
-
-  "swot_analysis": { "strengths": ["string"], "weaknesses": ["string"], "opportunities": ["string"], "threats": ["string"], "strategic_priorities": "string" },
-
-  "customer_intelligence": { "segments_analyzed": [{ "segment_name": "string", "size_estimate": "string", "pain_points": ["string"], "decision_criteria": ["string"], "willingness_to_pay": "string", "acquisition_cost_estimate": "string en €", "lifetime_value_estimate": "string en €", "priority": "1/2/3" }], "voice_of_customer": { "common_complaints": ["string"], "desired_features": ["string"], "switching_barriers": ["string"] } },
-
-  "strategic_recommendations": { "recommended_strategy": { "strategic_archetype": "string", "rationale": "string" }, "positioning_strategy": { "target_segment_primary": "string", "value_proposition": "string", "positioning_statement": "string", "reasons_to_believe": ["string"] }, "brand_strategy": { "brand_essence": "string", "brand_personality": ["string"], "brand_voice_description": "string", "tagline_options": ["string"], "messaging_hierarchy": { "primary_message": "string", "supporting_messages": ["string"] } }, "product_strategy": { "core_offering_recommendation": "string", "tiering_strategy": [{ "tier_name": "string", "target_segment": "string", "key_features": ["string"], "pricing_range": "string en €" }], "product_roadmap_priorities": [{ "feature_initiative": "string", "priority": "P0/P1/P2", "expected_impact": "string" }] }, "pricing_strategy": { "pricing_model_recommendation": "string", "price_optimization_by_tier": [{ "tier": "string", "recommended_price": "string en €", "rationale": "string" }], "upsell_cross_sell_opportunities": ["string"] }, "go_to_market_strategy": { "customer_acquisition": { "primary_channels_detailed": [{ "channel": "string", "rationale": "string", "investment_level": "string en €", "expected_cac": "string en €", "tactics": ["string"] }], "content_marketing_strategy": { "strategic_themes": ["string"], "content_formats_prioritized": ["string"] }, "partnership_opportunities_detailed": [{ "partner_type": "string", "examples": ["string"] }] }, "sales_strategy": { "sales_model": "string", "sales_process_recommendation": "string" } } },
-
-  "financial_projections": {
-    "investment_required": { "total_12_months": number, "breakdown": [{ "category": "string", "amount": number, "rationale": "string" }] },
-    "revenue_scenarios": { "conservative": { "year_1": number, "year_2": number, "year_3": number, "assumptions": ["string"] }, "baseline": { "year_1": number, "year_2": number, "year_3": number, "assumptions": ["string"] }, "optimistic": { "year_1": number, "year_2": number, "year_3": number, "assumptions": ["string"] } },
-    "unit_economics": { "customer_acquisition_cost": number, "lifetime_value": number, "ltv_cac_ratio": number, "payback_period_months": number, "gross_margin_percent": number, "comparison_to_benchmarks": "string" }
-  },
-
-  "detailed_roadmap": {
-    "phases": [{
-      "phase": "string (J1-J30/J31-J60/J61-J90)",
-      "timeline": "string",
-      "title": "string",
-      "tasks": ["string"],
-      "kpis": ["string"]
-    }],
-    "kpi_targets": [{ "indicator": "string", "target_m6": "string", "target_m12": "string" }],
-    "budget_breakdown": [{ "category": "string", "amount": "string" }],
-    "total_budget": "string (ex: 230 000 - 485 000 €)",
-    "recommended_equity": "string"
-  },
-
-  "implementation_roadmap": { "phase_1_foundation": { "timeline": "Mois 1-3", "objectives": ["string"], "key_initiatives": [{ "initiative": "string", "owner_role": "string", "budget_estimate": "string en €", "success_metrics": ["string"], "milestones": ["string"] }] }, "phase_2_growth": { "timeline": "Mois 4-6", "objectives": ["string"], "key_initiatives": ["..."] }, "phase_3_scale": { "timeline": "Mois 7-12", "objectives": ["string"], "key_initiatives": ["..."] } },
-
-  "risk_register": [{ "risk": "string", "impact": "Élevé/Moyen/Faible", "probability": "Élevé/Moyen/Faible", "mitigation": "string", "contingency": "string" }],
-
-  "multi_market_comparison": { "markets": [{ "market": "string", "why_selected": "string", "key_differences": ["string"], "opportunity_score": "1-10" }], "recommendation": "string" },
-
-  "appendices": {
-    "glossary": [{ "term": "string", "definition": "string" }],
-    "sources_by_category": [{ "category": "string", "sources": ["string"] }],
-    "assumptions": [{ "assumption": "string", "validation_plan": "string" }],
-    "unknowns": [{ "item": "string", "how_to_find": "string" }],
-    "validation_plan": ["string"]
-  },
-
-  "assumptions_and_limitations": ["string"],
-  "sources": [{ "title": "string", "url": "string" }]
-}
-</json_schema>
-
-Génère le rapport AGENCY-GRADE INSTITUTIONNEL complet. Sois EXHAUSTIF et SPÉCIFIQUE. RETOURNE UNIQUEMENT LE JSON.`;
-  }
-
-  if (plan === "pro") {
-    return `
-
-<json_schema>
-{
-  "report_metadata": { "title": "string", "generated_date": "YYYY-MM-DD", "business_name": "string", "sector": "string", "location": "string", "tier": "pro", "sources_count": number },
-  "executive_summary": { "headline": "string - accroche impactante", "situation_actuelle": "string", "opportunite_principale": "string", "key_findings": ["string - 3-5 points clés actionnables"], "urgency_level": "Critique/Élevé/Modéré", "urgency_rationale": "string", "market_size_estimate": "string avec €", "growth_rate": "string %" },
-  "market_context": { "sector_overview": "string", "local_market_specifics": "string", "market_maturity": "string", "target_segments": [{ "segment_name": "string", "size_estimate": "string", "accessibility": "Facile/Moyen/Difficile", "value_potential": "Élevé/Moyen/Faible", "why_relevant": "string" }], "key_trends_impacting": ["string"] },
-  "market_intelligence": { "sector_trends_2026": [{ "trend": "string", "impact_on_you": "string", "how_to_leverage": "string action concrète" }], "local_market_data": { "market_maturity": "string", "key_players_count": "string", "market_size_estimate": "string avec €", "growth_rate": "string %", "insights": ["string"] } },
-  "competitive_landscape": { "competition_intensity": "Élevée/Moyenne/Faible", "competitors_analyzed": [{ "name": "string", "website": "string", "type": "Direct/Indirect/Substitut", "positioning": "string", "pricing_found": "string en €", "strengths": ["string"], "weaknesses": ["string"], "threat_level": "Élevé/Moyen/Faible" }], "competitive_gaps": ["string"], "your_current_position": "string", "differentiation_opportunities": [{ "angle": "string", "feasibility": "Facile/Moyen/Difficile", "impact": "Élevé/Moyen/Faible", "description": "string" }] },
-  "competitive_intelligence": { "deep_competitor_profiles": [{ "name": "string", "positioning": "string", "digital_presence_score": 1-10, "strengths": ["string"], "weaknesses": ["string"], "threat_level": "Élevé/Moyen/Faible" }], "competitive_matrix": { "axes": { "x_axis": "Prix", "y_axis": "Qualité Perçue" }, "positions": [{ "competitor": "string", "x": 1-10, "y": 1-10 }] }, "white_spaces": ["string"] },
-  "customer_insights": { "pain_points_identified": [{ "pain_point": "string", "evidence": "string", "opportunity": "string" }], "unmet_needs": ["string"], "switching_barriers": ["string"], "decision_criteria": ["string par ordre d'importance"] },
-  "positioning_recommendations": { "recommended_positioning": "string", "rationale": "string", "target_audience_primary": "string", "value_proposition": "string", "tagline_suggestions": ["string - 3 options"], "key_messages": ["string"], "messaging_dos": ["string"], "messaging_donts": ["string"], "differentiation_score": { "current": 1-10, "potential": 1-10, "gap_to_close": "string" } },
-  "pricing_strategy": { "current_assessment": "string", "market_benchmarks": { "budget_tier": "string en €", "mid_tier": "string en €", "premium_tier": "string en €" }, "competitor_pricing_table": [{ "competitor": "string", "offer": "string", "price": "string en €" }], "recommended_pricing": [{ "package_name": "string", "suggested_price": "string en €", "what_includes": ["string"], "rationale": "string" }], "quick_wins": ["string"], "upsell_opportunities": ["string"] },
-  "go_to_market": { "priority_channels": [{ "channel": "string", "priority": "1/2/3", "why": "string", "first_action": "string", "expected_cac": "string en €", "expected_timeline": "string" }], "content_strategy": { "topics_to_own": ["string"], "content_gaps": ["string"], "content_formats": ["string"], "thought_leadership_opportunities": ["string"] }, "partnership_opportunities": ["string"] },
-  "action_plan": { "now_7_days": [{ "action": "string commençant par verbe", "owner": "string rôle", "outcome": "string" }], "days_8_30": [{ "action": "string", "owner": "string", "outcome": "string" }], "days_31_90": [{ "action": "string", "owner": "string", "outcome": "string" }], "quick_wins_with_proof": [{ "action": "string", "why_now": "string", "expected_impact": "string chiffré" }] },
-  "financial_projections_basic": { "revenue_range": "string en €", "assumptions": ["string"], "kpi_targets": ["string"] },
-  "multi_location_comparison": { "markets": [{ "market": "string", "key_differences": ["string"], "opportunity_score": "1-10" }], "recommended_market": "string", "rationale": "string" },
-  "risks_and_considerations": { "market_risks": ["string"], "competitive_threats": ["string"], "regulatory_considerations": ["string"] },
-  "assumptions_and_limitations": ["string"],
-  "next_steps_to_validate": ["string"],
-  "sources": [{ "title": "string", "url": "string" }]
-}
-</json_schema>
-
-Génère le rapport PREMIUM complet. Sois EXHAUSTIF et SPÉCIFIQUE. RETOURNE UNIQUEMENT LE JSON.`;
-  }
-
-  // Standard tier
-  return `
-
-<json_schema>
-{
-  "report_metadata": { "title": "string", "generated_date": "YYYY-MM-DD", "business_name": "string", "sector": "string", "location": "string", "tier": "standard", "sources_count": number },
-  "executive_summary": { "headline": "string - accroche impactante max 15 mots", "situation_actuelle": "string", "opportunite_principale": "string", "key_findings": ["string - 3-5 points clés"], "urgency_level": "Critique/Élevé/Modéré", "urgency_rationale": "string" },
-  "market_context": { "sector_overview": "string", "local_market_specifics": "string", "market_maturity": "Émergent/En croissance/Mature/Saturé", "target_segments": [{ "segment_name": "string", "size_estimate": "string", "accessibility": "Facile/Moyen/Difficile", "value_potential": "Élevé/Moyen/Faible", "why_relevant": "string" }], "key_trends_impacting": ["string"] },
-  "competitive_landscape": { "competition_intensity": "Élevée/Moyenne/Faible", "competitors_analyzed": [{ "name": "string", "type": "Direct/Indirect/Substitut", "positioning": "string", "strengths": ["string max 3"], "weaknesses": ["string max 3"], "price_range": "string en €", "differentiation": "string", "threat_level": "Élevé/Moyen/Faible" }], "competitive_gaps": ["string"], "your_current_position": "string", "differentiation_opportunities": [{ "angle": "string", "feasibility": "Facile/Moyen/Difficile", "impact": "Élevé/Moyen/Faible", "description": "string" }] },
-  "positioning_recommendations": { "recommended_positioning": "string", "rationale": "string", "target_audience_primary": "string", "value_proposition": "string", "tagline_suggestions": ["string - 3 options"], "key_messages": ["string"], "messaging_dos": ["string"], "messaging_donts": ["string"] },
-  "pricing_strategy": { "current_assessment": "string", "market_benchmarks": { "budget_tier": "string en €", "mid_tier": "string en €", "premium_tier": "string en €" }, "recommended_pricing": [{ "package_name": "string", "suggested_price": "string en €", "what_includes": ["string"], "rationale": "string" }], "quick_wins": ["string"] },
-  "go_to_market": { "priority_channels": [{ "channel": "string", "priority": "1/2/3", "why": "string", "first_action": "string action concrète", "expected_cac": "string", "expected_timeline": "string" }], "content_strategy": { "topics_to_own": ["string"], "content_formats": ["string"], "distribution_approach": "string" }, "partnership_opportunities": ["string"] },
-  "action_plan": { "now_7_days": [{ "action": "string commençant par verbe d'action", "owner": "string", "outcome": "string résultat attendu" }], "days_8_30": [{ "action": "string", "owner": "string", "outcome": "string" }], "days_31_90": [{ "action": "string", "owner": "string", "outcome": "string" }] },
-  "financial_projections_basic": { "revenue_range": "string en €", "assumptions": ["string"], "kpi_targets": ["string"] },
-  "multi_location_comparison": { "markets": [{ "market": "string", "key_differences": ["string"], "opportunity_score": "1-10" }], "recommended_market": "string", "rationale": "string" },
-  "risks_and_considerations": [{ "risk": "string", "impact": "Élevé/Moyen/Faible", "mitigation": "string" }],
-  "assumptions_and_limitations": ["string"],
-  "next_steps_to_validate": ["string"],
-  "sources": [{ "title": "string", "url": "string" }]
-}
-</json_schema>
-
-Génère le rapport de benchmark complet. Sois SPÉCIFIQUE au secteur et à la localisation. RETOURNE UNIQUEMENT LE JSON.`;
-}
+// getJsonSchema removed - was dead code (175+ lines of JSON schemas).
+// Section-by-section generation uses buildSectionPrompt instead.
 
 // ============================================
 // SECTION GENERATION
 // ============================================
-function estimateMaxTokens(sectionKey: string, tierMaxTokens: number): number {
-  // Large sections that need more room
+function estimateMaxTokens(sectionKey: string, _tierMaxTokens: number): number {
+  // Keep sections COMPACT to avoid bloated JSON and truncation.
+  // 4000 tokens ~= 3000 words of JSON which is MORE than enough for any section.
   const largeSections = new Set([
     'competitive_intelligence', 'strategic_recommendations', 'market_analysis',
-    'financial_projections', 'executive_summary', 'competitive_landscape',
-    'market_overview_detailed', 'customer_intelligence', 'detailed_roadmap',
-    'implementation_roadmap', 'territory_analysis', 'methodology',
+    'financial_projections', 'competitive_landscape', 'market_overview_detailed',
+    'customer_intelligence', 'detailed_roadmap', 'implementation_roadmap',
   ]);
-  // Medium sections
   const mediumSections = new Set([
     'market_context', 'market_intelligence', 'scoring_matrix', 'trends_analysis',
     'swot_analysis', 'positioning_recommendations', 'pricing_strategy',
     'go_to_market', 'action_plan', 'customer_insights', 'multi_market_comparison',
-    'multi_location_comparison', 'risk_register', 'appendices',
+    'multi_location_comparison', 'risk_register', 'appendices', 'territory_analysis',
+    'methodology',
   ]);
 
-  let estimate: number;
-  if (largeSections.has(sectionKey)) {
-    estimate = Math.min(tierMaxTokens, 16000);
-  } else if (mediumSections.has(sectionKey)) {
-    estimate = Math.min(tierMaxTokens, 8000);
-  } else {
-    estimate = Math.min(tierMaxTokens, 4000);
-  }
-
-  return Math.max(3000, estimate);
+  if (largeSections.has(sectionKey)) return 4000;
+  if (mediumSections.has(sectionKey)) return 3000;
+  return 2000;
 }
 
 function buildSectionPrompt(
@@ -824,86 +576,32 @@ function buildSectionPrompt(
   existingSection?: unknown
 ): string {
   const expandNote = existingSection
-    ? `OBJECTIF: ENRICHIR et APPROFONDIR la section existante. Ajouter des détails, des chiffres, des exemples concrets. Ne supprimer aucune information existante.`
-    : `OBJECTIF: Générer la section complète avec un niveau de détail INSTITUTIONNEL.`;
+    ? `ENRICHIR la section existante. Ne rien supprimer.`
+    : `Générer la section complète.`;
 
   const existingJson = existingSection
-    ? `\nSECTION_EXISTANTE_JSON:\n${JSON.stringify({ [section.key]: existingSection })}\n`
+    ? `\nEXISTANT:\n${JSON.stringify({ [section.key]: existingSection }).substring(0, 3000)}\n`
     : "";
 
-  return `
-${reportBrief}
+  return `${reportBrief}
 
-<section_instructions>
-SECTION À PRODUIRE: ${section.label} (clé JSON: "${section.key}")
+<section>
+SECTION: ${section.label} ("${section.key}")
 ${expandNote}
 
-QUALITÉ ATTENDUE:
-- Sois EXHAUSTIF: couvre chaque dimension en profondeur.
-- Sois SPÉCIFIQUE: chaque insight doit être contextualisé au secteur et à la localisation du client.
-- Sois QUANTIFIÉ: fourchettes de prix, pourcentages, scores, ordres de grandeur.
-- Sois HONNÊTE: si une donnée est incertaine, dis-le. "Estimation" ou "non disponible" - jamais inventer.
-- Sois ACTIONNABLE: chaque recommandation = action concrète + résultat attendu.
-
-FORMAT: Retourne UNIQUEMENT un JSON valide avec UNE SEULE clé racine: "${section.key}".
-</section_instructions>
-${existingJson}`.trim();
+RÈGLES JSON CRITIQUES:
+- UNE SEULE clé racine: "${section.key}"
+- Valeurs COURTES: max 1-2 phrases par champ string. Pas de paragraphes.
+- Arrays: max 3-5 éléments. Pas de listes interminables.
+- Si donnée inconnue: "non disponible" (3 mots, pas une explication).
+- SPÉCIFIQUE au secteur et localisation du client. Quantifie (prix, %, scores).
+- AUCUN texte hors JSON. Retourne UNIQUEMENT le JSON.
+</section>${existingJson}`.trim();
 }
 
-async function repairSectionJson(
-  apiKey: string,
-  section: SectionPlanItem,
-  brokenJson: string
-): Promise<unknown> {
-  const systemPrompt = `Tu es un assistant de correction JSON.
-Objectif: retourner un JSON STRICTEMENT VALIDE.
-Contraintes:
-- Retourne UNIQUEMENT du JSON, sans backticks, sans texte.
-- Le JSON DOIT contenir UNE SEULE clé racine: "${section.key}".
-- Si une valeur est inconnue: utilise "non disponible".
-- Conserve au maximum les champs existants.`;
-
-  const truncatedBroken = brokenJson.length > 8000 ? brokenJson.substring(0, 8000) + "\n...(tronqué)" : brokenJson;
-  const userPrompt = `JSON À RÉPARER:\n${truncatedBroken}\n\nRÉPARE ET RETOURNE UNIQUEMENT LE JSON VALIDE.`;
-
-  const repairTokens = Math.max(2000, Math.min(8000, Math.ceil(brokenJson.length / 3)));
-
-  const content = await callGPT52(
-    apiKey,
-    systemPrompt,
-    userPrompt,
-    repairTokens,
-    0.1
-  );
-
-  return safeJsonParse(content);
-}
-
-/**
- * Checks if a JSON string appears truncated (unbalanced braces/brackets).
- */
-function isJsonTruncated(content: string): boolean {
-  const trimmed = content.trim();
-  if (!trimmed) return true;
-  const lastChar = trimmed[trimmed.length - 1];
-  if (lastChar !== '}' && lastChar !== ']') return true;
-  let depth = 0;
-  let inString = false;
-  let escape = false;
-  for (let i = 0; i < trimmed.length; i++) {
-    const ch = trimmed[i];
-    if (inString) {
-      if (escape) { escape = false; continue; }
-      if (ch === '\\') { escape = true; continue; }
-      if (ch === '"') { inString = false; }
-      continue;
-    }
-    if (ch === '"') { inString = true; continue; }
-    if (ch === '{' || ch === '[') depth++;
-    else if (ch === '}' || ch === ']') depth--;
-  }
-  return depth !== 0;
-}
+// repairSectionJson and isJsonTruncated removed - was causing infinite repair
+// loops that consumed massive tokens. json_object mode + compact prompts prevent
+// truncation. On parse failure, we return empty fallback instead of repair loop.
 
 async function generateSection(
   apiKey: string,
