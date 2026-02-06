@@ -15,8 +15,8 @@ export const Hero = () => {
           {/* Feature badges */}
           <div className="opacity-0-initial animate-fade-up flex flex-wrap justify-center gap-3 mb-8">
             <span className="badge-coral">INTELLIGENCE CONCURRENTIELLE</span>
-            <span className="badge-sky">RAPPORT STRATEGIQUE</span>
-            <span className="badge-mint">GENERE PAR IA</span>
+            <span className="badge-sky">RAPPORT STRATÉGIQUE</span>
+            <span className="badge-mint">GÉNÉRÉ PAR IA</span>
           </div>
 
           {/* Headline */}
@@ -28,7 +28,7 @@ export const Hero = () => {
 
           {/* Subheadline */}
           <p className="opacity-0-initial animate-fade-up stagger-2 text-lg sm:text-xl md:text-2xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed font-medium">
-            Analyse concurrentielle, strategie tarifaire et plan d'action&nbsp;&mdash; un rapport de qualite cabinet-conseil, genere par <span className="text-foreground font-bold">IA de pointe</span>.
+            Analyse concurrentielle, stratégie tarifaire et plan d'action&nbsp;&mdash; un rapport de qualité cabinet-conseil, généré par <span className="text-foreground font-bold">IA de pointe</span>.
           </p>
 
           {/* CTAs */}
@@ -36,7 +36,7 @@ export const Hero = () => {
             <Link to="/app/new">
               <Button size="xl" className="w-full sm:w-auto group shadow-2xl hover:scale-105 transition-transform duration-300">
                 <Sparkles className="w-5 h-5 mr-2" />
-                GENERER MON BENCHMARK
+                GÉNÉRER MON BENCHMARK
                 <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
               </Button>
             </Link>
@@ -52,11 +52,11 @@ export const Hero = () => {
           <div className="opacity-0-initial animate-fade-up stagger-4 flex flex-wrap items-center justify-center gap-6 text-sm text-muted-foreground">
             <span className="flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-mint" />
-              A partir de 14,99EUR
+              À partir de 14,99€
             </span>
             <span className="flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-coral" />
-              3 etapes, 3 minutes
+              3 étapes, 3 minutes
             </span>
             <span className="flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-sky" />

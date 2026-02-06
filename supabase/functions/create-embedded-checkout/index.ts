@@ -168,6 +168,8 @@ serve(async (req) => {
 
     if (updateError) {
       console.error("[EmbeddedCheckout] Error updating report:", updateError);
+      // Non-blocking: session was already created, so log but continue
+      // The webhook or verify-payment will handle updating the report
     } else {
       console.log(`[EmbeddedCheckout] Report ${reportId} updated with session ID`);
     }

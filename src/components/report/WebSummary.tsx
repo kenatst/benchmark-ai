@@ -96,7 +96,7 @@ export const WebSummary = ({ outputData, plan, pdfUrl, onDownload, isDownloading
               <div>
                 <h3 className="text-lg font-bold text-foreground">Rapport PDF complet</h3>
                 <p className="text-sm text-muted-foreground">
-                  {wordCount ? `${wordCount.toLocaleString()} mots` : ''} {competitorCount > 0 ? `- ${competitorCount} concurrents analyses` : ''}
+                  {wordCount ? `${wordCount.toLocaleString()} mots` : ''} {competitorCount > 0 ? `- ${competitorCount} concurrents analysés` : ''}
                 </p>
               </div>
             </div>
@@ -107,9 +107,9 @@ export const WebSummary = ({ outputData, plan, pdfUrl, onDownload, isDownloading
               className="gap-2 shadow-lg"
             >
               {isDownloading ? (
-                <><Loader2 className="w-4 h-4 animate-spin" /> Generation...</>
+                <><Loader2 className="w-4 h-4 animate-spin" /> Génération...</>
               ) : (
-                <><Download className="w-4 h-4" /> Telecharger le PDF</>
+                <><Download className="w-4 h-4" /> Télécharger le PDF</>
               )}
             </Button>
           </div>
@@ -122,7 +122,7 @@ export const WebSummary = ({ outputData, plan, pdfUrl, onDownload, isDownloading
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2 text-lg">
               <Sparkles className="w-5 h-5 text-primary" />
-              Resume Executif
+              Résumé Exécutif
             </CardTitle>
             <Badge className={planInfo.color}>{planInfo.label}</Badge>
           </div>
@@ -140,7 +140,7 @@ export const WebSummary = ({ outputData, plan, pdfUrl, onDownload, isDownloading
 
           {keyFindings.length > 0 && (
             <div className="space-y-2">
-              <h4 className="font-semibold text-foreground text-xs uppercase tracking-wide">Points Cles</h4>
+              <h4 className="font-semibold text-foreground text-xs uppercase tracking-wide">Points Clés</h4>
               <ul className="space-y-2">
                 {keyFindings.slice(0, 5).map((finding, i) => (
                   <li key={i} className="flex items-start gap-2 p-2.5 bg-muted/30 rounded-lg">
@@ -154,7 +154,7 @@ export const WebSummary = ({ outputData, plan, pdfUrl, onDownload, isDownloading
 
           {mainOpportunity && !isAgency && (
             <div className="p-3 bg-primary/5 rounded-lg border border-primary/20">
-              <p className="text-xs font-medium text-primary mb-1">Opportunite Principale</p>
+              <p className="text-xs font-medium text-primary mb-1">Opportunité Principale</p>
               <p className="text-sm text-foreground">{mainOpportunity}</p>
             </div>
           )}
@@ -170,7 +170,7 @@ export const WebSummary = ({ outputData, plan, pdfUrl, onDownload, isDownloading
           <KPICard icon={<TrendingUp className="w-4 h-4 text-mint-foreground" />} label="ROI Attendu" value={expectedRoi} color="bg-mint/10" />
         )}
         {marketSize && (
-          <KPICard icon={<BarChart3 className="w-4 h-4 text-sky-foreground" />} label="Taille Marche" value={marketSize} color="bg-sky/10" />
+          <KPICard icon={<BarChart3 className="w-4 h-4 text-sky-foreground" />} label="Taille Marché" value={marketSize} color="bg-sky/10" />
         )}
         {competitorCount > 0 && (
           <KPICard icon={<Users className="w-4 h-4 text-lavender-foreground" />} label="Concurrents" value={String(competitorCount)} color="bg-lavender/10" />
@@ -229,7 +229,7 @@ export const WebSummary = ({ outputData, plan, pdfUrl, onDownload, isDownloading
                   <ScatterChart margin={{ top: 10, right: 30, bottom: 20, left: 10 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                     <XAxis type="number" dataKey="x" domain={[0, 10]} name="Prix" label={{ value: 'Prix →', position: 'bottom', offset: 0, style: { fontSize: 12 } }} tick={{ fontSize: 11 }} />
-                    <YAxis type="number" dataKey="y" domain={[0, 10]} name="Qualite" label={{ value: 'Qualite →', angle: -90, position: 'insideLeft', style: { fontSize: 12 } }} tick={{ fontSize: 11 }} />
+                    <YAxis type="number" dataKey="y" domain={[0, 10]} name="Qualité" label={{ value: 'Qualité →', angle: -90, position: 'insideLeft', style: { fontSize: 12 } }} tick={{ fontSize: 11 }} />
                     <ZAxis range={[200, 400]} />
                     <Tooltip
                       content={({ payload }) => {
@@ -238,7 +238,7 @@ export const WebSummary = ({ outputData, plan, pdfUrl, onDownload, isDownloading
                           return (
                             <div className="bg-card border rounded-lg p-2 shadow-lg text-xs">
                               <p className="font-bold">{d.name}</p>
-                              <p>Prix: {d.x}/10 | Qualite: {d.y}/10</p>
+                              <p>Prix: {d.x}/10 | Qualité: {d.y}/10</p>
                             </div>
                           );
                         }
@@ -320,7 +320,7 @@ export const WebSummary = ({ outputData, plan, pdfUrl, onDownload, isDownloading
       {isAgency && agencyData.market_analysis?.porter_five_forces && (() => {
         const porter = agencyData.market_analysis.porter_five_forces as Record<string, unknown>;
         const radarData = [
-          { subject: 'Rivalite', score: Number((porter.competitive_rivalry as Record<string, unknown>)?.score || 0) },
+          { subject: 'Rivalité', score: Number((porter.competitive_rivalry as Record<string, unknown>)?.score || 0) },
           { subject: 'Fournisseurs', score: Number((porter.supplier_power as Record<string, unknown>)?.score || 0) },
           { subject: 'Acheteurs', score: Number((porter.buyer_power as Record<string, unknown>)?.score || 0) },
           { subject: 'Substituts', score: Number((porter.threat_of_substitution as Record<string, unknown>)?.score || 0) },
@@ -361,9 +361,9 @@ export const WebSummary = ({ outputData, plan, pdfUrl, onDownload, isDownloading
         const optimistic = scenarios.optimistic as Record<string, unknown> | undefined;
         if (!conservative && !baseline && !optimistic) return null;
         const chartData = [
-          { name: 'Annee 1', conservateur: Number(conservative?.year_1 || 0), base: Number(baseline?.year_1 || 0), optimiste: Number(optimistic?.year_1 || 0) },
-          { name: 'Annee 2', conservateur: Number(conservative?.year_2 || 0), base: Number(baseline?.year_2 || 0), optimiste: Number(optimistic?.year_2 || 0) },
-          { name: 'Annee 3', conservateur: Number(conservative?.year_3 || 0), base: Number(baseline?.year_3 || 0), optimiste: Number(optimistic?.year_3 || 0) },
+          { name: 'Année 1', conservateur: Number(conservative?.year_1 || 0), base: Number(baseline?.year_1 || 0), optimiste: Number(optimistic?.year_1 || 0) },
+          { name: 'Année 2', conservateur: Number(conservative?.year_2 || 0), base: Number(baseline?.year_2 || 0), optimiste: Number(optimistic?.year_2 || 0) },
+          { name: 'Année 3', conservateur: Number(conservative?.year_3 || 0), base: Number(baseline?.year_3 || 0), optimiste: Number(optimistic?.year_3 || 0) },
         ];
         if (chartData.every(d => d.conservateur === 0 && d.base === 0 && d.optimiste === 0)) return null;
         const formatEur = (v: number) => v >= 1000000 ? `${(v / 1000000).toFixed(1)}M` : v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v);
@@ -372,7 +372,7 @@ export const WebSummary = ({ outputData, plan, pdfUrl, onDownload, isDownloading
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-lg">
                 <DollarSign className="w-5 h-5 text-mint-foreground" />
-                Projections Financieres (3 Scenarios)
+                Projections Financières (3 Scénarios)
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -455,7 +455,7 @@ export const WebSummary = ({ outputData, plan, pdfUrl, onDownload, isDownloading
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-lg">
               <Target className="w-5 h-5 text-coral-foreground" />
-              Positionnement Recommande
+              Positionnement Recommandé
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -474,7 +474,7 @@ export const WebSummary = ({ outputData, plan, pdfUrl, onDownload, isDownloading
             )}
             {(positioning as Record<string, unknown>).tagline_suggestions && Array.isArray((positioning as Record<string, unknown>).tagline_suggestions) && (
               <div>
-                <p className="text-xs font-medium text-muted-foreground mb-2">Taglines suggerees</p>
+                <p className="text-xs font-medium text-muted-foreground mb-2">Taglines suggérées</p>
                 <div className="flex flex-wrap gap-2">
                   {((positioning as Record<string, unknown>).tagline_suggestions as string[]).slice(0, 3).map((tag, i) => (
                     <span key={i} className="text-xs px-2.5 py-1.5 bg-muted rounded-lg text-foreground italic">"{tag}"</span>
@@ -529,7 +529,7 @@ export const WebSummary = ({ outputData, plan, pdfUrl, onDownload, isDownloading
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-lg">
               <DollarSign className="w-5 h-5 text-mint-foreground" />
-              Strategie Tarifaire
+              Stratégie Tarifaire
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -629,7 +629,7 @@ export const WebSummary = ({ outputData, plan, pdfUrl, onDownload, isDownloading
             <div className="grid grid-cols-2 gap-3">
               <SWOTQuadrant title="Forces" items={swot.strengths || []} color="bg-mint/10 border-mint/20 text-mint-foreground" />
               <SWOTQuadrant title="Faiblesses" items={swot.weaknesses || []} color="bg-destructive/10 border-destructive/20 text-destructive" />
-              <SWOTQuadrant title="Opportunites" items={swot.opportunities || []} color="bg-sky/10 border-sky/20 text-sky-foreground" />
+              <SWOTQuadrant title="Opportunités" items={swot.opportunities || []} color="bg-sky/10 border-sky/20 text-sky-foreground" />
               <SWOTQuadrant title="Menaces" items={swot.threats || []} color="bg-chart-4/10 border-chart-4/20 text-chart-4" />
             </div>
           </CardContent>
@@ -650,7 +650,7 @@ export const WebSummary = ({ outputData, plan, pdfUrl, onDownload, isDownloading
               {risks.slice(0, 4).map((risk, i) => (
                 <div key={i} className="flex items-start gap-3 p-2.5 bg-muted/20 rounded-lg">
                   <Badge variant="outline" className={`text-[10px] flex-shrink-0 ${
-                    risk.impact === 'Eleve' ? 'border-destructive text-destructive' :
+                    (risk.impact === 'Élevé' || risk.impact === 'Eleve') ? 'border-destructive text-destructive' :
                     risk.impact === 'Moyen' ? 'border-chart-4 text-chart-4' : 'border-muted-foreground'
                   }`}>
                     {risk.impact}
@@ -669,7 +669,7 @@ export const WebSummary = ({ outputData, plan, pdfUrl, onDownload, isDownloading
       {/* Bottom CTA */}
       <div className="text-center py-6 border-t border-border">
         <p className="text-muted-foreground text-sm mb-3">
-          Rapport complet avec toutes les sections detaillees
+          Rapport complet avec toutes les sections détaillées
         </p>
         <Button
           size="lg"
@@ -678,9 +678,9 @@ export const WebSummary = ({ outputData, plan, pdfUrl, onDownload, isDownloading
           className="gap-2"
         >
           {isDownloading ? (
-            <><Loader2 className="w-4 h-4 animate-spin" /> Generation...</>
+            <><Loader2 className="w-4 h-4 animate-spin" /> Génération...</>
           ) : (
-            <><Download className="w-4 h-4" /> Telecharger le PDF complet</>
+            <><Download className="w-4 h-4" /> Télécharger le PDF complet</>
           )}
         </Button>
       </div>
