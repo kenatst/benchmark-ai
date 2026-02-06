@@ -92,7 +92,12 @@ serve(async (req) => {
     // Only allow checkout if report is in draft state (hasn't been paid yet)
     if (report.status !== "draft") {
       return new Response(
-        JSON.stringify({ error: `Report has already been paid for (status: ${report.status})` }),
+        JSON.stringify({
+          error: `Report has already been paid for (status: ${report.status})`,
+          alreadyPaid: true,
+          reportId: reportId,
+          reportStatus: report.status,
+        }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
