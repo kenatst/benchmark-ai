@@ -118,7 +118,7 @@ serve(async (req) => {
     }
 
     // Get origin for redirect URLs
-    const origin = req.headers.get("origin") || "https://id-preview--d281c140-859f-42d4-bcb1-1a3462e3cb0f.lovable.app";
+    const origin = req.headers.get("origin") || Deno.env.get("FRONTEND_URL") || "https://benchmarkai.app";
 
     const priceId = PRICE_IDS[plan as keyof typeof PRICE_IDS];
 

@@ -44,7 +44,7 @@ export const WebSummary = ({ outputData, plan, pdfUrl, onDownload, isDownloading
   const marketSize = isAgency ? agencyData.market_analysis?.market_sizing?.total_addressable_market : null;
   const growthRate = isAgency ? agencyData.market_analysis?.market_dynamics?.growth_rate : null;
   const wordCount = outputData?.report_metadata?.word_count;
-  const sourcesCount = outputData?.report_metadata?.sources_count || (outputData as Record<string, unknown>)?.sources && Array.isArray((outputData as Record<string, unknown>).sources) ? ((outputData as Record<string, unknown>).sources as unknown[]).length : 0;
+  const sourcesCount = outputData?.report_metadata?.sources_count ?? 0;
 
   // Competitor data
   const competitors = isAgency

@@ -89,6 +89,7 @@ const PaymentSuccess = () => {
       setError('Une erreur est survenue lors de la vérification');
       setStatus('error');
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, navigate, updateProgress]);
 
   // Trigger report generation
@@ -217,23 +218,17 @@ const PaymentSuccess = () => {
     };
   }, [status, reportId, updateProgress, navigate]);
 
-  // Mark report as abandoned when user leaves the page during generation
+  // Warn user before leaving during generation
   useEffect(() => {
-    const handleBeforeUnload = async () => {
-      // If generating and not ready/failed, mark as abandoned
-      if (reportId && (status === 'generating' || status === 'verified' || status === 'verifying')) {
-        // Use sendBeacon for reliable delivery on page unload
-        const payload = JSON.stringify({ reportId, status: 'abandoned' });
-        navigator.sendBeacon(
-          `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/reports?id=eq.${reportId}`,
-          payload
-        );
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (status === 'generating' || status === 'verified' || status === 'verifying') {
+        e.preventDefault();
       }
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [reportId, status]);
+  }, [status]);
 
   // Cleanup abandoned reports when component unmounts (user navigates away)
   useEffect(() => {
@@ -280,7 +275,7 @@ const PaymentSuccess = () => {
       setError('Erreur lors de la relance');
       setStatus('failed');
     }
-  }, [reportId, updateProgress]);
+  }, [reportId]);
 
   // Initial verification
   useEffect(() => {

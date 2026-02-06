@@ -57,7 +57,7 @@ const Dashboard = () => {
   const handleDelete = async (e: React.MouseEvent, reportId: string) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!confirm('Supprimer ce rapport ?')) return;
+    if (!window.confirm('Supprimer ce rapport ?')) return;
 
     setDeletingId(reportId);
     try {

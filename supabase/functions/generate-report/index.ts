@@ -1069,7 +1069,7 @@ async function callGPT52(
         console.error(`[Analysis] API error ${response.status} (attempt ${attempt}):`, errorText);
 
         if (response.status === 429) {
-          const waitTime = Math.pow(2, attempt - 1) * 60000;
+          const waitTime = Math.pow(2, attempt - 1) * 10000;
           console.log(`[Analysis] Rate limited. Waiting ${waitTime / 1000}s before retry ${attempt}/${maxRetries}...`);
           if (attempt < maxRetries) {
             await new Promise(resolve => setTimeout(resolve, waitTime));

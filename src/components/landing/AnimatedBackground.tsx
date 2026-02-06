@@ -86,7 +86,7 @@ export const AnimatedBackground = () => {
             ctx.stroke();
             break;
 
-          case 'bar':
+          case 'bar': {
             // Bar chart icon
             const barWidth = this.size / 5;
             const heights = [0.6, 1, 0.4, 0.8];
@@ -100,6 +100,7 @@ export const AnimatedBackground = () => {
               );
             });
             break;
+          }
 
           case 'line':
             // Line chart icon
