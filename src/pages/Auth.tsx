@@ -162,7 +162,7 @@ const Auth = () => {
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
             <CardTitle className="text-2xl">
-              {authMode === 'signin' ? 'Content de vous revoir' : 'Créez votre compte'}
+              {authMode === 'signin' ? 'Heureux de vous revoir' : 'Créez votre compte'}
             </CardTitle>
             <CardDescription>
               {authMode === 'signin' 

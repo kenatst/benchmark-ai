@@ -1,17 +1,17 @@
 const features = [
   {
     icon: '🎯',
-    title: "Matching\nintelligent.",
-    description: "Notre algorithme ne se contente pas des mots-clés. Il comprend votre ",
-    highlight: "parcours sémantique",
-    stat: { label: "SCORE DE PRÉCISION", value: "94%" },
+    title: "Benchmark\ninstantané.",
+    description: "Notre IA analyse vos concurrents, leur positionnement, leurs prix et leurs forces en quelques minutes. Résultat : un ",
+    highlight: "rapport stratégique actionnable",
+    stat: { label: "TEMPS DE GÉNÉRATION", value: "<5 min" },
     color: "card-sky",
     iconBg: "bg-card",
   },
   {
     icon: '🔒',
-    title: "Confiance\nTotale.",
-    description: "Zéro tracker. Zéro vente de cookies. Vos dossiers vous appartiennent à 100%.",
+    title: "Données\nfiables.",
+    description: "Zéro hallucination. Chaque chiffre est sourcé, chaque recommandation est quantifiée. Qualité cabinet de conseil, prix accessible.",
     color: "card-peach",
     iconBg: "bg-card",
   },
@@ -23,7 +23,7 @@ export const ProblemSolution = () => {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
           {features.map((feature, index) => (
-            <div 
+            <div
               key={index}
               className={`opacity-0-initial animate-fade-up stagger-${index + 1} rounded-[2.5rem] p-10 border ${feature.color} hover-lift transition-all duration-500`}
             >

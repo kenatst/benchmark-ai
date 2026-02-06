@@ -380,10 +380,10 @@ const PaymentSuccess = () => {
           {(status === 'generating' || status === 'verifying' || status === 'verified') && (
             <div className="bg-chart-4/10 rounded-lg p-4 border border-chart-4/20">
               <p className="text-sm text-chart-4 font-medium mb-2">
-                Temps estime : 2 a 5 minutes
+                Temps estimé : 2 à 5 minutes
               </p>
               <p className="text-xs text-chart-4">
-                Ne fermez pas cette page. Votre rapport est analyse et redige section par section. Vous serez redirige automatiquement.
+                Ne fermez pas cette page. Votre rapport est analysé et rédigé section par section. Vous serez redirigé automatiquement.
               </p>
             </div>
           )}

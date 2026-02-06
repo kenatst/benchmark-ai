@@ -197,7 +197,21 @@ const Settings = () => {
               </div>
 
               <div className="space-y-4">
-                <Button variant="outline" className="w-full justify-start rounded-xl">
+                <Button
+                  variant="outline"
+                  className="w-full justify-start rounded-xl"
+                  onClick={async () => {
+                    if (!user?.email) return;
+                    const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
+                      redirectTo: `${window.location.origin}/auth`,
+                    });
+                    if (error) {
+                      toast.error('Erreur lors de l\'envoi du lien de réinitialisation');
+                    } else {
+                      toast.success('Un lien de réinitialisation a été envoyé à votre email');
+                    }
+                  }}
+                >
                   Changer mon mot de passe
                 </Button>
               </div>

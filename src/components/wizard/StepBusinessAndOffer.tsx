@@ -44,14 +44,14 @@ export const StepBusinessAndOffer = ({ formData, setFormData }: StepBusinessAndO
 
             <div className="space-y-2">
               <Label className="text-sm font-medium">
-                Secteur d'activite <span className="text-destructive">*</span>
+                Secteur d'activité <span className="text-destructive">*</span>
               </Label>
               <Select
                 value={formData.sector}
                 onValueChange={(value) => setFormData(prev => ({ ...prev, sector: value }))}
               >
                 <SelectTrigger className="h-11">
-                  <SelectValue placeholder="Selectionnez un secteur" />
+                  <SelectValue placeholder="Sélectionnez un secteur" />
                 </SelectTrigger>
                 <SelectContent>
                   {SECTORS.map(sector => (
@@ -61,7 +61,7 @@ export const StepBusinessAndOffer = ({ formData, setFormData }: StepBusinessAndO
               </Select>
               {formData.sector === 'Other' && (
                 <Input
-                  placeholder="Precisez votre secteur"
+                  placeholder="Précisez votre secteur"
                   value={formData.sectorDetails}
                   onChange={(e) => setFormData(prev => ({ ...prev, sectorDetails: e.target.value }))}
                   className="mt-2 h-11"
@@ -149,7 +149,7 @@ export const StepBusinessAndOffer = ({ formData, setFormData }: StepBusinessAndO
             </div>
 
             <div className="space-y-2">
-              <Label className="text-sm font-medium">Stade de maturite</Label>
+              <Label className="text-sm font-medium">Stade de maturité</Label>
               <div className="grid grid-cols-2 gap-2">
                 {BUSINESS_MATURITY.map((stage) => (
                   <Button
@@ -199,7 +199,7 @@ export const StepBusinessAndOffer = ({ formData, setFormData }: StepBusinessAndO
             </Label>
             <Textarea
               id="whatYouSell"
-              placeholder="Ex: Service de coaching business pour entrepreneurs SaaS - accompagnement strategique et operationnel sur 3 mois"
+              placeholder="Ex: Service de coaching business pour entrepreneurs SaaS - accompagnement stratégique et opérationnel sur 3 mois"
               value={formData.whatYouSell}
               onChange={(e) => setFormData(prev => ({ ...prev, whatYouSell: e.target.value }))}
               className="min-h-[80px] resize-none"
@@ -232,9 +232,9 @@ export const StepBusinessAndOffer = ({ formData, setFormData }: StepBusinessAndO
               </Label>
               <div className="bg-muted/30 rounded-lg p-4">
                 <div className="flex justify-between items-center mb-3">
-                  <span className="text-lg font-bold text-foreground">{formData.priceRange.min}EUR</span>
-                  <span className="text-muted-foreground text-sm">a</span>
-                  <span className="text-lg font-bold text-foreground">{formData.priceRange.max}EUR</span>
+                  <span className="text-lg font-bold text-foreground">{formData.priceRange.min}€</span>
+                  <span className="text-muted-foreground text-sm">à</span>
+                  <span className="text-lg font-bold text-foreground">{formData.priceRange.max}€</span>
                 </div>
                 <Slider
                   value={[formData.priceRange.min, formData.priceRange.max]}
@@ -252,7 +252,7 @@ export const StepBusinessAndOffer = ({ formData, setFormData }: StepBusinessAndO
             <div className="space-y-3">
               <Label className="text-sm font-medium flex items-center gap-2">
                 <Layers className="w-3.5 h-3.5 text-muted-foreground" />
-                Modele economique
+                Modèle économique
               </Label>
               <div className="grid grid-cols-2 gap-2">
                 {BUSINESS_MODELS.map((model) => (
