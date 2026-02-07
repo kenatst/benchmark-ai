@@ -27,6 +27,8 @@ const PaymentSuccess = () => {
   const maxProgressRef = useRef(0);
   const warnedLongRef = useRef(false);
   const autoRetriedRef = useRef(false);
+  // Ref to track status for cleanup effects (avoids stale closure issues)
+  const statusRef = useRef<PaymentStatus>('verifying');
 
   const sessionId = searchParams.get('session_id');
 
@@ -74,9 +76,7 @@ const PaymentSuccess = () => {
         } else if (data.reportStatus === 'ready') {
           setStatus('ready');
           updateProgress(100);
-          setTimeout(() => {
-            navigate(`/app/reports/${data.reportId}`);
-          }, 2000);
+          // Redirect handled by the dedicated 'ready' useEffect
         } else if (data.reportStatus === 'failed') {
           setStatus('failed');
         }
@@ -111,6 +111,21 @@ const PaymentSuccess = () => {
       // Continue with polling anyway - generation might have been triggered by webhook
     }
   }, [updateProgress]);
+
+  // Keep statusRef in sync so cleanup effects always see current value
+  useEffect(() => {
+    statusRef.current = status;
+  }, [status]);
+
+  // Redirect when report is ready - separate effect to avoid cleanup race condition
+  useEffect(() => {
+    if (status === 'ready' && reportId) {
+      const timer = setTimeout(() => {
+        navigate(`/app/reports/${reportId}`);
+      }, 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [status, reportId, navigate]);
 
   // Polling effect - handle cleanup properly
   useEffect(() => {
@@ -171,14 +186,9 @@ const PaymentSuccess = () => {
 
         if (data?.status === 'ready') {
           clearInterval(interval);
-          setStatus('ready');
+          setStatus('ready'); // This triggers the separate redirect useEffect
           updateProgress(100);
           toast.success('Votre benchmark est prêt !');
-
-          // Redirect after a short delay
-          setTimeout(() => {
-            if (isMounted) navigate(`/app/reports/${reportId}`);
-          }, 2500);
         } else if (data?.status === 'failed') {
           clearInterval(interval);
           setStatus('failed');
@@ -192,7 +202,7 @@ const PaymentSuccess = () => {
         }
 
         // Auto-retry if the backend looks stalled (no DB update for a while).
-        // This fixes the “I waited 30 minutes but nothing changes” case when the generator was killed mid-run.
+        // This fixes the "I waited 30 minutes but nothing changes" case when the generator was killed mid-run.
         if (
           data?.status === 'processing' &&
           typeof data?.updated_at === 'string' &&
@@ -216,7 +226,7 @@ const PaymentSuccess = () => {
       isMounted = false;
       clearInterval(interval);
     };
-  }, [status, reportId, updateProgress, navigate]);
+  }, [status, reportId, updateProgress]);
 
   // Warn user before leaving during generation
   useEffect(() => {
@@ -231,20 +241,23 @@ const PaymentSuccess = () => {
   }, [status]);
 
   // Cleanup abandoned reports when component unmounts (user navigates away)
+  // Uses statusRef to always read the CURRENT status, not a stale closure value
   useEffect(() => {
+    const currentReportId = reportId;
     return () => {
-      if (reportId && (status === 'generating' || status === 'verified' || status === 'verifying')) {
+      const currentStatus = statusRef.current;
+      if (currentReportId && (currentStatus === 'generating' || currentStatus === 'verified' || currentStatus === 'verifying')) {
         // Mark report as abandoned in the database
         supabase
           .from('reports')
           .update({ status: 'abandoned' })
-          .eq('id', reportId)
+          .eq('id', currentReportId)
           .then(({ error }) => {
             if (error) console.error('Failed to mark report as abandoned:', error);
           });
       }
     };
-  }, [reportId, status]);
+  }, [reportId]);
 
   // Handle retry
   const handleRetry = useCallback(async () => {
