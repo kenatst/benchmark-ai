@@ -5,16 +5,16 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 // @ts-ignore - Deno import
 import { z } from "https://esm.sh/zod@3.23.8";
 
-// FORCE REDEPLOY: 2026-02-06 - Fix JSON bloat, reduce max_tokens, remove repair loops, compact prompts
+// FORCE REDEPLOY: 2026-02-07 - Replace Perplexity with GPT-5.2 web_search_preview, fix checkout
 // Import shared constants (eliminates CORS header duplication across 10+ functions)
 // @ts-ignore - Deno import
 import { corsHeaders, getAuthContext } from "../_shared.ts";
 
 // ============================================
-// GPT-5.2 MODEL - SOLE ANALYSIS ENGINE
+// GPT-5.2 MODEL - SOLE ANALYSIS + SEARCH ENGINE
 // ============================================
-// All analysis powered by GPT-5.2 via OpenAI /v1/responses endpoint
-// No external research APIs - GPT-5.2's training data is the knowledge base
+// All analysis + web research powered by GPT-5.2 via OpenAI /v1/responses endpoint
+// Uses built-in web_search_preview tool for live market data (replaces Perplexity)
 
 // ============================================
 // SUPPORTED LANGUAGES FOR REPORT GENERATION
@@ -836,6 +836,188 @@ async function callGPT52(
 }
 
 // ============================================
+// WEB RESEARCH VIA GPT-5.2 web_search_preview
+// ============================================
+// Uses GPT-5.2's built-in web search tool to gather live market data
+// before generating report sections. Same API key, no Perplexity needed.
+
+interface WebResearchResult {
+  summary: string;
+  sources: Array<{ title: string; url: string }>;
+}
+
+async function performWebResearch(
+  apiKey: string,
+  input: ReportInput,
+  plan: TierType,
+  reportId: string,
+): Promise<WebResearchResult> {
+  const lang = input.reportLanguage || 'fr';
+  const langName = LANGUAGE_CONFIG[lang]?.name || 'Français';
+
+  const competitorNames = input.competitors?.map(c => c.name).join(', ') || 'concurrents principaux';
+  const location = [input.location?.city, input.location?.country].filter(Boolean).join(', ') || 'mondial';
+
+  const searchPrompt = `Recherche les données suivantes pour un benchmark concurrentiel.
+Entreprise: ${input.businessName}
+Secteur: ${input.sector}${input.sectorDetails ? ` (${input.sectorDetails})` : ''}
+Localisation: ${location}
+Concurrents: ${competitorNames}
+Prix cible: ${input.priceRange?.min}€ - ${input.priceRange?.max}€
+
+Trouve:
+1. Prix/tarifs publics des concurrents (${competitorNames})
+2. Taille du marché ${input.sector} en ${new Date().getFullYear()}
+3. Tendances clés du secteur
+4. Données de comparaison géographique si pertinent
+
+Réponds en ${langName}. Format JSON avec clé racine "research":
+{
+  "research": {
+    "competitor_pricing": [{"name": "...", "pricing": "...", "source_url": "..."}],
+    "market_size": {"estimate": "...", "source": "...", "source_url": "..."},
+    "trends": ["trend1", "trend2", "trend3"],
+    "geographic_insights": "...",
+    "key_facts": ["fact1", "fact2"]
+  }
+}
+Valeurs COURTES. Si non trouvé: "non disponible".`;
+
+  try {
+    console.log(`[${reportId}] Starting web research via GPT-5.2 web_search_preview...`);
+    const startTime = Date.now();
+
+    const response = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "gpt-5.2",
+        tools: [{ type: "web_search_preview" }],
+        input: [
+          {
+            role: "user",
+            content: searchPrompt,
+          }
+        ],
+        temperature: 0.2,
+        max_output_tokens: 2000,
+        text: { format: { type: "json_object" } },
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.warn(`[${reportId}] Web research API error ${response.status}: ${errorText.substring(0, 200)}`);
+      return { summary: "", sources: [] };
+    }
+
+    const data = await response.json();
+    const duration = Date.now() - startTime;
+    console.log(`[${reportId}] Web research completed in ${duration}ms`);
+
+    // Extract text content from the response
+    const content = extractTextFromResponse(data);
+    if (!content) {
+      console.warn(`[${reportId}] Web research returned empty content`);
+      return { summary: "", sources: [] };
+    }
+
+    // Extract URL citations from the response output
+    const sources: Array<{ title: string; url: string }> = [];
+    const anyData = data as any;
+    if (Array.isArray(anyData.output)) {
+      for (const item of anyData.output) {
+        // web_search_call results contain URLs
+        if (item?.type === 'web_search_call') {
+          continue; // search call itself, skip
+        }
+        // Look for citations in message content
+        if (Array.isArray(item?.content)) {
+          for (const c of item.content) {
+            if (c?.type === 'output_text' && Array.isArray(c?.annotations)) {
+              for (const ann of c.annotations) {
+                if (ann?.type === 'url_citation' && ann?.url) {
+                  sources.push({
+                    title: ann.title || ann.url,
+                    url: ann.url,
+                  });
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Deduplicate sources
+    const uniqueSources = Array.from(
+      new Map(sources.map(s => [s.url, s])).values()
+    );
+
+    console.log(`[${reportId}] Web research: ${content.length} chars, ${uniqueSources.length} sources cited`);
+
+    return {
+      summary: content,
+      sources: uniqueSources,
+    };
+  } catch (err) {
+    console.warn(`[${reportId}] Web research failed (non-blocking):`, err instanceof Error ? err.message : err);
+    return { summary: "", sources: [] };
+  }
+}
+
+function buildResearchBlock(research: WebResearchResult): string {
+  if (!research.summary) return "";
+
+  // Parse the research JSON to build a clean data block
+  try {
+    const parsed = safeJsonParse(research.summary) as any;
+    const r = parsed?.research;
+    if (!r) return `\n<research_data>\n${research.summary.substring(0, 2000)}\n</research_data>`;
+
+    const lines: string[] = [];
+
+    // Competitor pricing
+    if (Array.isArray(r.competitor_pricing) && r.competitor_pricing.length > 0) {
+      lines.push("PRIX CONCURRENTS (données web):");
+      for (const cp of r.competitor_pricing.slice(0, 8)) {
+        lines.push(`  - ${cp.name}: ${cp.pricing}${cp.source_url ? ` [${cp.source_url}]` : ''}`);
+      }
+    }
+
+    // Market size
+    if (r.market_size?.estimate && r.market_size.estimate !== 'non disponible') {
+      lines.push(`TAILLE MARCHÉ: ${r.market_size.estimate}${r.market_size.source ? ` (${r.market_size.source})` : ''}`);
+    }
+
+    // Trends
+    if (Array.isArray(r.trends) && r.trends.length > 0) {
+      lines.push("TENDANCES: " + r.trends.slice(0, 5).join(" | "));
+    }
+
+    // Geographic insights
+    if (r.geographic_insights && r.geographic_insights !== 'non disponible') {
+      lines.push(`GÉO: ${r.geographic_insights}`);
+    }
+
+    // Key facts
+    if (Array.isArray(r.key_facts) && r.key_facts.length > 0) {
+      lines.push("FAITS CLÉS: " + r.key_facts.slice(0, 5).join(" | "));
+    }
+
+    if (lines.length === 0) return "";
+
+    return `\n<research_data>\nDONNÉES WEB (GPT-5.2 web search, ${new Date().toISOString().split('T')[0]}):\n${lines.join("\n")}\n</research_data>`;
+  } catch {
+    // If JSON parsing fails, include raw summary (truncated)
+    return `\n<research_data>\n${research.summary.substring(0, 1500)}\n</research_data>`;
+  }
+}
+
+// ============================================
 // ASYNC GENERATION FUNCTION (runs in background)
 // ============================================
 async function runGenerationAsync(
@@ -874,16 +1056,23 @@ async function runGenerationAsync(
       } as Record<string, unknown>)
       .eq('id', reportId);
 
-    // Step 1: Build report brief (GPT-5.2 uses its own knowledge - no external research)
-    await updateProgress(supabaseAdmin, reportId, "Analyse du brief client...", 10);
-    const reportBrief = buildReportBrief(inputData, plan);
+    // Step 1: Web research via GPT-5.2 built-in web_search_preview
+    await updateProgress(supabaseAdmin, reportId, "Recherche web en cours...", 8);
+    const webResearch = await performWebResearch(GPT52_API_KEY, inputData, plan, reportId);
+    const researchBlock = buildResearchBlock(webResearch);
+
+    // Step 2: Build report brief with research data
+    await updateProgress(supabaseAdmin, reportId, "Analyse du brief client...", 12);
+    const baseBrief = buildReportBrief(inputData, plan);
+    const reportBrief = baseBrief + researchBlock;
     const tierConfig = TIER_CONFIG[plan];
     const sectionSystemPrompt = tierConfig.section_system_prompt(reportLang);
 
-    console.log(`[${reportId}] Brief: ${reportBrief.length} chars`);
+    console.log(`[${reportId}] Brief: ${reportBrief.length} chars (base: ${baseBrief.length}, research: ${researchBlock.length})`);
+    console.log(`[${reportId}] Web research sources: ${webResearch.sources.length}`);
     console.log(`[${reportId}] Section system prompt: ${sectionSystemPrompt.length} chars`);
 
-    // Step 2: Generate sections one by one
+    // Step 3: Generate sections
     await updateProgress(supabaseAdmin, reportId, "Génération des sections...", 15);
     const sections = tierConfig.section_plan as SectionPlanItem[];
     const outputSections: Record<string, unknown> = {};
@@ -939,10 +1128,11 @@ async function runGenerationAsync(
       throw new Error(`All ${sections.length} sections failed to generate. GPT-5.2 API may be unreachable or misconfigured.`);
     }
 
-    // Step 3: Assemble report metadata + normalize sources
+    // Step 4: Assemble report metadata + normalize sources
     const userSources = buildUserSources(inputData);
     const modelSources = normalizeSources(outputSections.sources);
-    const mergedSources = mergeSources(modelSources, userSources);
+    const allSources = [...modelSources, ...webResearch.sources, ...userSources];
+    const mergedSources = mergeSources(allSources, []);
 
     outputSections.sources = mergedSources;
 
@@ -970,7 +1160,7 @@ async function runGenerationAsync(
       outputData = validationResult.data as Record<string, unknown>;
     }
 
-    // Step 4: Update report with output
+    // Step 5: Update report with output
     const { error: updateError } = await supabaseAdmin
       .from("reports")
       .update({
@@ -987,7 +1177,7 @@ async function runGenerationAsync(
     console.log(`[${reportId}] ✅ Report generated successfully`);
     console.log(`[${reportId}] Tier: ${plan} | Word count: ${countWordsInObject(outputSections)} | Sources: ${mergedSources.length}`);
 
-    // Step 5: Generate PDF
+    // Step 6: Generate PDF
     await updateProgress(supabaseAdmin, reportId, "Génération du PDF...", 95);
 
     // @ts-ignore - Deno runtime

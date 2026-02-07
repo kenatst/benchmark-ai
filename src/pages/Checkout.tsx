@@ -42,12 +42,31 @@ const CheckoutPage = () => {
     }
 
     try {
+      // Check report status first - if already paid/ready, redirect to report page
+      const { data: report } = await supabase
+        .from('reports')
+        .select('status')
+        .eq('id', reportId)
+        .single();
+
+      if (report && report.status !== 'draft') {
+        // Report already paid/processing/ready - redirect to report page
+        navigate(`/app/reports/${reportId}`);
+        return;
+      }
+
       const { data, error: fnError } = await supabase.functions.invoke('create-embedded-checkout', {
         body: { plan, reportId }
       });
 
       if (fnError) {
         console.error('Error creating checkout session:', fnError);
+        // Check if the error message indicates already-paid (edge function returns 400)
+        const errMsg = fnError?.message || '';
+        if (errMsg.includes('already been paid') || errMsg.includes('alreadyPaid')) {
+          navigate(`/app/reports/${reportId}`);
+          return;
+        }
         setError('Erreur lors de la création de la session de paiement. Veuillez réessayer.');
         setLoading(false);
         return;
@@ -55,6 +74,13 @@ const CheckoutPage = () => {
 
       if (data?.error) {
         console.error('Checkout error:', data.error);
+
+        // If report was already paid/generated, redirect to the report page
+        if (data.alreadyPaid && data.reportId) {
+          navigate(`/app/reports/${data.reportId}`);
+          return;
+        }
+
         setError(data.error);
         setLoading(false);
         return;
