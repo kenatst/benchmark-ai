@@ -105,115 +105,574 @@ const PDF_SPEC = {
 };
 
 // ============================================
-// SECTION PLANS (by tier) - NO WORD TARGETS
+// SECTION PLANS (by tier) - BENCHMARK-QUALITY STRUCTURE
 // ============================================
+// Based on reference benchmark: 17-page Pro report with tables, scoring matrices,
+// detailed competitor profiles, 30/60/90 roadmap, and budget projections.
 type SectionPlanItem = {
   key: string;
   label: string;
   valueType: 'object' | 'array';
+  jsonHint?: string; // Specific JSON structure hints for each section
 };
 
 const SECTION_PLANS: Record<TierType, SectionPlanItem[]> = {
+  // ===== STANDARD (14.99€): ~8-10 pages PDF, essential benchmark =====
   standard: [
-    { key: "executive_summary", label: "Résumé exécutif", valueType: "object" },
-    { key: "market_context", label: "Contexte marché", valueType: "object" },
-    { key: "competitive_landscape", label: "Analyse concurrentielle", valueType: "object" },
-    { key: "positioning_recommendations", label: "Positionnement & messaging", valueType: "object" },
-    { key: "pricing_strategy", label: "Stratégie pricing", valueType: "object" },
-    { key: "go_to_market", label: "Go-to-market", valueType: "object" },
-    { key: "action_plan", label: "Plan d'action 30/60/90", valueType: "object" },
-    { key: "financial_projections_basic", label: "Projections financières", valueType: "object" },
-    { key: "multi_location_comparison", label: "Comparatif multi-localisations", valueType: "object" },
+    { 
+      key: "executive_summary", 
+      label: "Résumé exécutif", 
+      valueType: "object",
+      jsonHint: `{
+        "headline": "Phrase d'accroche du marché",
+        "contexte_enjeux": "2-3 phrases sur le marché et enjeux",
+        "constats_cles": ["constat1", "constat2", "constat3", "constat4"],
+        "recommandation_principale": "Positionnement recommandé avec ticket moyen cible",
+        "indicateurs_rentabilite": {
+          "investissement_initial": "300 000 - 400 000 €",
+          "ca_annuel_cible": "500 000 - 800 000 €",
+          "marge_brute_cible": "60-65%",
+          "marge_nette_cible": "15-20%",
+          "seuil_rentabilite": "description courte",
+          "roi_estime": "24-36 mois"
+        }
+      }`
+    },
+    { 
+      key: "market_context", 
+      label: "Panorama marché", 
+      valueType: "object",
+      jsonHint: `{
+        "chiffres_cles": [
+          { "indicateur": "CA marché", "valeur": "8,8 milliards €", "source": "EPSIMAS 2024" },
+          { "indicateur": "Croissance 5 ans", "valeur": "+33%", "source": "..." }
+        ],
+        "structure_concurrentielle": "Texte sur leaders et parts de marché",
+        "segmentation": [
+          { "segment": "Fast-food", "prix_moyen": "5,70€", "marge_brute": "45-55%", "exemples": "McDonald's, BK" }
+        ]
+      }`
+    },
+    { 
+      key: "competitive_landscape", 
+      label: "Analyse concurrentielle", 
+      valueType: "object",
+      jsonHint: `{
+        "competitors": [
+          {
+            "name": "Concurrent 1",
+            "positionnement": "Description positionnement",
+            "points_forts": ["atout1", "atout2"],
+            "faiblesses": ["faiblesse1"],
+            "prix": "Fourchette prix",
+            "score_global": 8.2
+          }
+        ],
+        "opportunites_identifiees": ["opportunité1", "opportunité2"]
+      }`
+    },
+    { 
+      key: "positioning_recommendations", 
+      label: "Positionnement recommandé", 
+      valueType: "object",
+      jsonHint: `{
+        "option_recommandee": {
+          "nom": "Option A - Description courte",
+          "description": "Détail du positionnement",
+          "ticket_moyen_cible": "15-18€",
+          "differenciateurs": ["diff1", "diff2"]
+        },
+        "taglines_suggerees": ["tagline1", "tagline2"],
+        "emplacement_recommande": "Description zone géographique prioritaire"
+      }`
+    },
+    { 
+      key: "pricing_strategy", 
+      label: "Stratégie tarifaire", 
+      valueType: "object",
+      jsonHint: `{
+        "prix_psychologique_marche": "9,32€ max accepté",
+        "positionnement_prix_recommande": "Description",
+        "grille_tarifaire_suggeree": [
+          { "produit": "Produit phare", "prix_suggere": "12-15€", "marge_estimee": "60%" }
+        ],
+        "modele_economique": {
+          "food_cost_cible": "25-30%",
+          "charges_personnel": "30-35%",
+          "loyer_charges": "8-12%",
+          "coefficient_multiplicateur": "x4 plats, x5-7 boissons"
+        }
+      }`
+    },
+    { 
+      key: "action_plan", 
+      label: "Plan d'action 30/60/90", 
+      valueType: "object",
+      jsonHint: `{
+        "j1_j30": {
+          "titre": "Validation et préparation",
+          "actions": ["action1", "action2", "action3"],
+          "kpi": "KPI de fin de phase"
+        },
+        "j31_j60": {
+          "titre": "Installation",
+          "actions": ["action1", "action2"],
+          "kpi": "KPI de fin de phase"
+        },
+        "j61_j90": {
+          "titre": "Lancement",
+          "actions": ["action1", "action2"],
+          "kpi": "KPI de fin de phase"
+        }
+      }`
+    },
     { key: "risks_and_considerations", label: "Risques & considérations", valueType: "object" },
     { key: "assumptions_and_limitations", label: "Hypothèses & limites", valueType: "array" },
     { key: "next_steps_to_validate", label: "Prochaines validations", valueType: "array" },
     { key: "sources", label: "Sources", valueType: "array" },
   ],
+
+  // ===== PRO (34.99€): ~15-18 pages PDF, full benchmark like reference doc =====
   pro: [
-    { key: "executive_summary", label: "Résumé exécutif", valueType: "object" },
-    { key: "market_context", label: "Contexte marché", valueType: "object" },
-    { key: "market_intelligence", label: "Market intelligence", valueType: "object" },
-    { key: "competitive_landscape", label: "Analyse concurrentielle", valueType: "object" },
-    { key: "competitive_intelligence", label: "Competitive intelligence", valueType: "object" },
-    { key: "customer_insights", label: "Customer insights", valueType: "object" },
-    { key: "positioning_recommendations", label: "Positionnement & messaging", valueType: "object" },
-    { key: "pricing_strategy", label: "Stratégie pricing", valueType: "object" },
-    { key: "go_to_market", label: "Go-to-market", valueType: "object" },
-    { key: "action_plan", label: "Plan d'action", valueType: "object" },
-    { key: "financial_projections_basic", label: "Projections financières", valueType: "object" },
-    { key: "multi_location_comparison", label: "Comparatif multi-localisations", valueType: "object" },
-    { key: "risks_and_considerations", label: "Risques & considérations", valueType: "object" },
-    { key: "assumptions_and_limitations", label: "Hypothèses & limites", valueType: "array" },
-    { key: "next_steps_to_validate", label: "Prochaines validations", valueType: "array" },
+    { 
+      key: "executive_summary", 
+      label: "1. Executive Summary", 
+      valueType: "object",
+      jsonHint: `{
+        "contexte_enjeux": "Paragraphe sur le marché et enjeux clés",
+        "constats_cles": [
+          "Marché en phase de maturité : croissance ralentie, concurrence intense",
+          "Prix psychologique en baisse : les consommateurs acceptent max X€",
+          "Segment premium en croissance : ticket moyen X€ vs Y€ en fast-food",
+          "Tendances fortes : liste des tendances clés"
+        ],
+        "recommandation_principale": "Positionnement recommandé avec détails (différenciation, ticket moyen cible, emplacement)",
+        "indicateurs_rentabilite": [
+          { "indicateur": "Investissement initial", "valeur_cible": "300 000 - 400 000 €" },
+          { "indicateur": "CA annuel (année 2)", "valeur_cible": "500 000 - 800 000 €" },
+          { "indicateur": "Marge brute cible", "valeur_cible": "60-65%" },
+          { "indicateur": "Marge nette cible", "valeur_cible": "15-20%" },
+          { "indicateur": "Seuil de rentabilité", "valeur_cible": "X unités/jour minimum" },
+          { "indicateur": "ROI estimé", "valeur_cible": "24-36 mois" }
+        ]
+      }`
+    },
+    { 
+      key: "methodology", 
+      label: "2. Méthodologie", 
+      valueType: "object",
+      jsonHint: `{
+        "perimetre_etude": {
+          "zone_geographique": "Zone primaire (détail), zone secondaire, contexte national",
+          "periode": "Données 2024-2026",
+          "segments_analyses": ["segment1", "segment2"]
+        },
+        "sources_mobilisees": {
+          "sources_primaires": ["INSEE", "Études sectorielles officielles"],
+          "sources_secondaires": ["Plateformes avis", "Observatoires"]
+        },
+        "grille_evaluation": [
+          { "dimension": "Qualité produit", "ponderation_standard": "30%", "ponderation_equilibree": "25%", "ponderation_performance": "20%" }
+        ],
+        "limites_biais": ["Biais de survie", "Variabilité des sources", "Données locales limitées"]
+      }`
+    },
+    { 
+      key: "market_overview", 
+      label: "3. Panorama du marché", 
+      valueType: "object",
+      jsonHint: `{
+        "chiffres_cles": [
+          { "indicateur": "CA marché (segment)", "valeur": "X milliards €", "annee": "2024", "source": "..." },
+          { "indicateur": "Part de marché", "valeur": "> X%", "source": "..." },
+          { "indicateur": "Croissance 5 ans", "valeur": "+X%", "source": "..." },
+          { "indicateur": "Consommation annuelle", "valeur": "X unités", "source": "..." },
+          { "indicateur": "Prix psychologique max", "valeur": "X€", "source": "..." },
+          { "indicateur": "Ticket moyen segment", "valeur": "X€", "source": "..." }
+        ],
+        "structure_concurrentielle": "Description des leaders et parts de marché",
+        "segmentation_marche": [
+          { "segment": "Nom segment", "prix_moyen": "X€", "marge_brute": "X-Y%", "exemples": "..." }
+        ]
+      }`
+    },
+    { 
+      key: "territory_analysis", 
+      label: "4. Analyse du territoire", 
+      valueType: "object",
+      jsonHint: `{
+        "donnees_demographiques": [
+          { "indicateur": "Population", "valeur": "X habitants", "source": "INSEE" },
+          { "indicateur": "Rang/classement", "valeur": "...", "source": "..." },
+          { "indicateur": "Revenu médian", "valeur": "X€/an", "source": "..." },
+          { "indicateur": "Profil population", "valeur": "ratio cadres/employés, ménages", "source": "..." }
+        ],
+        "immobilier_commercial": [
+          { "indicateur": "Loyer moyen", "valeur": "X€/m²/an" },
+          { "indicateur": "Fourchette loyers", "valeur": "X - Y €/m²/an" },
+          { "indicateur": "Prix achat murs", "valeur": "X€/m²" }
+        ],
+        "poles_commerciaux": [
+          { "nom": "Zone 1", "caracteristiques": "fort flux, loyers X", "opportunite": "..." }
+        ],
+        "concurrence_locale": ["Concurrent local 1 (note X)", "Concurrent local 2"]
+      }`
+    },
+    { 
+      key: "competitive_intelligence", 
+      label: "5. Benchmark concurrentiel détaillé", 
+      valueType: "object",
+      jsonHint: `{
+        "enseignes_reference": [
+          {
+            "name": "Concurrent 1",
+            "positionnement": "Description du positionnement",
+            "points_forts": ["atout1", "atout2", "atout3"],
+            "prix": "Fourchette X-Y€, formule Z€",
+            "faiblesses": ["faiblesse1"],
+            "reseau": "X restaurants, CA X€"
+          }
+        ],
+        "enseignes_specialisees": [
+          {
+            "name": "Concurrent spécialisé",
+            "positionnement": "...",
+            "points_forts": ["..."],
+            "prix": "...",
+            "investissement_franchise": "X€ si applicable"
+          }
+        ]
+      }`
+    },
+    { 
+      key: "scoring_matrix", 
+      label: "6. Matrice comparative et scoring", 
+      valueType: "object",
+      jsonHint: `{
+        "matrice_multicriteres": [
+          {
+            "critere": "Qualité produit",
+            "scores": { "concurrent1": 9, "concurrent2": 8, "concurrent3": 7 }
+          }
+        ],
+        "scores_moyens": { "concurrent1": 8.2, "concurrent2": 7.5 },
+        "analyse_sensibilite": {
+          "modele_conservateur": ["1er: X", "2ème: Y"],
+          "modele_equilibre": ["1er: X", "2ème: Y"],
+          "modele_performance": ["1er: X", "2ème: Y"]
+        },
+        "interpretation": "Texte d'analyse des scores",
+        "opportunites_marche_local": ["Niche 1 non couverte", "Segment 2 sous-représenté"]
+      }`
+    },
+    { 
+      key: "trends_analysis", 
+      label: "7. Analyse des tendances", 
+      valueType: "object",
+      jsonHint: `{
+        "tendances_produit": ["tendance1 avec données", "tendance2"],
+        "tendances_service": ["livraison: projection X%", "digitalisation"],
+        "tendances_consommateur": ["prix psychologique en baisse", "génération Z préfère..."],
+        "tendances_a_surveiller": ["tendance émergente 1", "tendance 2"]
+      }`
+    },
+    { 
+      key: "strategic_recommendations", 
+      label: "8. Recommandations stratégiques", 
+      valueType: "object",
+      jsonHint: `{
+        "options_positionnement": [
+          {
+            "option": "A",
+            "nom": "Option conservatrice",
+            "description": "Détail du concept",
+            "differenciateurs": ["diff1", "diff2"],
+            "ticket_moyen": "15-18€"
+          },
+          {
+            "option": "B",
+            "nom": "Option équilibrée",
+            "description": "...",
+            "ticket_moyen": "13-16€"
+          },
+          {
+            "option": "C",
+            "nom": "Option ambitieuse",
+            "description": "...",
+            "ticket_moyen": "12-15€"
+          }
+        ],
+        "emplacement_recommande": {
+          "priorite_1": { "zone": "Zone 1", "caracteristiques": "...", "loyers": "X€/m²" },
+          "priorite_2": { "zone": "Zone 2", "caracteristiques": "..." },
+          "surface_recommandee": "X-Y m²",
+          "budget_loyer_cible": "X-Y€/mois"
+        },
+        "modele_economique_cible": [
+          { "poste": "Coût matières", "objectif": "25-30%" },
+          { "poste": "Charges personnel", "objectif": "30-35%" },
+          { "poste": "Loyer + charges", "objectif": "8-12%" },
+          { "poste": "Marge brute", "objectif": "60-65%" },
+          { "poste": "Marge nette", "objectif": "15-20%" }
+        ],
+        "points_attention": ["Point critique 1", "Point critique 2"]
+      }`
+    },
+    { 
+      key: "roadmap", 
+      label: "9. Roadmap de mise en œuvre", 
+      valueType: "object",
+      jsonHint: `{
+        "plan_30_60_90": {
+          "j1_j30": {
+            "titre": "Validation et préparation",
+            "actions": ["Finalisation concept", "Recherche local (visiter X emplacements)", "Montage financier"],
+            "kpi": "local identifié, financement validé"
+          },
+          "j31_j60": {
+            "titre": "Installation",
+            "actions": ["Signature bail", "Travaux (prévoir X mois)", "Recrutement équipe"],
+            "kpi": "travaux lancés, équipe recrutée"
+          },
+          "j61_j90": {
+            "titre": "Lancement",
+            "actions": ["Tests et formation", "Communication pré-ouverture", "Soft opening"],
+            "kpi": "ouverture réalisée, premiers retours"
+          }
+        },
+        "kpi_suivi_annee1": [
+          { "indicateur": "CA mensuel", "objectif_m6": "X€", "objectif_m12": "Y€" },
+          { "indicateur": "Couverts/jour", "objectif_m6": "X", "objectif_m12": "Y" },
+          { "indicateur": "Ticket moyen", "objectif_m6": "X€", "objectif_m12": "Y€" }
+        ],
+        "budget_previsionnel": [
+          { "poste": "Droit au bail", "montant": "50 000 - 150 000 €" },
+          { "poste": "Travaux", "montant": "80 000 - 150 000 €" },
+          { "poste": "Équipements", "montant": "40 000 - 70 000 €" },
+          { "poste": "TOTAL", "montant": "230 000 - 485 000 €" }
+        ],
+        "apport_recommande": "30% minimum du total"
+      }`
+    },
+    { 
+      key: "appendices", 
+      label: "10. Annexes", 
+      valueType: "object",
+      jsonHint: `{
+        "glossaire": [
+          { "terme": "Food cost", "definition": "Coût matières premières / prix de vente" }
+        ],
+        "sources_bibliographie": {
+          "donnees_marche": ["Source 1", "Source 2"],
+          "donnees_territoriales": ["INSEE", "..."],
+          "sources_sectorielles": ["..."]
+        },
+        "assumptions_log": ["Hypothèse 1 (les tendances nationales sont applicables)", "Hypothèse 2"],
+        "incertitudes": ["Ce que nous ne savons pas 1", "Ce que nous ne savons pas 2"],
+        "plan_reduction_incertitude": ["Action 1 (visite terrain)", "Action 2 (veille concurrentielle)"]
+      }`
+    },
     { key: "sources", label: "Sources", valueType: "array" },
   ],
+
+  // ===== AGENCY (69.99€): ~25-30 pages PDF, institutional-grade report =====
   agency: [
-    { key: "executive_summary", label: "Résumé exécutif", valueType: "object" },
-    { key: "methodology", label: "Méthodologie", valueType: "object" },
-    { key: "market_overview_detailed", label: "Panorama marché détaillé", valueType: "object" },
-    { key: "territory_analysis", label: "Analyse territoriale", valueType: "object" },
-    { key: "market_analysis", label: "Analyse marché (PESTEL/Porter)", valueType: "object" },
-    { key: "competitive_intelligence", label: "Benchmark concurrentiel", valueType: "object" },
-    { key: "scoring_matrix", label: "Matrice de scoring", valueType: "object" },
-    { key: "trends_analysis", label: "Tendances", valueType: "object" },
-    { key: "swot_analysis", label: "SWOT", valueType: "object" },
-    { key: "customer_intelligence", label: "Customer intelligence", valueType: "object" },
-    { key: "strategic_recommendations", label: "Stratégie complète", valueType: "object" },
-    { key: "financial_projections", label: "Projections financières", valueType: "object" },
-    { key: "detailed_roadmap", label: "Roadmap détaillée", valueType: "object" },
-    { key: "implementation_roadmap", label: "Implementation roadmap", valueType: "object" },
-    { key: "risk_register", label: "Risk register", valueType: "array" },
-    { key: "appendices", label: "Annexes", valueType: "object" },
-    { key: "multi_market_comparison", label: "Comparatif multi-marchés", valueType: "object" },
+    { 
+      key: "executive_summary", 
+      label: "1. Executive Summary", 
+      valueType: "object",
+      jsonHint: `{
+        "contexte_enjeux": "Paragraphe institutionnel sur le marché et enjeux",
+        "constats_cles": ["5-7 constats clés quantifiés"],
+        "recommandation_principale": "Positionnement détaillé avec justification",
+        "indicateurs_rentabilite": [
+          { "indicateur": "...", "valeur_cible": "...", "hypotheses": "..." }
+        ],
+        "facteurs_critiques_succes": ["FCS 1", "FCS 2", "FCS 3"]
+      }`
+    },
+    { key: "methodology", label: "2. Méthodologie", valueType: "object" },
+    { key: "market_overview_detailed", label: "3. Panorama marché détaillé", valueType: "object" },
+    { key: "territory_analysis", label: "4. Analyse territoriale micro-locale", valueType: "object" },
+    { 
+      key: "market_analysis", 
+      label: "5. Analyse stratégique (PESTEL/Porter)", 
+      valueType: "object",
+      jsonHint: `{
+        "pestel": {
+          "politique": "...",
+          "economique": "...",
+          "social": "...",
+          "technologique": "...",
+          "environnemental": "...",
+          "legal": "..."
+        },
+        "porter_5_forces": {
+          "rivalite_concurrentielle": { "intensite": "Élevée", "score": 8, "details": "..." },
+          "pouvoir_fournisseurs": { "intensite": "Moyenne", "score": 5, "details": "..." },
+          "pouvoir_clients": { "intensite": "...", "score": 7, "details": "..." },
+          "menace_substituts": { "intensite": "...", "score": 6, "details": "..." },
+          "menace_nouveaux_entrants": { "intensite": "...", "score": 5, "details": "..." }
+        }
+      }`
+    },
+    { key: "competitive_intelligence", label: "6. Benchmark concurrentiel exhaustif", valueType: "object" },
+    { 
+      key: "scoring_matrix", 
+      label: "7. Matrice de scoring avec sensibilité", 
+      valueType: "object",
+      jsonHint: `{
+        "matrice_multicriteres": [...],
+        "analyse_sensibilite": {
+          "scenario_conservateur": {...},
+          "scenario_equilibre": {...},
+          "scenario_agressif": {...}
+        },
+        "interpretation_strategique": "..."
+      }`
+    },
+    { key: "trends_analysis", label: "8. Tendances sectorielles", valueType: "object" },
+    { 
+      key: "swot_analysis", 
+      label: "9. Analyse SWOT", 
+      valueType: "object",
+      jsonHint: `{
+        "forces": ["force1", "force2"],
+        "faiblesses": ["faiblesse1", "faiblesse2"],
+        "opportunites": ["opportunite1", "opportunite2"],
+        "menaces": ["menace1", "menace2"],
+        "strategies_so": ["Stratégie exploitant Forces + Opportunités"],
+        "strategies_wo": ["Stratégie minimisant Faiblesses via Opportunités"],
+        "strategies_st": ["Stratégie utilisant Forces contre Menaces"],
+        "strategies_wt": ["Stratégie défensive Faiblesses + Menaces"]
+      }`
+    },
+    { key: "customer_intelligence", label: "10. Intelligence client", valueType: "object" },
+    { key: "strategic_recommendations", label: "11. Recommandations stratégiques", valueType: "object" },
+    { 
+      key: "financial_projections", 
+      label: "12. Projections financières 3 ans", 
+      valueType: "object",
+      jsonHint: `{
+        "hypotheses_cles": ["hypothèse1", "hypothèse2"],
+        "compte_resultat_previsionnel": {
+          "annee_1": { "ca": "X€", "marge_brute": "X%", "resultat_net": "X€" },
+          "annee_2": { "ca": "X€", "marge_brute": "X%", "resultat_net": "X€" },
+          "annee_3": { "ca": "X€", "marge_brute": "X%", "resultat_net": "X€" }
+        },
+        "scenarios": {
+          "pessimiste": { "ca_annee_2": "X€", "hypothese": "..." },
+          "realiste": { "ca_annee_2": "X€", "hypothese": "..." },
+          "optimiste": { "ca_annee_2": "X€", "hypothese": "..." }
+        },
+        "unit_economics": {
+          "cout_acquisition_client": "X€",
+          "valeur_vie_client": "X€",
+          "ratio_ltv_cac": "X:1"
+        },
+        "seuil_rentabilite": { "unites_jour": "X", "ca_mensuel": "X€" }
+      }`
+    },
+    { key: "detailed_roadmap", label: "13. Roadmap détaillée 12 mois", valueType: "object" },
+    { 
+      key: "risk_register", 
+      label: "14. Registre des risques", 
+      valueType: "array",
+      jsonHint: `[
+        {
+          "id": "R1",
+          "risque": "Description du risque",
+          "probabilite": "Élevée/Moyenne/Faible",
+          "impact": "Élevé/Moyen/Faible",
+          "score": 8,
+          "mitigation": "Plan d'atténuation",
+          "responsable": "Rôle responsable"
+        }
+      ]`
+    },
+    { key: "appendices", label: "15. Annexes", valueType: "object" },
     { key: "assumptions_and_limitations", label: "Hypothèses & limites", valueType: "array" },
     { key: "sources", label: "Sources", valueType: "array" },
   ],
 };
 
 // ============================================
-// TIER CONFIGURATION - QUALITY-FIRST
+// TIER CONFIGURATION - BENCHMARK-QUALITY PROMPTS
 // ============================================
 const TIER_CONFIG = {
   standard: {
     max_tokens: 4000,
     temperature: 0.3,
     section_plan: SECTION_PLANS.standard,
-    section_system_prompt: (lang: string) => `Consultant stratégique senior. Langue: ${LANGUAGE_CONFIG[lang]?.name || 'Français'}.
-Produis UNE section de benchmark concurrentiel en JSON valide.
-Règles: spécifique au secteur/localisation, quantifié, actionnable, concis.
-Donnée inconnue = "non disponible". Jamais inventer. JSON UNIQUEMENT.`,
-    system_prompt: (lang: string) => `Consultant stratégique senior. Langue: ${LANGUAGE_CONFIG[lang]?.name || 'Français'}.
-Benchmark concurrentiel de calibre professionnel. Spécifique, quantifié, actionnable.
-Phrases courtes. Données incertaines = "estimation". Inconnues = "non disponible".
-JSON VALIDE UNIQUEMENT.`,
+    section_system_prompt: (lang: string) => `Tu es un consultant stratégique senior. Langue: ${LANGUAGE_CONFIG[lang]?.name || 'Français'}.
+
+MISSION: Produire UNE section de benchmark concurrentiel en JSON valide, de qualité professionnelle.
+
+RÈGLES CRITIQUES:
+1. SPÉCIFIQUE au secteur et localisation du client - pas de généralités
+2. QUANTIFIÉ: prix en €, pourcentages, scores /10, délais
+3. ACTIONNABLE: chaque insight doit mener à une décision
+4. Donnée inconnue = "non disponible" (3 mots max)
+5. Format: tableaux de données structurées quand pertinent
+
+STRUCTURE JSON: Respecte exactement le hint de structure fourni.
+RETOURNE UNIQUEMENT LE JSON, aucun texte avant/après.`,
+    system_prompt: (lang: string) => `Consultant stratégique senior. Benchmark concurrentiel professionnel.
+Langue: ${LANGUAGE_CONFIG[lang]?.name || 'Français'}. JSON VALIDE UNIQUEMENT.`,
   },
 
   pro: {
-    max_tokens: 4000,
+    max_tokens: 5000,
     temperature: 0.25,
     section_plan: SECTION_PLANS.pro,
-    section_system_prompt: (lang: string) => `Consultant stratégique tier-1. Langue: ${LANGUAGE_CONFIG[lang]?.name || 'Français'}.
-Produis UNE section d'intelligence compétitive premium en JSON valide.
-Règles: profils concurrents détaillés, scoring 1-10, white spaces, quantifié.
-Donnée inconnue = "non disponible". Jamais inventer. JSON UNIQUEMENT.`,
-    system_prompt: (lang: string) => `Consultant stratégique tier-1. Langue: ${LANGUAGE_CONFIG[lang]?.name || 'Français'}.
-Rapport d'intelligence compétitive premium. Profils détaillés, scoring, white spaces.
-Quantifié, factuel, actionnable. Inconnues = "non disponible".
-JSON VALIDE UNIQUEMENT.`,
+    section_system_prompt: (lang: string) => `Tu es un consultant stratégique tier-1 (McKinsey/BCG level). Langue: ${LANGUAGE_CONFIG[lang]?.name || 'Français'}.
+
+MISSION: Produire UNE section d'un rapport d'intelligence compétitive premium (~15-18 pages total), avec la qualité d'un cabinet de conseil.
+
+EXIGENCES BENCHMARK RÉFÉRENCE:
+1. TABLEAUX DE DONNÉES: Chiffres clés, scoring matrices, budgets prévisionnels
+2. PROFILS CONCURRENTS DÉTAILLÉS: Positionnement, forces, faiblesses, prix, réseau
+3. MATRICE DE SCORING: Notes /10 par critère, analyse de sensibilité 3 scénarios
+4. DONNÉES TERRITORIALES: Population, revenus, immobilier commercial, pôles
+5. ROADMAP 30/60/90: Actions concrètes avec KPIs de fin de phase
+6. BUDGET PRÉVISIONNEL: Postes détaillés avec fourchettes €
+
+RÈGLES JSON:
+- Respecte EXACTEMENT la structure hint fournie
+- Tableaux = arrays d'objets avec clés cohérentes
+- Scores /10, prix en €, pourcentages, sources citées
+- Donnée inconnue = "non disponible"
+
+RETOURNE UNIQUEMENT LE JSON VALIDE.`,
+    system_prompt: (lang: string) => `Consultant tier-1 McKinsey/BCG. Rapport premium 15-18 pages.
+Langue: ${LANGUAGE_CONFIG[lang]?.name || 'Français'}. JSON VALIDE UNIQUEMENT.`,
   },
 
   agency: {
-    max_tokens: 5000,
+    max_tokens: 6000,
     temperature: 0.2,
     section_plan: SECTION_PLANS.agency,
-    section_system_prompt: (lang: string) => `Senior Partner conseil stratégique. Langue: ${LANGUAGE_CONFIG[lang]?.name || 'Français'}.
-Produis UNE section d'un rapport institutionnel en JSON valide.
-Règles: PESTEL/Porter/SWOT si pertinent, scoring 1-10, 3 scénarios financiers, micro-local.
-Valeurs courtes (1-2 phrases max). Inconnues = "non disponible". JSON UNIQUEMENT.`,
-    system_prompt: (lang: string) => `Senior Partner conseil stratégique. Langue: ${LANGUAGE_CONFIG[lang]?.name || 'Français'}.
-Rapport d'intelligence stratégique institutionnel. Frameworks (Porter, PESTEL, SWOT).
-Scoring, scénarios, unit economics, roadmap. Quantifié, rigoureux.
-Inconnues = "non disponible". JSON VALIDE UNIQUEMENT.`,
+    section_system_prompt: (lang: string) => `Tu es un Senior Partner de cabinet de conseil stratégique (McKinsey/BCG/Bain). Langue: ${LANGUAGE_CONFIG[lang]?.name || 'Français'}.
+
+MISSION: Produire UNE section d'un rapport institutionnel (~25-30 pages total), destiné à des investisseurs ou comités de direction.
+
+STANDARDS INSTITUTIONNELS:
+1. FRAMEWORKS STRATÉGIQUES: PESTEL complet, Porter 5 forces avec scores, SWOT avec stratégies croisées
+2. ANALYSE MICRO-LOCALE: Données territoire au niveau quartier, flux piétons, loyers par zone
+3. SCORING MATRICIEL: Multi-critères avec 3 pondérations (conservateur/équilibré/performance)
+4. PROJECTIONS FINANCIÈRES 3 ANS: P&L prévisionnel, 3 scénarios, unit economics, seuil rentabilité
+5. REGISTRE DES RISQUES: ID, description, probabilité/impact, score, plan mitigation
+6. SOURCES PRIMAIRES: Citations avec URLs, données officielles (INSEE, études sectorielles)
+
+EXIGENCES DE RIGUEUR:
+- Répondre systématiquement à "So what?" et "Now what?" pour chaque insight
+- Quantifier: €, %, scores /10, délais, ratios
+- Citer les sources pour chaque fait majeur
+- Distinguer "estimation" vs "donnée vérifiée"
+
+RETOURNE UNIQUEMENT LE JSON VALIDE, structure exacte du hint.`,
+    system_prompt: (lang: string) => `Senior Partner conseil stratégique. Rapport institutionnel 25-30 pages.
+Langue: ${LANGUAGE_CONFIG[lang]?.name || 'Français'}. JSON VALIDE UNIQUEMENT.`,
   },
 } as const;
 
@@ -547,27 +1006,32 @@ ${constraintLines.join("\n")}
 // Section-by-section generation uses buildSectionPrompt instead.
 
 // ============================================
-// SECTION GENERATION
+// SECTION GENERATION - BENCHMARK-QUALITY
 // ============================================
-function estimateMaxTokens(sectionKey: string, _tierMaxTokens: number): number {
-  // Keep sections COMPACT to avoid bloated JSON and truncation.
-  // 4000 tokens ~= 3000 words of JSON which is MORE than enough for any section.
+function estimateMaxTokens(sectionKey: string, tierMaxTokens: number): number {
+  // Token budgets calibrated for benchmark-quality output:
+  // - Large sections: detailed competitor profiles, financial projections, roadmaps
+  // - Medium sections: market overview, scoring matrices, territory analysis
+  // - Small sections: executive summary, sources, assumptions
+  
   const largeSections = new Set([
     'competitive_intelligence', 'strategic_recommendations', 'market_analysis',
     'financial_projections', 'competitive_landscape', 'market_overview_detailed',
-    'customer_intelligence', 'detailed_roadmap', 'implementation_roadmap',
+    'customer_intelligence', 'detailed_roadmap', 'roadmap', 'appendices',
+    'scoring_matrix', 'market_overview', 'territory_analysis',
   ]);
   const mediumSections = new Set([
-    'market_context', 'market_intelligence', 'scoring_matrix', 'trends_analysis',
+    'market_context', 'methodology', 'trends_analysis',
     'swot_analysis', 'positioning_recommendations', 'pricing_strategy',
-    'go_to_market', 'action_plan', 'customer_insights', 'multi_market_comparison',
-    'multi_location_comparison', 'risk_register', 'appendices', 'territory_analysis',
-    'methodology',
+    'action_plan', 'customer_insights', 'risk_register',
   ]);
 
-  if (largeSections.has(sectionKey)) return 4000;
-  if (mediumSections.has(sectionKey)) return 3000;
-  return 2000;
+  // Agency tier gets higher budgets for institutional quality
+  const tierBonus = tierMaxTokens >= 6000 ? 1000 : tierMaxTokens >= 5000 ? 500 : 0;
+
+  if (largeSections.has(sectionKey)) return 4500 + tierBonus;
+  if (mediumSections.has(sectionKey)) return 3500 + tierBonus;
+  return 2500;
 }
 
 function buildSectionPrompt(
@@ -576,26 +1040,33 @@ function buildSectionPrompt(
   existingSection?: unknown
 ): string {
   const expandNote = existingSection
-    ? `ENRICHIR la section existante. Ne rien supprimer.`
-    : `Générer la section complète.`;
+    ? `ENRICHIR la section existante avec plus de détails. Ne rien supprimer.`
+    : `Générer la section complète avec tous les détails demandés.`;
 
   const existingJson = existingSection
-    ? `\nEXISTANT:\n${JSON.stringify({ [section.key]: existingSection }).substring(0, 3000)}\n`
+    ? `\nCONTENU EXISTANT À ENRICHIR:\n${JSON.stringify({ [section.key]: existingSection }).substring(0, 2000)}\n`
+    : "";
+
+  // Use the jsonHint if available for structured output
+  const structureHint = section.jsonHint 
+    ? `\nSTRUCTURE JSON ATTENDUE:\n${section.jsonHint}\n`
     : "";
 
   return `${reportBrief}
 
 <section>
-SECTION: ${section.label} ("${section.key}")
+SECTION À GÉNÉRER: ${section.label} (clé JSON: "${section.key}")
 ${expandNote}
 
-RÈGLES JSON CRITIQUES:
-- UNE SEULE clé racine: "${section.key}"
-- Valeurs COURTES: max 1-2 phrases par champ string. Pas de paragraphes.
-- Arrays: max 3-5 éléments. Pas de listes interminables.
-- Si donnée inconnue: "non disponible" (3 mots, pas une explication).
-- SPÉCIFIQUE au secteur et localisation du client. Quantifie (prix, %, scores).
-- AUCUN texte hors JSON. Retourne UNIQUEMENT le JSON.
+EXIGENCES QUALITÉ BENCHMARK:
+1. Clé racine UNIQUE: "${section.key}"
+2. DONNÉES CHIFFRÉES: prix en €, pourcentages, scores /10, délais, fourchettes
+3. TABLEAUX: utilise des arrays d'objets avec clés cohérentes pour les données comparatives
+4. SOURCES: cite les sources pour les faits majeurs (INSEE, études sectorielles, sites officiels)
+5. SPÉCIFIQUE: adapté au secteur et localisation exacts du client, pas de généralités
+6. Donnée non trouvée = "non disponible" (ne jamais inventer)
+${structureHint}
+RETOURNE UNIQUEMENT LE JSON VALIDE, aucun texte avant/après.
 </section>${existingJson}`.trim();
 }
 
@@ -855,36 +1326,77 @@ async function performWebResearch(
   const lang = input.reportLanguage || 'fr';
   const langName = LANGUAGE_CONFIG[lang]?.name || 'Français';
 
-  const competitorNames = input.competitors?.map(c => c.name).join(', ') || 'concurrents principaux';
-  const location = [input.location?.city, input.location?.country].filter(Boolean).join(', ') || 'mondial';
+  const competitorNames = input.competitors?.map(c => c.name).join(', ') || 'concurrents principaux du secteur';
+  const location = [input.location?.city, input.location?.country].filter(Boolean).join(', ') || 'marché national';
 
-  const searchPrompt = `Recherche les données suivantes pour un benchmark concurrentiel.
-Entreprise: ${input.businessName}
-Secteur: ${input.sector}${input.sectorDetails ? ` (${input.sectorDetails})` : ''}
-Localisation: ${location}
-Concurrents: ${competitorNames}
-Prix cible: ${input.priceRange?.min}€ - ${input.priceRange?.max}€
+  // Enhanced search prompt based on reference benchmark structure
+  const tierContext = plan === 'agency' 
+    ? 'rapport institutionnel avec données officielles (INSEE, études sectorielles, rapports annuels)'
+    : plan === 'pro' 
+      ? 'benchmark premium avec scoring concurrentiel et données territoriales'
+      : 'benchmark concurrentiel avec chiffres marché';
 
-Trouve:
-1. Prix/tarifs publics des concurrents (${competitorNames})
-2. Taille du marché ${input.sector} en ${new Date().getFullYear()}
-3. Tendances clés du secteur
-4. Données de comparaison géographique si pertinent
+  const searchPrompt = `Tu prépares un ${tierContext} en ${langName}.
 
-Réponds en ${langName}. Format JSON avec clé racine "research":
+CONTEXTE CLIENT:
+- Entreprise: ${input.businessName}
+- Secteur: ${input.sector}${input.sectorDetails ? ` - ${input.sectorDetails}` : ''}
+- Localisation: ${location}
+- Concurrents identifiés: ${competitorNames}
+- Fourchette prix: ${input.priceRange?.min}€ - ${input.priceRange?.max}€
+
+RECHERCHE LES DONNÉES SUIVANTES:
+1. CHIFFRES MARCHÉ ${new Date().getFullYear()}:
+   - Taille du marché ${input.sector} (CA en milliards €)
+   - Parts de marché des leaders
+   - Croissance annuelle (%)
+   - Prix psychologique moyen accepté par les consommateurs
+
+2. DONNÉES CONCURRENTS (${competitorNames}):
+   - Prix/tarifs publics de chaque concurrent
+   - Nombre de points de vente / réseau
+   - CA annuel si disponible
+   - Positionnement et forces/faiblesses
+
+3. DONNÉES TERRITORIALES (${location}):
+   - Population et revenus médians
+   - Loyers commerciaux moyens (€/m²/an)
+   - Principaux pôles commerciaux
+
+4. TENDANCES SECTORIELLES:
+   - 3-5 tendances majeures du secteur
+   - Comportements consommateurs récents
+   - Innovations produit/service
+
+Réponds en JSON avec la structure suivante:
 {
   "research": {
-    "competitor_pricing": [{"name": "...", "pricing": "...", "source_url": "..."}],
-    "market_size": {"estimate": "...", "source": "...", "source_url": "..."},
-    "trends": ["trend1", "trend2", "trend3"],
-    "geographic_insights": "...",
-    "key_facts": ["fact1", "fact2"]
+    "market_data": {
+      "market_size": "X milliards € (source)",
+      "market_share_leaders": "Leader 1: X%, Leader 2: Y%",
+      "annual_growth": "+X% (période)",
+      "average_price_accepted": "X€ (source)"
+    },
+    "competitor_data": [
+      {"name": "...", "pricing": "X-Y€", "network": "X points de vente", "revenue": "X M€", "positioning": "...", "source_url": "..."}
+    ],
+    "territory_data": {
+      "population": "X habitants",
+      "median_income": "X€/an",
+      "commercial_rent": "X€/m²/an",
+      "key_commercial_zones": ["zone1", "zone2"]
+    },
+    "trends": ["tendance 1 avec données chiffrées", "tendance 2", "tendance 3"],
+    "key_insights": ["insight actionnable 1", "insight 2"]
   }
 }
-Valeurs COURTES. Si non trouvé: "non disponible".`;
+Valeurs non trouvées = "non disponible". Cite les sources.`;
+
+  // Token budget based on tier
+  const maxTokens = plan === 'agency' ? 4000 : plan === 'pro' ? 3000 : 2000;
 
   try {
-    console.log(`[${reportId}] Starting web research via GPT-5.2 web_search_preview...`);
+    console.log(`[${reportId}] Starting web research via GPT-5.2 web_search_preview (${maxTokens} tokens)...`);
     const startTime = Date.now();
 
     const response = await fetch("https://api.openai.com/v1/responses", {
@@ -902,8 +1414,8 @@ Valeurs COURTES. Si non trouvé: "non disponible".`;
             content: searchPrompt,
           }
         ],
-        temperature: 0.2,
-        max_output_tokens: 2000,
+        temperature: 0.15,
+        max_output_tokens: maxTokens,
         text: { format: { type: "json_object" } },
       }),
     });
@@ -972,48 +1484,98 @@ Valeurs COURTES. Si non trouvé: "non disponible".`;
 function buildResearchBlock(research: WebResearchResult): string {
   if (!research.summary) return "";
 
-  // Parse the research JSON to build a clean data block
+  // Parse the research JSON to build a comprehensive data block for sections
   try {
     const parsed = safeJsonParse(research.summary) as any;
     const r = parsed?.research;
-    if (!r) return `\n<research_data>\n${research.summary.substring(0, 2000)}\n</research_data>`;
+    if (!r) return `\n<research_data>\n${research.summary.substring(0, 3000)}\n</research_data>`;
 
-    const lines: string[] = [];
+    const lines: string[] = [
+      `DONNÉES WEB COLLECTÉES (GPT-5.2 web search, ${new Date().toISOString().split('T')[0]}):`,
+      ""
+    ];
 
-    // Competitor pricing
-    if (Array.isArray(r.competitor_pricing) && r.competitor_pricing.length > 0) {
-      lines.push("PRIX CONCURRENTS (données web):");
-      for (const cp of r.competitor_pricing.slice(0, 8)) {
-        lines.push(`  - ${cp.name}: ${cp.pricing}${cp.source_url ? ` [${cp.source_url}]` : ''}`);
-      }
+    // Market data (new enhanced format)
+    if (r.market_data) {
+      lines.push("═══ DONNÉES MARCHÉ ═══");
+      if (r.market_data.market_size) lines.push(`  Taille marché: ${r.market_data.market_size}`);
+      if (r.market_data.market_share_leaders) lines.push(`  Parts de marché: ${r.market_data.market_share_leaders}`);
+      if (r.market_data.annual_growth) lines.push(`  Croissance: ${r.market_data.annual_growth}`);
+      if (r.market_data.average_price_accepted) lines.push(`  Prix moyen accepté: ${r.market_data.average_price_accepted}`);
+      lines.push("");
     }
 
-    // Market size
-    if (r.market_size?.estimate && r.market_size.estimate !== 'non disponible') {
+    // Competitor data (new enhanced format)
+    if (Array.isArray(r.competitor_data) && r.competitor_data.length > 0) {
+      lines.push("═══ DONNÉES CONCURRENTS ═══");
+      for (const cp of r.competitor_data.slice(0, 10)) {
+        const details = [cp.pricing, cp.network, cp.revenue].filter(Boolean).join(' | ');
+        lines.push(`  ${cp.name}: ${details}`);
+        if (cp.positioning) lines.push(`    → Positionnement: ${cp.positioning}`);
+        if (cp.source_url) lines.push(`    [Source: ${cp.source_url}]`);
+      }
+      lines.push("");
+    }
+
+    // Territory data (new)
+    if (r.territory_data) {
+      lines.push("═══ DONNÉES TERRITORIALES ═══");
+      if (r.territory_data.population) lines.push(`  Population: ${r.territory_data.population}`);
+      if (r.territory_data.median_income) lines.push(`  Revenu médian: ${r.territory_data.median_income}`);
+      if (r.territory_data.commercial_rent) lines.push(`  Loyer commercial: ${r.territory_data.commercial_rent}`);
+      if (Array.isArray(r.territory_data.key_commercial_zones)) {
+        lines.push(`  Pôles commerciaux: ${r.territory_data.key_commercial_zones.join(', ')}`);
+      }
+      lines.push("");
+    }
+
+    // Legacy format support (competitor_pricing, market_size as separate fields)
+    if (!r.competitor_data && Array.isArray(r.competitor_pricing) && r.competitor_pricing.length > 0) {
+      lines.push("═══ PRIX CONCURRENTS ═══");
+      for (const cp of r.competitor_pricing.slice(0, 8)) {
+        lines.push(`  ${cp.name}: ${cp.pricing}${cp.source_url ? ` [${cp.source_url}]` : ''}`);
+      }
+      lines.push("");
+    }
+
+    if (!r.market_data?.market_size && r.market_size?.estimate && r.market_size.estimate !== 'non disponible') {
       lines.push(`TAILLE MARCHÉ: ${r.market_size.estimate}${r.market_size.source ? ` (${r.market_size.source})` : ''}`);
     }
 
     // Trends
     if (Array.isArray(r.trends) && r.trends.length > 0) {
-      lines.push("TENDANCES: " + r.trends.slice(0, 5).join(" | "));
+      lines.push("═══ TENDANCES SECTORIELLES ═══");
+      for (const trend of r.trends.slice(0, 6)) {
+        lines.push(`  • ${trend}`);
+      }
+      lines.push("");
     }
 
-    // Geographic insights
+    // Key insights
+    if (Array.isArray(r.key_insights) && r.key_insights.length > 0) {
+      lines.push("═══ INSIGHTS CLÉS ═══");
+      for (const insight of r.key_insights.slice(0, 5)) {
+        lines.push(`  → ${insight}`);
+      }
+      lines.push("");
+    }
+
+    // Legacy: key_facts
+    if (!r.key_insights && Array.isArray(r.key_facts) && r.key_facts.length > 0) {
+      lines.push("FAITS CLÉS: " + r.key_facts.slice(0, 5).join(" | "));
+    }
+
+    // Geographic insights (legacy)
     if (r.geographic_insights && r.geographic_insights !== 'non disponible') {
       lines.push(`GÉO: ${r.geographic_insights}`);
     }
 
-    // Key facts
-    if (Array.isArray(r.key_facts) && r.key_facts.length > 0) {
-      lines.push("FAITS CLÉS: " + r.key_facts.slice(0, 5).join(" | "));
-    }
+    if (lines.length <= 2) return ""; // Only headers, no data
 
-    if (lines.length === 0) return "";
-
-    return `\n<research_data>\nDONNÉES WEB (GPT-5.2 web search, ${new Date().toISOString().split('T')[0]}):\n${lines.join("\n")}\n</research_data>`;
+    return `\n<research_data>\n${lines.join("\n")}\n</research_data>`;
   } catch {
     // If JSON parsing fails, include raw summary (truncated)
-    return `\n<research_data>\n${research.summary.substring(0, 1500)}\n</research_data>`;
+    return `\n<research_data>\n${research.summary.substring(0, 2500)}\n</research_data>`;
   }
 }
 
